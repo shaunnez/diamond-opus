@@ -6,7 +6,7 @@ config({ path: resolve(process.cwd(), ".env") });
 
 import { DIAMOND_SHAPES } from "@diamond/shared";
 import { NivodaAdapter, type NivodaQuery } from "@diamond/nivoda";
-import { scanHeatmap } from "./apps/scheduler/src/heatmap.js";
+import { scanHeatmap } from "./apps/scheduler/src/heatmap.ts";
 
 async function main() {
   console.log("Testing heatmap scan against Nivoda staging API...\n");

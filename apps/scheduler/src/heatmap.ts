@@ -7,6 +7,7 @@ import {
   HEATMAP_TARGET_RECORDS_PER_CHUNK,
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
+  withRetry,
 } from '@diamond/shared';
 import { NivodaAdapter, type NivodaQuery } from '@diamond/nivoda';
 
@@ -32,15 +33,24 @@ export interface HeatmapConfig {
   targetRecordsPerChunk?: number;
   maxWorkers?: number;
   minRecordsPerWorker?: number;
+  /** Number of concurrent count queries (default: 3) */
+  concurrency?: number;
 }
 
 export interface HeatmapResult {
   densityMap: DensityChunk[];
   partitions: WorkerPartition[];
   totalRecords: number;
+  /** Actual worker count (always equals partitions.length) */
   workerCount: number;
 }
 
+/**
+ * Scans price ranges to build a density map, then partitions into balanced worker buckets.
+ *
+ * Interval semantics: Uses half-open intervals [min, max) where max is exclusive.
+ * This avoids gaps and overlaps when scanning consecutive ranges.
+ */
 export async function scanHeatmap(
   adapter: NivodaAdapter,
   baseQuery: NivodaQuery,
@@ -54,12 +64,14 @@ export async function scanHeatmap(
   const targetRecordsPerChunk = config.targetRecordsPerChunk ?? HEATMAP_TARGET_RECORDS_PER_CHUNK;
   const maxWorkers = config.maxWorkers ?? HEATMAP_MAX_WORKERS;
   const minRecordsPerWorker = config.minRecordsPerWorker ?? HEATMAP_MIN_RECORDS_PER_WORKER;
+  const concurrency = config.concurrency ?? 3;
 
-  console.log('Starting heatmap scan...');
-  console.log(`Price range: $${minPrice} - $${maxPrice}`);
-  console.log(`Dense zone threshold: $${denseZoneThreshold} (step: $${denseZoneStep})`);
+  console.log('[heatmap] Starting scan...');
+  console.log(`[heatmap] Price range: $${minPrice} - $${maxPrice}`);
+  console.log(`[heatmap] Dense zone: < $${denseZoneThreshold} (step: $${denseZoneStep})`);
+  console.log(`[heatmap] Concurrency: ${concurrency}`);
 
-  // Phase 1: Heatmap Scan
+  // Phase 1: Heatmap Scan with concurrent queries
   const densityMap = await buildDensityMap(adapter, baseQuery, {
     minPrice,
     maxPrice,
@@ -67,10 +79,11 @@ export async function scanHeatmap(
     denseZoneStep,
     initialStep,
     targetRecordsPerChunk,
+    concurrency,
   });
 
   if (densityMap.length === 0) {
-    console.log('No records found in heatmap scan');
+    console.log('[heatmap] No records found');
     return {
       densityMap: [],
       partitions: [],
@@ -81,14 +94,20 @@ export async function scanHeatmap(
 
   // Phase 2: Calculate fair split
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
-  console.log(`\nHeatmap scan complete. Total records: ${totalRecords}`);
+  console.log(`[heatmap] Scan complete. Total records: ${totalRecords}`);
 
-  // Calculate actual worker count based on data volume
-  const workerCount = calculateWorkerCount(totalRecords, maxWorkers, minRecordsPerWorker);
-  console.log(`Worker count: ${workerCount} (max: ${maxWorkers})`);
+  // Calculate desired worker count based on data volume
+  const desiredWorkerCount = calculateWorkerCount(totalRecords, maxWorkers, minRecordsPerWorker);
+  console.log(`[heatmap] Desired workers: ${desiredWorkerCount} (max: ${maxWorkers})`);
 
   // Phase 3: Partition into balanced worker buckets
-  const partitions = createPartitions(densityMap, workerCount);
+  const partitions = createPartitions(densityMap, desiredWorkerCount);
+
+  // workerCount is always the actual partition count (authoritative)
+  const workerCount = partitions.length;
+  if (workerCount !== desiredWorkerCount) {
+    console.log(`[heatmap] Note: Created ${workerCount} partitions (desired: ${desiredWorkerCount})`);
+  }
 
   return {
     densityMap,
@@ -98,6 +117,17 @@ export async function scanHeatmap(
   };
 }
 
+interface ScanRange {
+  min: number;
+  max: number;
+  step: number;
+}
+
+/**
+ * Builds density map by scanning price ranges.
+ * Uses half-open intervals [min, max) to avoid gaps.
+ * Supports concurrent queries for faster scanning.
+ */
 async function buildDensityMap(
   adapter: NivodaAdapter,
   baseQuery: NivodaQuery,
@@ -108,58 +138,94 @@ async function buildDensityMap(
     denseZoneStep: number;
     initialStep: number;
     targetRecordsPerChunk: number;
+    concurrency: number;
   }
 ): Promise<DensityChunk[]> {
   const densityMap: DensityChunk[] = [];
   let currentPrice = config.minPrice;
   let step = config.initialStep;
+  let scannedRanges = 0;
 
+  // For concurrent scanning, we batch ranges and execute in parallel
   while (currentPrice < config.maxPrice) {
-    // In dense zone (below threshold), use fixed small steps
-    if (currentPrice < config.denseZoneThreshold) {
-      step = config.denseZoneStep;
+    // Build a batch of ranges to scan concurrently
+    const batch: ScanRange[] = [];
+    let batchPrice = currentPrice;
+
+    for (let i = 0; i < config.concurrency && batchPrice < config.maxPrice; i++) {
+      // In dense zone (below threshold), use fixed small steps
+      if (batchPrice < config.denseZoneThreshold) {
+        step = config.denseZoneStep;
+      }
+
+      // Calculate range end (exclusive upper bound)
+      // Use 0.01 precision to support decimal prices
+      let rangeMax = Math.min(batchPrice + step, config.maxPrice);
+      if (rangeMax <= batchPrice) {
+        rangeMax = batchPrice + 0.01;
+      }
+
+      batch.push({ min: batchPrice, max: rangeMax, step });
+
+      // Next range starts exactly where this one ends (half-open interval)
+      batchPrice = rangeMax;
     }
 
-    // Ensure we don't overshoot the max
-    let rangeMax = Math.min(currentPrice + step, config.maxPrice);
-    if (rangeMax <= currentPrice) {
-      rangeMax = currentPrice + 1;
-    }
+    // Execute batch concurrently with retry logic
+    const results = await Promise.all(
+      batch.map(async (range) => {
+        const queryWithPrice: NivodaQuery = {
+          ...baseQuery,
+          // Nivoda API: from is inclusive, to is inclusive
+          // We use max - 0.01 to simulate exclusive upper bound
+          dollar_value: { from: range.min, to: range.max - 0.01 },
+        };
 
-    // Execute count query for this price range
-    const queryWithPrice: NivodaQuery = {
-      ...baseQuery,
-      dollar_value: { from: currentPrice, to: rangeMax },
-    };
+        const count = await withRetry(
+          () => adapter.getDiamondsCount(queryWithPrice),
+          {
+            onRetry: (error, attempt) => {
+              console.log(`[heatmap] Retry ${attempt} for range $${range.min}-$${range.max}: ${error.message}`);
+            },
+          }
+        );
 
-    const count = await adapter.getDiamondsCount(queryWithPrice);
-
-    process.stdout.write(
-      `\rScanning: $${currentPrice} - $${rangeMax} (step: ${step}) | Found: ${count}      `
+        return { ...range, count };
+      })
     );
 
-    if (count > 0) {
-      densityMap.push({ min: currentPrice, max: rangeMax, count });
-    }
+    // Process results and update adaptive stepping
+    for (const result of results) {
+      scannedRanges++;
+      console.log(
+        `[heatmap] Range ${scannedRanges}: $${result.min.toFixed(2)} - $${result.max.toFixed(2)} | Count: ${result.count}`
+      );
 
-    // Adaptive step adjustment (only above dense zone threshold)
-    if (currentPrice >= config.denseZoneThreshold) {
-      if (count === 0) {
-        // Zoom through empty space
-        step = Math.min(step * 5, 100000);
-      } else {
-        // Adjust step to target records per chunk
-        const ratio = config.targetRecordsPerChunk / count;
-        const newStep = Math.floor(step * ratio);
-        step = Math.max(config.denseZoneStep, Math.min(newStep, 50000));
+      if (result.count > 0) {
+        densityMap.push({ min: result.min, max: result.max, count: result.count });
+      }
+
+      // Adaptive step adjustment (only above dense zone threshold)
+      // Use the last result's metrics for next batch step calculation
+      if (result.min >= config.denseZoneThreshold) {
+        if (result.count === 0) {
+          // Zoom through empty space
+          step = Math.min(step * 5, 100000);
+        } else {
+          // Adjust step to target records per chunk
+          const ratio = config.targetRecordsPerChunk / result.count;
+          const newStep = Math.floor(step * ratio);
+          // Use a higher minimum step above threshold for efficiency
+          step = Math.max(config.denseZoneStep * 2, Math.min(newStep, 50000));
+        }
       }
     }
 
-    currentPrice = rangeMax + 1;
+    // Move to end of batch
+    currentPrice = batchPrice;
   }
 
-  // Clear the progress line
-  process.stdout.write('\n');
+  console.log(`[heatmap] Scanned ${scannedRanges} ranges, found ${densityMap.length} non-empty chunks`);
 
   return densityMap;
 }
@@ -180,18 +246,22 @@ function calculateWorkerCount(
   return Math.max(1, Math.min(workersNeeded, maxWorkers));
 }
 
+/**
+ * Partitions density map into balanced worker buckets.
+ * Each partition covers a contiguous price range with roughly equal record counts.
+ */
 function createPartitions(
   densityMap: DensityChunk[],
-  workerCount: number
+  desiredWorkerCount: number
 ): WorkerPartition[] {
-  if (densityMap.length === 0 || workerCount === 0) {
+  if (densityMap.length === 0 || desiredWorkerCount === 0) {
     return [];
   }
 
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
-  const targetPerWorker = Math.ceil(totalRecords / workerCount);
+  const targetPerWorker = Math.ceil(totalRecords / desiredWorkerCount);
 
-  console.log(`Target per worker: ~${targetPerWorker} records`);
+  console.log(`[heatmap] Target per worker: ~${targetPerWorker} records`);
 
   const partitions: WorkerPartition[] = [];
   let currentWorkerId = 0;
@@ -205,8 +275,10 @@ function createPartitions(
     // Create partition when we hit target or reach the end
     const isLastChunk = i === densityMap.length - 1;
     const hitTarget = currentBatchSum >= targetPerWorker;
+    const hasRemainingWorkers = currentWorkerId < desiredWorkerCount - 1;
 
-    if (hitTarget || isLastChunk) {
+    // Only create partition early if we have remaining workers to allocate
+    if ((hitTarget && hasRemainingWorkers) || isLastChunk) {
       partitions.push({
         partitionId: `partition-${currentWorkerId}`,
         minPrice: currentBatchStart,
@@ -215,7 +287,7 @@ function createPartitions(
       });
 
       console.log(
-        `Partition ${currentWorkerId}: $${currentBatchStart} - $${chunk.max} (${currentBatchSum} records)`
+        `[heatmap] Partition ${currentWorkerId}: $${currentBatchStart.toFixed(2)} - $${chunk.max.toFixed(2)} (${currentBatchSum} records)`
       );
 
       // Reset for next worker

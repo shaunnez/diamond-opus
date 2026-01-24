@@ -54,8 +54,8 @@ export const HEATMAP_MAX_PRICE = 250000;
 export const HEATMAP_DENSE_ZONE_THRESHOLD = 20000;
 /** Fixed step size in dense zone (dollars) */
 export const HEATMAP_DENSE_ZONE_STEP = 100;
-/** Initial step size for adaptive scanning above dense zone */
-export const HEATMAP_INITIAL_STEP = 100;
+/** Initial step size for adaptive scanning above dense zone (larger for efficiency) */
+export const HEATMAP_INITIAL_STEP = 500;
 /** Target records per scan chunk for adaptive stepping */
 export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 /** Maximum workers for a full run */
