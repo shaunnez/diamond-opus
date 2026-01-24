@@ -2,7 +2,15 @@ export interface WorkItemMessage {
   type: 'WORK_ITEM';
   runId: string;
   partitionId: string;
+  /** Minimum price filter in dollars (inclusive) */
+  minPrice: number;
+  /** Maximum price filter in dollars (inclusive) */
+  maxPrice: number;
+  /** Expected total records in this price range */
+  totalRecords: number;
+  /** Offset start within the filtered result set (typically 0) */
   offsetStart: number;
+  /** Offset end within the filtered result set (typically equals totalRecords) */
   offsetEnd: number;
   updatedFrom?: string;
   updatedTo?: string;

@@ -39,18 +39,21 @@ const workerId = randomUUID();
 
 async function processWorkItem(workItem: WorkItemMessage): Promise<number> {
   console.log(`Processing partition ${workItem.partitionId}`);
-  console.log(`Offset range: ${workItem.offsetStart} - ${workItem.offsetEnd}`);
+  console.log(`Price range: $${workItem.minPrice} - $${workItem.maxPrice}`);
+  console.log(`Expected records: ${workItem.totalRecords}`);
 
   const adapter = new NivodaAdapter();
   let recordsProcessed = 0;
 
-  const baseQuery: NivodaQuery = {
+  // Apply price range filter from the work item
+  const query: NivodaQuery = {
     shapes: [...DIAMOND_SHAPES],
     sizes: { from: 0.5, to: 10 },
+    dollar_value: { from: workItem.minPrice, to: workItem.maxPrice },
   };
 
-  let currentOffset = workItem.offsetStart;
-  const targetEnd = workItem.offsetEnd;
+  let currentOffset = 0;
+  const targetEnd = workItem.totalRecords;
 
   while (currentOffset < targetEnd) {
     const limit = Math.min(WORKER_PAGE_SIZE, targetEnd - currentOffset);
@@ -58,7 +61,7 @@ async function processWorkItem(workItem: WorkItemMessage): Promise<number> {
     console.log(`Fetching page: offset=${currentOffset}, limit=${limit}`);
 
     const response = await withRetry(
-      () => adapter.searchDiamonds(baseQuery, { offset: currentOffset, limit }),
+      () => adapter.searchDiamonds(query, { offset: currentOffset, limit }),
       {
         onRetry: (error, attempt) => {
           console.log(`Retry attempt ${attempt} after error: ${error.message}`);

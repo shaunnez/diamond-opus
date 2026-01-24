@@ -8,8 +8,9 @@ const rootDir = resolve(__dirname, "../../..");
 config({ path: resolve(rootDir, ".env.local") });
 config({ path: resolve(rootDir, ".env") });
 import {
-  RECORDS_PER_WORKER,
   DIAMOND_SHAPES,
+  HEATMAP_MAX_WORKERS,
+  HEATMAP_MIN_RECORDS_PER_WORKER,
   type WorkItemMessage,
   type RunType,
 } from "@diamond/shared";
@@ -17,6 +18,7 @@ import { createRunMetadata, closePool } from "@diamond/database";
 import { NivodaAdapter, type NivodaQuery } from "@diamond/nivoda";
 import { getWatermark } from "./watermark.js";
 import { sendWorkItems, closeConnections } from "./service-bus.js";
+import { scanHeatmap, type HeatmapConfig } from "./heatmap.js";
 
 async function run(): Promise<void> {
   console.log("Starting scheduler...");
@@ -39,43 +41,49 @@ async function run(): Promise<void> {
     sizes: { from: 0.5, to: 10 },
   };
 
-  console.log("Fetching diamond count using diamonds_by_query_count...");
-  const totalRecords = await adapter.getDiamondsCount(baseQuery);
-  console.log(`Total records: ${totalRecords}`);
+  // Configure heatmap based on run type
+  // Incremental runs may have much less data, so we can use fewer workers
+  const heatmapConfig: HeatmapConfig = {
+    maxWorkers: runType === "incremental"
+      ? Math.min(10, HEATMAP_MAX_WORKERS)
+      : HEATMAP_MAX_WORKERS,
+    minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
+  };
 
-  if (totalRecords === 0) {
+  console.log("Starting heatmap scan to build density map...");
+  const heatmapResult = await scanHeatmap(adapter, baseQuery, heatmapConfig);
+
+  if (heatmapResult.totalRecords === 0) {
     console.log("No diamonds to process. Exiting.");
     return;
   }
 
-  const numWorkers = Math.ceil(totalRecords / RECORDS_PER_WORKER);
-  console.log(`Number of workers: ${numWorkers}`);
+  console.log(`\nTotal records found: ${heatmapResult.totalRecords}`);
+  console.log(`Number of workers: ${heatmapResult.workerCount}`);
 
-  console.log("    Creating run metadata...");
+  console.log("Creating run metadata...");
   const runMetadata = await createRunMetadata(
     runType,
-    numWorkers,
+    heatmapResult.workerCount,
     watermarkBefore,
   );
   console.log(`Created run: ${runMetadata.runId}`);
 
   const now = new Date();
-  const workItems: WorkItemMessage[] = [];
-
-  for (let i = 0; i < numWorkers; i++) {
-    const offsetStart = i * RECORDS_PER_WORKER;
-    const offsetEnd = Math.min((i + 1) * RECORDS_PER_WORKER, totalRecords);
-
-    workItems.push({
-      type: "WORK_ITEM",
+  const workItems: WorkItemMessage[] = heatmapResult.partitions.map(
+    (partition) => ({
+      type: "WORK_ITEM" as const,
       runId: runMetadata.runId,
-      partitionId: `partition-${i}`,
-      offsetStart,
-      offsetEnd,
+      partitionId: partition.partitionId,
+      minPrice: partition.minPrice,
+      maxPrice: partition.maxPrice,
+      totalRecords: partition.totalRecords,
+      offsetStart: 0,
+      offsetEnd: partition.totalRecords,
       updatedFrom: watermarkBefore?.toISOString(),
       updatedTo: now.toISOString(),
-    });
-  }
+    })
+  );
 
   console.log(`Enqueueing ${workItems.length} work items...`);
   await sendWorkItems(workItems);
