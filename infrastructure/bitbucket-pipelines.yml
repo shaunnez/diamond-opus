@@ -1,0 +1,92 @@
+image: node:20
+
+definitions:
+  caches:
+    npm: ~/.npm
+
+  steps:
+    - step: &build-test
+        name: Build and Test
+        caches:
+          - npm
+        script:
+          - npm ci
+          - npm run build
+          - npm run test
+          - npm run lint
+
+    - step: &build-api
+        name: Build API Docker Image
+        services:
+          - docker
+        script:
+          - docker build -f docker/Dockerfile.api -t diamond-api:$BITBUCKET_COMMIT .
+          - pipe: atlassian/azure-acr-push:0.2.0
+            variables:
+              ACR_NAME: $ACR_NAME
+              AZURE_APP_ID: $AZURE_APP_ID
+              AZURE_PASSWORD: $AZURE_PASSWORD
+              AZURE_TENANT_ID: $AZURE_TENANT_ID
+              IMAGE_NAME: diamond-api:$BITBUCKET_COMMIT
+
+    - step: &build-scheduler
+        name: Build Scheduler Docker Image
+        services:
+          - docker
+        script:
+          - docker build -f docker/Dockerfile.scheduler -t diamond-scheduler:$BITBUCKET_COMMIT .
+          - pipe: atlassian/azure-acr-push:0.2.0
+            variables:
+              ACR_NAME: $ACR_NAME
+              AZURE_APP_ID: $AZURE_APP_ID
+              AZURE_PASSWORD: $AZURE_PASSWORD
+              AZURE_TENANT_ID: $AZURE_TENANT_ID
+              IMAGE_NAME: diamond-scheduler:$BITBUCKET_COMMIT
+
+    - step: &build-worker
+        name: Build Worker Docker Image
+        services:
+          - docker
+        script:
+          - docker build -f docker/Dockerfile.worker -t diamond-worker:$BITBUCKET_COMMIT .
+          - pipe: atlassian/azure-acr-push:0.2.0
+            variables:
+              ACR_NAME: $ACR_NAME
+              AZURE_APP_ID: $AZURE_APP_ID
+              AZURE_PASSWORD: $AZURE_PASSWORD
+              AZURE_TENANT_ID: $AZURE_TENANT_ID
+              IMAGE_NAME: diamond-worker:$BITBUCKET_COMMIT
+
+    - step: &build-consolidator
+        name: Build Consolidator Docker Image
+        services:
+          - docker
+        script:
+          - docker build -f docker/Dockerfile.consolidator -t diamond-consolidator:$BITBUCKET_COMMIT .
+          - pipe: atlassian/azure-acr-push:0.2.0
+            variables:
+              ACR_NAME: $ACR_NAME
+              AZURE_APP_ID: $AZURE_APP_ID
+              AZURE_PASSWORD: $AZURE_PASSWORD
+              AZURE_TENANT_ID: $AZURE_TENANT_ID
+              IMAGE_NAME: diamond-consolidator:$BITBUCKET_COMMIT
+
+pipelines:
+  default:
+    - step: *build-test
+
+  branches:
+    main:
+      - step: *build-test
+      - parallel:
+          - step: *build-api
+          - step: *build-scheduler
+          - step: *build-worker
+          - step: *build-consolidator
+
+    develop:
+      - step: *build-test
+
+  pull-requests:
+    '**':
+      - step: *build-test

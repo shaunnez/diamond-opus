@@ -1,0 +1,38 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/nivoda/package.json ./packages/nivoda/
+COPY apps/worker/package.json ./apps/worker/
+
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY packages/shared ./packages/shared
+COPY packages/database ./packages/database
+COPY packages/nivoda ./packages/nivoda
+COPY apps/worker ./apps/worker
+
+RUN npm run build --workspaces
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/nivoda/package.json ./packages/nivoda/
+COPY apps/worker/package.json ./apps/worker/
+
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/nivoda/dist ./packages/nivoda/dist
+COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+
+CMD ["node", "apps/worker/dist/index.js"]

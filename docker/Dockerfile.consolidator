@@ -1,0 +1,42 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY apps/consolidator/package.json ./apps/consolidator/
+
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY packages/shared ./packages/shared
+COPY packages/database ./packages/database
+COPY packages/nivoda ./packages/nivoda
+COPY packages/pricing-engine ./packages/pricing-engine
+COPY apps/consolidator ./apps/consolidator
+
+RUN npm run build --workspaces
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY apps/consolidator/package.json ./apps/consolidator/
+
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/nivoda/dist ./packages/nivoda/dist
+COPY --from=builder /app/packages/pricing-engine/dist ./packages/pricing-engine/dist
+COPY --from=builder /app/apps/consolidator/dist ./apps/consolidator/dist
+
+CMD ["node", "apps/consolidator/dist/index.js"]
