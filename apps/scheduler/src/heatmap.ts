@@ -230,7 +230,11 @@ async function buildDensityMap(
   return densityMap;
 }
 
-function calculateWorkerCount(
+/**
+ * Calculates the number of workers based on total records and constraints.
+ * Exported for testing.
+ */
+export function calculateWorkerCount(
   totalRecords: number,
   maxWorkers: number,
   minRecordsPerWorker: number
@@ -249,8 +253,9 @@ function calculateWorkerCount(
 /**
  * Partitions density map into balanced worker buckets.
  * Each partition covers a contiguous price range with roughly equal record counts.
+ * Exported for testing.
  */
-function createPartitions(
+export function createPartitions(
   densityMap: DensityChunk[],
   desiredWorkerCount: number
 ): WorkerPartition[] {
