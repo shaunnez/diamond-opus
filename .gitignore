@@ -29,3 +29,17 @@ coverage/
 
 # Generated files
 swagger.json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+.terraform.lock.hcl
+terraform.tfvars.local
+*.auto.tfvars
+
+# Environment files for specific environments
+.env.staging
+.env.prod

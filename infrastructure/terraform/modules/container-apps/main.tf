@@ -1,0 +1,394 @@
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+}
+
+# Log Analytics Workspace (required for Container Apps)
+resource "azurerm_log_analytics_workspace" "main" {
+  name                = "${var.environment_name}-logs"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+
+  tags = var.tags
+}
+
+# Container Apps Environment
+resource "azurerm_container_app_environment" "main" {
+  name                       = var.environment_name
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  tags = var.tags
+}
+
+# API Container App (HTTP, external ingress)
+resource "azurerm_container_app" "api" {
+  name                         = "${var.app_name_prefix}-api"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = var.api_min_replicas
+    max_replicas = var.api_max_replicas
+
+    container {
+      name   = "api"
+      image  = "${var.container_registry_login_server}/diamond-api:${var.image_tag}"
+      cpu    = var.api_cpu
+      memory = var.api_memory
+
+      env {
+        name        = "PORT"
+        value       = "3000"
+      }
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+
+      env {
+        name        = "AZURE_STORAGE_CONNECTION_STRING"
+        secret_name = "storage-connection-string"
+      }
+
+      env {
+        name        = "AZURE_SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "servicebus-connection-string"
+      }
+
+      env {
+        name        = "HMAC_SECRETS"
+        secret_name = "hmac-secrets"
+      }
+    }
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 3000
+    transport        = "http"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "database-url"
+    value = var.database_url
+  }
+
+  secret {
+    name  = "storage-connection-string"
+    value = var.storage_connection_string
+  }
+
+  secret {
+    name  = "servicebus-connection-string"
+    value = var.servicebus_connection_string
+  }
+
+  secret {
+    name  = "hmac-secrets"
+    value = var.hmac_secrets
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+}
+
+# Worker Container App (Service Bus consumer, long-running)
+resource "azurerm_container_app" "worker" {
+  name                         = "${var.app_name_prefix}-worker"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = var.worker_min_replicas
+    max_replicas = var.worker_max_replicas
+
+    container {
+      name   = "worker"
+      image  = "${var.container_registry_login_server}/diamond-worker:${var.image_tag}"
+      cpu    = var.worker_cpu
+      memory = var.worker_memory
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+
+      env {
+        name        = "AZURE_STORAGE_CONNECTION_STRING"
+        secret_name = "storage-connection-string"
+      }
+
+      env {
+        name        = "AZURE_SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "servicebus-connection-string"
+      }
+
+      env {
+        name        = "NIVODA_ENDPOINT"
+        secret_name = "nivoda-endpoint"
+      }
+
+      env {
+        name        = "NIVODA_USERNAME"
+        secret_name = "nivoda-username"
+      }
+
+      env {
+        name        = "NIVODA_PASSWORD"
+        secret_name = "nivoda-password"
+      }
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "database-url"
+    value = var.database_url
+  }
+
+  secret {
+    name  = "storage-connection-string"
+    value = var.storage_connection_string
+  }
+
+  secret {
+    name  = "servicebus-connection-string"
+    value = var.servicebus_connection_string
+  }
+
+  secret {
+    name  = "nivoda-endpoint"
+    value = var.nivoda_endpoint
+  }
+
+  secret {
+    name  = "nivoda-username"
+    value = var.nivoda_username
+  }
+
+  secret {
+    name  = "nivoda-password"
+    value = var.nivoda_password
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+}
+
+# Consolidator Container App (Service Bus consumer, long-running)
+resource "azurerm_container_app" "consolidator" {
+  name                         = "${var.app_name_prefix}-consolidator"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = var.consolidator_min_replicas
+    max_replicas = var.consolidator_max_replicas
+
+    container {
+      name   = "consolidator"
+      image  = "${var.container_registry_login_server}/diamond-consolidator:${var.image_tag}"
+      cpu    = var.consolidator_cpu
+      memory = var.consolidator_memory
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+
+      env {
+        name        = "AZURE_STORAGE_CONNECTION_STRING"
+        secret_name = "storage-connection-string"
+      }
+
+      env {
+        name        = "AZURE_SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "servicebus-connection-string"
+      }
+
+      env {
+        name        = "RESEND_API_KEY"
+        secret_name = "resend-api-key"
+      }
+
+      env {
+        name  = "ALERT_EMAIL_TO"
+        value = var.alert_email_to
+      }
+
+      env {
+        name  = "ALERT_EMAIL_FROM"
+        value = var.alert_email_from
+      }
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "database-url"
+    value = var.database_url
+  }
+
+  secret {
+    name  = "storage-connection-string"
+    value = var.storage_connection_string
+  }
+
+  secret {
+    name  = "servicebus-connection-string"
+    value = var.servicebus_connection_string
+  }
+
+  secret {
+    name  = "resend-api-key"
+    value = var.resend_api_key
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+}
+
+# Scheduler as a Container Apps Job (runs on-demand or scheduled)
+resource "azurerm_container_app_job" "scheduler" {
+  name                         = "${var.app_name_prefix}-scheduler"
+  location                     = var.location
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+
+  replica_timeout_in_seconds = 1800
+  replica_retry_limit        = 1
+
+  # Schedule-based trigger (runs daily at 2 AM UTC)
+  schedule_trigger_config {
+    cron_expression          = var.scheduler_cron_expression
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  template {
+    container {
+      name   = "scheduler"
+      image  = "${var.container_registry_login_server}/diamond-scheduler:${var.image_tag}"
+      cpu    = var.scheduler_cpu
+      memory = var.scheduler_memory
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+
+      env {
+        name        = "AZURE_STORAGE_CONNECTION_STRING"
+        secret_name = "storage-connection-string"
+      }
+
+      env {
+        name        = "AZURE_SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "servicebus-connection-string"
+      }
+
+      env {
+        name        = "NIVODA_ENDPOINT"
+        secret_name = "nivoda-endpoint"
+      }
+
+      env {
+        name        = "NIVODA_USERNAME"
+        secret_name = "nivoda-username"
+      }
+
+      env {
+        name        = "NIVODA_PASSWORD"
+        secret_name = "nivoda-password"
+      }
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "database-url"
+    value = var.database_url
+  }
+
+  secret {
+    name  = "storage-connection-string"
+    value = var.storage_connection_string
+  }
+
+  secret {
+    name  = "servicebus-connection-string"
+    value = var.servicebus_connection_string
+  }
+
+  secret {
+    name  = "nivoda-endpoint"
+    value = var.nivoda_endpoint
+  }
+
+  secret {
+    name  = "nivoda-username"
+    value = var.nivoda_username
+  }
+
+  secret {
+    name  = "nivoda-password"
+    value = var.nivoda_password
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+}
