@@ -12,8 +12,10 @@ import {
   WORKER_PAGE_SIZE,
   DIAMOND_SHAPES,
   withRetry,
+  createLogger,
   type WorkItemMessage,
   type WorkDoneMessage,
+  type Logger,
 } from "@diamond/shared";
 import {
   createWorkerRun,
@@ -26,7 +28,6 @@ import {
 import {
   NivodaAdapter,
   type NivodaQuery,
-  type NivodaItem,
 } from "@diamond/nivoda";
 import {
   receiveWorkItem,
@@ -35,12 +36,18 @@ import {
   closeConnections,
 } from "./service-bus.js";
 
+const baseLogger = createLogger({ service: "worker" });
 const workerId = randomUUID();
 
-async function processWorkItem(workItem: WorkItemMessage): Promise<number> {
-  console.log(`Processing partition ${workItem.partitionId}`);
-  console.log(`Price range: $${workItem.minPrice} - $${workItem.maxPrice}`);
-  console.log(`Expected records: ${workItem.totalRecords}`);
+async function processWorkItem(
+  workItem: WorkItemMessage,
+  log: Logger
+): Promise<number> {
+  log.info("Processing partition", {
+    partitionId: workItem.partitionId,
+    priceRange: { min: workItem.minPrice, max: workItem.maxPrice },
+    expectedRecords: workItem.totalRecords,
+  });
 
   const adapter = new NivodaAdapter();
   let recordsProcessed = 0;
@@ -58,19 +65,23 @@ async function processWorkItem(workItem: WorkItemMessage): Promise<number> {
   while (currentOffset < targetEnd) {
     const limit = Math.min(WORKER_PAGE_SIZE, targetEnd - currentOffset);
 
-    console.log(`Fetching page: offset=${currentOffset}, limit=${limit}`);
+    log.debug("Fetching page", { offset: currentOffset, limit });
 
     const response = await withRetry(
       () => adapter.searchDiamonds(query, { offset: currentOffset, limit }),
       {
         onRetry: (error, attempt) => {
-          console.log(`Retry attempt ${attempt} after error: ${error.message}`);
+          log.warn("Retrying search diamonds", {
+            attempt,
+            offset: currentOffset,
+            error: error.message,
+          });
         },
       },
     );
 
     if (response.items.length === 0) {
-      console.log("No more items returned, breaking");
+      log.info("No more items returned, ending pagination");
       break;
     }
 
@@ -84,7 +95,10 @@ async function processWorkItem(workItem: WorkItemMessage): Promise<number> {
       recordsProcessed++;
     }
 
-    console.log(`Processed ${recordsProcessed} records so far`);
+    log.debug("Page processed", {
+      recordsProcessed,
+      pageSize: response.items.length,
+    });
     currentOffset += response.items.length;
 
     if (response.items.length < limit) {
@@ -96,6 +110,15 @@ async function processWorkItem(workItem: WorkItemMessage): Promise<number> {
 }
 
 async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
+  const log = baseLogger.child({
+    runId: workItem.runId,
+    traceId: workItem.traceId,
+    workerId,
+    partitionId: workItem.partitionId,
+  });
+
+  log.info("Starting work item processing");
+
   const workerRun = await createWorkerRun(
     workItem.runId,
     workItem.partitionId,
@@ -107,12 +130,12 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
   let errorMessage: string | undefined;
 
   try {
-    recordsProcessed = await processWorkItem(workItem);
-    console.log(`Completed processing ${recordsProcessed} records`);
+    recordsProcessed = await processWorkItem(workItem, log);
+    log.info("Work item completed successfully", { recordsProcessed });
   } catch (error) {
     status = "failed";
     errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Worker failed: ${errorMessage}`);
+    log.error("Worker failed", error, { recordsProcessed });
   }
 
   await updateWorkerRun(workerRun.id, status, recordsProcessed, errorMessage);
@@ -124,6 +147,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
   const workDoneMessage: WorkDoneMessage = {
     type: "WORK_DONE",
     runId: workItem.runId,
+    traceId: workItem.traceId,
     workerId,
     partitionId: workItem.partitionId,
     recordsProcessed,
@@ -137,34 +161,36 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     const { completedWorkers, expectedWorkers, failedWorkers } =
       await incrementCompletedWorkers(workItem.runId);
 
-    console.log(
-      `Progress: ${completedWorkers}/${expectedWorkers} completed, ${failedWorkers} failed`,
-    );
+    log.info("Worker progress updated", {
+      completedWorkers,
+      expectedWorkers,
+      failedWorkers,
+    });
 
     if (completedWorkers === expectedWorkers && failedWorkers === 0) {
-      console.log(
-        "All workers completed successfully, triggering consolidation",
-      );
+      log.info("All workers completed successfully, triggering consolidation");
       await sendConsolidate({
         type: "CONSOLIDATE",
         runId: workItem.runId,
+        traceId: workItem.traceId,
       });
     } else if (completedWorkers + failedWorkers === expectedWorkers) {
-      console.log(
-        "All workers finished but some failed, skipping consolidation",
-      );
+      log.warn("All workers finished but some failed, skipping consolidation", {
+        failedWorkers,
+      });
     }
   }
 }
 
 async function run(): Promise<void> {
-  console.log(`Worker ${workerId} starting...`);
+  const log = baseLogger.child({ workerId });
+  log.info("Worker starting");
 
   while (true) {
     const received = await receiveWorkItem();
 
     if (!received) {
-      console.log("No work items available, waiting...");
+      log.debug("No work items available, waiting");
       await new Promise((resolve) => setTimeout(resolve, 5000));
       continue;
     }
@@ -173,7 +199,7 @@ async function run(): Promise<void> {
       await handleWorkItem(received.message);
       await received.complete();
     } catch (error) {
-      console.error("Error processing work item:", error);
+      log.error("Error processing work item", error);
       await received.abandon();
     }
   }
@@ -183,7 +209,7 @@ async function main(): Promise<void> {
   try {
     await run();
   } catch (error) {
-    console.error("Worker failed:", error);
+    baseLogger.error("Worker failed", error);
     process.exitCode = 1;
   } finally {
     await closeConnections();
@@ -192,14 +218,14 @@ async function main(): Promise<void> {
 }
 
 process.on("SIGTERM", async () => {
-  console.log("Received SIGTERM, shutting down...");
+  baseLogger.info("Received SIGTERM, shutting down");
   await closeConnections();
   await closePool();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
-  console.log("Received SIGINT, shutting down...");
+  baseLogger.info("Received SIGINT, shutting down");
   await closeConnections();
   await closePool();
   process.exit(0);

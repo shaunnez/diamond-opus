@@ -8,11 +8,20 @@ export interface AppError extends Error {
 
 export const errorHandler: ErrorRequestHandler = (
   err: AppError,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void => {
-  console.error('Error:', err);
+  const statusCode = err.statusCode ?? 500;
+
+  // Use request logger if available, otherwise log to console
+  if (req.log) {
+    if (statusCode >= 500) {
+      req.log.error('Request error', err, { statusCode });
+    } else {
+      req.log.warn('Request error', { statusCode, message: err.message });
+    }
+  }
 
   if (err instanceof ZodError) {
     res.status(400).json({
@@ -25,7 +34,6 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  const statusCode = err.statusCode ?? 500;
   const code = err.code ?? 'INTERNAL_ERROR';
   const message = statusCode === 500 ? 'Internal server error' : err.message;
 

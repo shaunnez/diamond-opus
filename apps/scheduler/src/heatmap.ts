@@ -8,6 +8,8 @@ import {
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
   withRetry,
+  nullLogger,
+  type Logger,
 } from '@diamond/shared';
 import { NivodaAdapter, type NivodaQuery } from '@diamond/nivoda';
 
@@ -72,6 +74,7 @@ export interface ScanStats {
 interface ScanContext {
   apiCalls: number;
   rangesScanned: number;
+  log: Logger;
 }
 
 /**
@@ -83,7 +86,8 @@ interface ScanContext {
 export async function scanHeatmap(
   adapter: NivodaAdapter,
   baseQuery: NivodaQuery,
-  config: HeatmapConfig = {}
+  config: HeatmapConfig = {},
+  logger: Logger = nullLogger
 ): Promise<HeatmapResult> {
   const minPrice = config.minPrice ?? HEATMAP_MIN_PRICE;
   const maxPrice = config.maxPrice ?? HEATMAP_MAX_PRICE;
@@ -99,18 +103,22 @@ export async function scanHeatmap(
 
   const startTime = Date.now();
 
-  console.log('[heatmap] Starting scan...');
-  console.log(`[heatmap] Price range: $${minPrice} - $${maxPrice}`);
-  console.log(`[heatmap] Dense zone: < $${denseZoneThreshold} (step: $${denseZoneStep})`);
-  console.log(`[heatmap] Concurrency: ${concurrency}`);
-  if (useTwoPassScan) {
-    console.log(`[heatmap] Two-pass mode enabled (coarse step: $${coarseStep})`);
-  }
+  const log = logger.child({ component: 'heatmap' });
+
+  log.info('Starting heatmap scan', {
+    priceRange: { min: minPrice, max: maxPrice },
+    denseZoneThreshold,
+    denseZoneStep,
+    concurrency,
+    useTwoPassScan,
+    coarseStep: useTwoPassScan ? coarseStep : undefined,
+  });
 
   // Track scan statistics
   const scanContext: ScanContext = {
     apiCalls: 0,
     rangesScanned: 0,
+    log,
   };
 
   // Phase 1: Heatmap Scan
@@ -141,7 +149,7 @@ export async function scanHeatmap(
   const scanDurationMs = Date.now() - startTime;
 
   if (densityMap.length === 0) {
-    console.log('[heatmap] No records found');
+    log.info('No records found in heatmap scan');
     return {
       densityMap: [],
       partitions: [],
@@ -159,19 +167,22 @@ export async function scanHeatmap(
 
   // Phase 2: Calculate fair split
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
-  console.log(`[heatmap] Scan complete. Total records: ${totalRecords}`);
+  log.info('Heatmap scan phase complete', { totalRecords });
 
   // Calculate desired worker count based on data volume
   const desiredWorkerCount = calculateWorkerCount(totalRecords, maxWorkers, minRecordsPerWorker);
-  console.log(`[heatmap] Desired workers: ${desiredWorkerCount} (max: ${maxWorkers})`);
+  log.info('Worker count calculated', { desiredWorkerCount, maxWorkers });
 
   // Phase 3: Partition into balanced worker buckets
-  const partitions = createPartitions(densityMap, desiredWorkerCount);
+  const partitions = createPartitions(densityMap, desiredWorkerCount, log);
 
   // workerCount is always the actual partition count (authoritative)
   const workerCount = partitions.length;
   if (workerCount !== desiredWorkerCount) {
-    console.log(`[heatmap] Note: Created ${workerCount} partitions (desired: ${desiredWorkerCount})`);
+    log.info('Partition count differs from desired', {
+      actual: workerCount,
+      desired: desiredWorkerCount,
+    });
   }
 
   // Build final stats
@@ -183,7 +194,11 @@ export async function scanHeatmap(
     usedTwoPass: useTwoPassScan,
   };
 
-  console.log(`[heatmap] Stats: ${stats.apiCalls} API calls, ${stats.rangesScanned} ranges in ${stats.scanDurationMs}ms`);
+  log.info('Heatmap scan complete', {
+    apiCalls: stats.apiCalls,
+    rangesScanned: stats.rangesScanned,
+    durationMs: stats.scanDurationMs,
+  });
 
   return {
     densityMap,
@@ -264,7 +279,11 @@ async function buildDensityMap(
           () => adapter.getDiamondsCount(queryWithPrice),
           {
             onRetry: (error, attempt) => {
-              console.log(`[heatmap] Retry ${attempt} for range $${range.min}-$${range.max}: ${error.message}`);
+              ctx.log.warn('Retrying count query', {
+                attempt,
+                priceRange: { min: range.min, max: range.max },
+                error: error.message,
+              });
             },
           }
         );
@@ -277,9 +296,11 @@ async function buildDensityMap(
     for (const result of results) {
       scannedRanges++;
       ctx.rangesScanned++;
-      console.log(
-        `[heatmap] Range ${scannedRanges}: $${result.min.toFixed(2)} - $${result.max.toFixed(2)} | Count: ${result.count}`
-      );
+      ctx.log.debug('Scanned price range', {
+        rangeIndex: scannedRanges,
+        priceRange: { min: result.min, max: result.max },
+        count: result.count,
+      });
 
       if (result.count > 0) {
         densityMap.push({ min: result.min, max: result.max, count: result.count });
@@ -305,7 +326,10 @@ async function buildDensityMap(
     currentPrice = batchPrice;
   }
 
-  console.log(`[heatmap] Scanned ${scannedRanges} ranges, found ${densityMap.length} non-empty chunks`);
+  ctx.log.info('Density map built', {
+    rangesScanned: scannedRanges,
+    nonEmptyChunks: densityMap.length,
+  });
 
   return densityMap;
 }
@@ -335,7 +359,7 @@ async function buildDensityMapTwoPass(
   },
   ctx: ScanContext
 ): Promise<DensityChunk[]> {
-  console.log('[heatmap] Phase 1: Coarse scan to identify dense regions...');
+  ctx.log.info('Phase 1: Coarse scan to identify dense regions');
 
   // Phase 1: Coarse scan to find which regions have data
   const coarseResults = await coarseScan(adapter, baseQuery, {
@@ -346,16 +370,16 @@ async function buildDensityMapTwoPass(
   }, ctx);
 
   if (coarseResults.length === 0) {
-    console.log('[heatmap] No data found in coarse scan');
+    ctx.log.info('No data found in coarse scan');
     return [];
   }
 
   // Identify dense regions (contiguous ranges with data)
-  const denseRegions = identifyDenseRegions(coarseResults, config.minPrice, config.maxPrice);
-  console.log(`[heatmap] Found ${denseRegions.length} dense region(s)`);
+  const denseRegions = identifyDenseRegions(coarseResults);
+  ctx.log.info('Dense regions identified', { count: denseRegions.length });
 
   // Phase 2: Refine boundaries with binary search
-  console.log('[heatmap] Phase 2: Refining region boundaries...');
+  ctx.log.info('Phase 2: Refining region boundaries');
   const refinedRegions = await refineBoundaries(
     adapter,
     baseQuery,
@@ -366,7 +390,7 @@ async function buildDensityMapTwoPass(
   );
 
   // Phase 3: Fine scan within each refined region
-  console.log('[heatmap] Phase 3: Fine scanning dense regions...');
+  ctx.log.info('Phase 3: Fine scanning dense regions');
   const densityMap: DensityChunk[] = [];
 
   for (const region of refinedRegions) {
@@ -381,7 +405,7 @@ async function buildDensityMapTwoPass(
     densityMap.push(...regionChunks);
   }
 
-  console.log(`[heatmap] Two-pass scan complete. Found ${densityMap.length} chunks`);
+  ctx.log.info('Two-pass scan complete', { chunks: densityMap.length });
   return densityMap;
 }
 
@@ -428,7 +452,11 @@ async function coarseScan(
         };
         const count = await withRetry(() => adapter.getDiamondsCount(query), {
           onRetry: (error, attempt) => {
-            console.log(`[heatmap] Retry ${attempt} for coarse range $${range.min}-$${range.max}: ${error.message}`);
+            ctx.log.warn('Retrying coarse scan', {
+              attempt,
+              priceRange: { min: range.min, max: range.max },
+              error: error.message,
+            });
           },
         });
         return { ...range, count };
@@ -438,10 +466,12 @@ async function coarseScan(
     for (const result of batchResults) {
       rangeCount++;
       ctx.rangesScanned++;
-      const hasData = result.count > 0 ? 'yes' : 'no';
-      console.log(
-        `[heatmap] Coarse ${rangeCount}: $${result.min.toFixed(0)} - $${result.max.toFixed(0)} | Data: ${hasData} (${result.count})`
-      );
+      ctx.log.debug('Coarse scan range', {
+        rangeIndex: rangeCount,
+        priceRange: { min: result.min, max: result.max },
+        hasData: result.count > 0,
+        count: result.count,
+      });
       results.push(result);
     }
 
@@ -454,11 +484,7 @@ async function coarseScan(
 /**
  * Identify contiguous dense regions from coarse scan results
  */
-function identifyDenseRegions(
-  coarseResults: CoarseResult[],
-  minPrice: number,
-  maxPrice: number
-): DenseRegion[] {
+function identifyDenseRegions(coarseResults: CoarseResult[]): DenseRegion[] {
   const regions: DenseRegion[] = [];
   let currentRegion: DenseRegion | null = null;
 
@@ -523,7 +549,10 @@ async function refineBoundaries(
         'start',
         ctx
       );
-      console.log(`[heatmap] Refined start boundary: $${prevEmpty.min} -> $${refinedStart.toFixed(2)}`);
+      ctx.log.debug('Refined start boundary', {
+        from: prevEmpty.min,
+        to: refinedStart,
+      });
     }
 
     // Binary search to find exact end boundary
@@ -537,7 +566,10 @@ async function refineBoundaries(
         'end',
         ctx
       );
-      console.log(`[heatmap] Refined end boundary: $${nextEmpty.max} -> $${refinedEnd.toFixed(2)}`);
+      ctx.log.debug('Refined end boundary', {
+        from: nextEmpty.max,
+        to: refinedEnd,
+      });
     }
 
     refined.push({ start: refinedStart, end: refinedEnd });
@@ -570,7 +602,10 @@ async function binarySearchBoundary(
 
     const count = await withRetry(() => adapter.getDiamondsCount(query), {
       onRetry: (error, attempt) => {
-        console.log(`[heatmap] Retry ${attempt} for binary search: ${error.message}`);
+        ctx.log.warn('Retrying binary search', {
+          attempt,
+          error: error.message,
+        });
       },
     });
 
@@ -638,7 +673,11 @@ async function fineScanRegion(
         };
         const count = await withRetry(() => adapter.getDiamondsCount(query), {
           onRetry: (error, attempt) => {
-            console.log(`[heatmap] Retry ${attempt} for fine scan $${range.min}-$${range.max}: ${error.message}`);
+            ctx.log.warn('Retrying fine scan', {
+              attempt,
+              priceRange: { min: range.min, max: range.max },
+              error: error.message,
+            });
           },
         });
         return { ...range, count };
@@ -649,9 +688,10 @@ async function fineScanRegion(
       ctx.rangesScanned++;
       if (result.count > 0) {
         chunks.push({ min: result.min, max: result.max, count: result.count });
-        console.log(
-          `[heatmap] Fine: $${result.min.toFixed(2)} - $${result.max.toFixed(2)} | Count: ${result.count}`
-        );
+        ctx.log.debug('Fine scan chunk found', {
+          priceRange: { min: result.min, max: result.max },
+          count: result.count,
+        });
       }
 
       // Adaptive step for above threshold
@@ -699,7 +739,8 @@ export function calculateWorkerCount(
  */
 export function createPartitions(
   densityMap: DensityChunk[],
-  desiredWorkerCount: number
+  desiredWorkerCount: number,
+  logger: Logger = nullLogger
 ): WorkerPartition[] {
   if (densityMap.length === 0 || desiredWorkerCount === 0) {
     return [];
@@ -708,7 +749,7 @@ export function createPartitions(
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
   const targetPerWorker = Math.ceil(totalRecords / desiredWorkerCount);
 
-  console.log(`[heatmap] Target per worker: ~${targetPerWorker} records`);
+  logger.debug('Creating partitions', { targetPerWorker });
 
   const partitions: WorkerPartition[] = [];
   let currentWorkerId = 0;
@@ -733,9 +774,11 @@ export function createPartitions(
         totalRecords: currentBatchSum,
       });
 
-      console.log(
-        `[heatmap] Partition ${currentWorkerId}: $${currentBatchStart.toFixed(2)} - $${chunk.max.toFixed(2)} (${currentBatchSum} records)`
-      );
+      logger.debug('Partition created', {
+        partitionId: `partition-${currentWorkerId}`,
+        priceRange: { min: currentBatchStart, max: chunk.max },
+        records: currentBatchSum,
+      });
 
       // Reset for next worker
       currentWorkerId++;

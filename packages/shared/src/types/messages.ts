@@ -1,6 +1,8 @@
 export interface WorkItemMessage {
   type: 'WORK_ITEM';
   runId: string;
+  /** Trace ID for distributed tracing correlation */
+  traceId: string;
   partitionId: string;
   /** Minimum price filter in dollars (inclusive) */
   minPrice: number;
@@ -19,6 +21,8 @@ export interface WorkItemMessage {
 export interface WorkDoneMessage {
   type: 'WORK_DONE';
   runId: string;
+  /** Trace ID for distributed tracing correlation */
+  traceId: string;
   workerId: string;
   partitionId: string;
   recordsProcessed: number;
@@ -29,6 +33,8 @@ export interface WorkDoneMessage {
 export interface ConsolidateMessage {
   type: 'CONSOLIDATE';
   runId: string;
+  /** Trace ID for distributed tracing correlation */
+  traceId: string;
 }
 
 export type ServiceBusMessage = WorkItemMessage | WorkDoneMessage | ConsolidateMessage;
