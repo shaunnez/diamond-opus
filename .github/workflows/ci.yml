@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test
     # Only run if pushing to main AND ACR secrets are configured
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_DOCKER_BUILD == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     strategy:
       matrix:
