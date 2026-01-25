@@ -25,7 +25,12 @@ const options: swaggerJsdoc.Options = {
           type: 'apiKey',
           in: 'header',
           name: 'X-API-Key',
-          description: 'API key for authentication',
+          description: `API key for authentication.
+
+IMPORTANT: When using API key authentication, HMAC authentication will NOT be attempted as a fallback.
+If the API key is invalid, the request will be rejected immediately.
+
+Use either API key OR HMAC authentication, not both.`,
         },
         HmacAuth: {
           type: 'apiKey',
@@ -42,7 +47,10 @@ canonical_string = METHOD + '\\n' + PATH + '\\n' + TIMESTAMP + '\\n' + SHA256(BO
 signature = HMAC-SHA256(CLIENT_SECRET, canonical_string)
 \`\`\`
 
-Timestamp must be within ±5 minutes of server time.`,
+Timestamp must be within ±5 minutes of server time.
+
+IMPORTANT: HMAC authentication is only attempted when NO X-API-Key header is provided.
+Use either API key OR HMAC authentication, not both.`,
         },
       },
     },

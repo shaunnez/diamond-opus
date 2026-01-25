@@ -74,6 +74,14 @@ export async function authMiddleware(
       next();
       return;
     }
+    // If API key is provided but invalid, reject immediately (don't fall back to HMAC)
+    res.status(401).json({
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Invalid API key",
+      },
+    });
+    return;
   }
 
   const clientId = req.headers["x-client-id"] as string | undefined;
