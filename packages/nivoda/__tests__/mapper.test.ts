@@ -49,7 +49,7 @@ describe('mapNivodaItemToDiamond', () => {
     const result = mapNivodaItemToDiamond(item);
 
     expect(result.supplier).toBe('nivoda');
-    expect(result.supplierStoneId).toBe('NIVODA-789');
+    expect(result.supplierStoneId).toBe('diamond-456');
     expect(result.offerId).toBe('offer-123');
     expect(result.shape).toBe('ROUND');
     expect(result.carats).toBe(1.5);
@@ -84,7 +84,7 @@ describe('mapNivodaItemToDiamond', () => {
     const result = mapNivodaItemToDiamond(item);
 
     expect(result.offerId).toBe('offer-123');
-    expect(result.supplierStoneId).toBe('NIVODA-789');
+    expect(result.supplierStoneId).toBe('diamond-456');
   });
 
   it('should handle missing optional fields', () => {

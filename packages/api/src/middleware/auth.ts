@@ -69,7 +69,7 @@ export async function authMiddleware(
 ): Promise<void> {
   const apiKey = req.headers["x-api-key"] as string | undefined;
   if (apiKey) {
-    const isValid = true; // await validateApiKey(apiKey);
+    const isValid = await validateApiKey(apiKey);
     if (isValid) {
       next();
       return;
