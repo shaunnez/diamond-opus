@@ -6,7 +6,7 @@ environment     = "staging"
 location        = "australiaeast"
 
 # Feature flags
-enable_container_apps = false  # Set to true when ready to deploy containers
+enable_container_apps = true  # Set to true when ready to deploy containers
 
 # SKU configurations (cost-optimized for staging)
 servicebus_sku           = "Standard"
