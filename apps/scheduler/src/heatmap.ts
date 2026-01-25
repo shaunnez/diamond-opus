@@ -237,10 +237,10 @@ async function buildDensityMap(
       }
 
       // Calculate range end (exclusive upper bound)
-      // Use 0.01 precision to support decimal prices
+      // Nivoda API requires integer dollar values
       let rangeMax = Math.min(batchPrice + step, config.maxPrice);
       if (rangeMax <= batchPrice) {
-        rangeMax = batchPrice + 0.01;
+        rangeMax = batchPrice + 1;
       }
 
       batch.push({ min: batchPrice, max: rangeMax, step });
@@ -255,9 +255,9 @@ async function buildDensityMap(
         ctx.apiCalls++;
         const queryWithPrice: NivodaQuery = {
           ...baseQuery,
-          // Nivoda API: from is inclusive, to is inclusive
-          // We use max - 0.01 to simulate exclusive upper bound
-          dollar_value: { from: range.min, to: range.max - 0.01 },
+          // Nivoda API: from is inclusive, to is inclusive (integers only)
+          // We use max - 1 to simulate exclusive upper bound
+          dollar_value: { from: range.min, to: range.max - 1 },
         };
 
         const count = await withRetry(
@@ -424,7 +424,7 @@ async function coarseScan(
         ctx.apiCalls++;
         const query: NivodaQuery = {
           ...baseQuery,
-          dollar_value: { from: range.min, to: range.max - 0.01 },
+          dollar_value: { from: range.min, to: range.max - 1 },
         };
         const count = await withRetry(() => adapter.getDiamondsCount(query), {
           onRetry: (error, attempt) => {
@@ -565,7 +565,7 @@ async function binarySearchBoundary(
     ctx.apiCalls++;
     const query: NivodaQuery = {
       ...baseQuery,
-      dollar_value: { from: low, to: mid - 0.01 },
+      dollar_value: { from: Math.floor(low), to: Math.floor(mid) - 1 },
     };
 
     const count = await withRetry(() => adapter.getDiamondsCount(query), {
@@ -634,7 +634,7 @@ async function fineScanRegion(
         ctx.apiCalls++;
         const query: NivodaQuery = {
           ...baseQuery,
-          dollar_value: { from: range.min, to: range.max - 0.01 },
+          dollar_value: { from: range.min, to: range.max - 1 },
         };
         const count = await withRetry(() => adapter.getDiamondsCount(query), {
           onRetry: (error, attempt) => {
