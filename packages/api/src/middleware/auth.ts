@@ -12,13 +12,13 @@ interface HmacSecrets {
   [clientId: string]: string;
 }
 
-let hmacSecrets: HmacSecrets | null = null;
+let cachedHmacSecrets: HmacSecrets | null = null;
 
 function getHmacSecrets(): HmacSecrets {
-  if (!hmacSecrets) {
-    hmacSecrets = parseJsonEnv<HmacSecrets>("HMAC_SECRETS");
+  if (!cachedHmacSecrets) {
+    cachedHmacSecrets = parseJsonEnv<HmacSecrets>("HMAC_SECRETS");
   }
-  return hmacSecrets;
+  return cachedHmacSecrets as HmacSecrets;
 }
 
 async function validateApiKey(apiKey: string): Promise<boolean> {

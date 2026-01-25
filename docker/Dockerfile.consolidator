@@ -18,7 +18,7 @@ COPY packages/nivoda ./packages/nivoda
 COPY packages/pricing-engine ./packages/pricing-engine
 COPY apps/consolidator ./apps/consolidator
 
-RUN npm run build --workspaces
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && npm run build -w @diamond/nivoda && npm run build -w @diamond/pricing-engine && npm run build -w @diamond/consolidator
 
 FROM node:20-alpine
 

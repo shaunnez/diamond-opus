@@ -16,7 +16,7 @@ COPY packages/database ./packages/database
 COPY packages/nivoda ./packages/nivoda
 COPY apps/worker ./apps/worker
 
-RUN npm run build --workspaces
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && npm run build -w @diamond/nivoda && npm run build -w @diamond/worker
 
 FROM node:20-alpine
 
