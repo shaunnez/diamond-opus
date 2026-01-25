@@ -11,6 +11,8 @@ import {
   DIAMOND_SHAPES,
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
+  createLogger,
+  generateTraceId,
   type WorkItemMessage,
   type RunType,
 } from "@diamond/shared";
@@ -20,8 +22,13 @@ import { getWatermark } from "./watermark.js";
 import { sendWorkItems, closeConnections } from "./service-bus.js";
 import { scanHeatmap, type HeatmapConfig } from "./heatmap.js";
 
+const logger = createLogger({ service: "scheduler" });
+
 async function run(): Promise<void> {
-  console.log("Starting scheduler...");
+  const traceId = generateTraceId();
+  const log = logger.child({ traceId });
+
+  log.info("Starting scheduler");
 
   const watermark = await getWatermark();
   const runType: RunType = watermark ? "incremental" : "full";
@@ -29,10 +36,10 @@ async function run(): Promise<void> {
     ? new Date(watermark.lastUpdatedAt)
     : undefined;
 
-  console.log(`Run type: ${runType}`);
-  if (watermarkBefore) {
-    console.log(`Watermark: ${watermarkBefore.toISOString()}`);
-  }
+  log.info("Run configuration determined", {
+    runType,
+    watermarkBefore: watermarkBefore?.toISOString(),
+  });
 
   const adapter = new NivodaAdapter();
 
@@ -50,30 +57,36 @@ async function run(): Promise<void> {
     minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
   };
 
-  console.log("Starting heatmap scan to build density map...");
-  const heatmapResult = await scanHeatmap(adapter, baseQuery, heatmapConfig);
+  log.info("Starting heatmap scan", { heatmapConfig });
+  const heatmapResult = await scanHeatmap(adapter, baseQuery, heatmapConfig, log);
 
   if (heatmapResult.totalRecords === 0) {
-    console.log("No diamonds to process. Exiting.");
+    log.info("No diamonds to process, exiting");
     return;
   }
 
-  console.log(`\nTotal records found: ${heatmapResult.totalRecords}`);
-  console.log(`Number of workers: ${heatmapResult.workerCount}`);
+  log.info("Heatmap scan completed", {
+    totalRecords: heatmapResult.totalRecords,
+    workerCount: heatmapResult.workerCount,
+    stats: heatmapResult.stats,
+  });
 
-  console.log("Creating run metadata...");
+  log.info("Creating run metadata");
   const runMetadata = await createRunMetadata(
     runType,
     heatmapResult.workerCount,
     watermarkBefore,
   );
-  console.log(`Created run: ${runMetadata.runId}`);
+
+  const runLog = log.child({ runId: runMetadata.runId });
+  runLog.info("Run created", { expectedWorkers: heatmapResult.workerCount });
 
   const now = new Date();
   const workItems: WorkItemMessage[] = heatmapResult.partitions.map(
     (partition) => ({
       type: "WORK_ITEM" as const,
       runId: runMetadata.runId,
+      traceId,
       partitionId: partition.partitionId,
       minPrice: partition.minPrice,
       maxPrice: partition.maxPrice,
@@ -85,18 +98,18 @@ async function run(): Promise<void> {
     })
   );
 
-  console.log(`Enqueueing ${workItems.length} work items...`);
+  runLog.info("Enqueueing work items", { count: workItems.length });
   await sendWorkItems(workItems);
-  console.log("Work items enqueued successfully");
+  runLog.info("Work items enqueued successfully");
 
-  console.log("Scheduler completed");
+  runLog.info("Scheduler completed");
 }
 
 async function main(): Promise<void> {
   try {
     await run();
   } catch (error) {
-    console.error("Scheduler failed:", error);
+    logger.error("Scheduler failed", error);
     process.exitCode = 1;
   } finally {
     await closeConnections();

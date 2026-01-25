@@ -19,9 +19,9 @@
     "swagger": "tsx src/swagger/generator.ts"
   },
   "dependencies": {
-    "@diamond/shared": "*",
     "@diamond/database": "*",
     "@diamond/nivoda": "*",
+    "@diamond/shared": "*",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "swagger-jsdoc": "^6.2.8",
@@ -31,10 +31,12 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/supertest": "^6.0.3",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
     "cross-env": "^7.0.3",
     "dotenv": "^16.3.1",
+    "supertest": "^7.2.2",
     "tsx": "^4.6.2",
     "typescript": "^5.3.3",
     "vitest": "^1.1.0"

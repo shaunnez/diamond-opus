@@ -10,8 +10,10 @@ config({ path: resolve(rootDir, '.env') });
 
 import {
   CONSOLIDATOR_BATCH_SIZE,
+  createLogger,
   type ConsolidateMessage,
   type Watermark,
+  type Logger,
 } from '@diamond/shared';
 import {
   getUnconsolidatedRawDiamonds,
@@ -27,14 +29,20 @@ import { receiveConsolidateMessage, closeConnections } from './service-bus.js';
 import { saveWatermark } from './watermark.js';
 import { sendAlert } from './alerts.js';
 
-async function processConsolidation(message: ConsolidateMessage): Promise<void> {
-  console.log(`Starting consolidation for run ${message.runId}`);
+const baseLogger = createLogger({ service: 'consolidator' });
+
+async function processConsolidation(
+  message: ConsolidateMessage,
+  log: Logger
+): Promise<void> {
+  log.info('Starting consolidation');
 
   const pricingEngine = new PricingEngine();
   await pricingEngine.loadRules();
-  console.log('Pricing rules loaded');
+  log.info('Pricing rules loaded');
 
   let totalProcessed = 0;
+  let totalErrors = 0;
   let offset = 0;
 
   while (true) {
@@ -47,7 +55,7 @@ async function processConsolidation(message: ConsolidateMessage): Promise<void> 
       break;
     }
 
-    console.log(`Processing batch of ${rawDiamonds.length} raw diamonds`);
+    log.debug('Processing batch', { batchSize: rawDiamonds.length });
 
     const processedIds: string[] = [];
 
@@ -62,10 +70,10 @@ async function processConsolidation(message: ConsolidateMessage): Promise<void> 
         processedIds.push(rawDiamond.id);
         totalProcessed++;
       } catch (error) {
-        console.error(
-          `Error processing raw diamond ${rawDiamond.id}:`,
-          error
-        );
+        totalErrors++;
+        log.error('Error processing raw diamond', error, {
+          rawDiamondId: rawDiamond.id,
+        });
       }
     }
 
@@ -73,14 +81,18 @@ async function processConsolidation(message: ConsolidateMessage): Promise<void> 
       await markAsConsolidated(processedIds);
     }
 
-    console.log(`Processed ${totalProcessed} diamonds so far`);
+    log.info('Batch processed', {
+      totalProcessed,
+      totalErrors,
+      batchProcessed: processedIds.length,
+    });
 
     if (rawDiamonds.length < CONSOLIDATOR_BATCH_SIZE) {
       break;
     }
   }
 
-  console.log(`Consolidation completed. Total processed: ${totalProcessed}`);
+  log.info('Consolidation completed', { totalProcessed, totalErrors });
 
   const now = new Date();
   await completeRun(message.runId, now);
@@ -92,23 +104,32 @@ async function processConsolidation(message: ConsolidateMessage): Promise<void> 
   };
   await saveWatermark(watermark);
 
-  console.log('Watermark advanced');
+  log.info('Watermark advanced', { watermark });
 }
 
 async function handleConsolidateMessage(
   message: ConsolidateMessage
 ): Promise<void> {
+  const log = baseLogger.child({
+    runId: message.runId,
+    traceId: message.traceId,
+  });
+
+  log.info('Received consolidate message');
+
   const runMetadata = await getRunMetadata(message.runId);
 
   if (!runMetadata) {
-    console.error(`Run ${message.runId} not found`);
+    log.error('Run not found');
     return;
   }
 
   if (runMetadata.failedWorkers > 0) {
-    console.error(
-      `Run ${message.runId} has ${runMetadata.failedWorkers} failed workers, skipping consolidation`
-    );
+    log.error('Workers failed, skipping consolidation', {
+      failedWorkers: runMetadata.failedWorkers,
+      expectedWorkers: runMetadata.expectedWorkers,
+      completedWorkers: runMetadata.completedWorkers,
+    });
     await sendAlert(
       'Consolidation Skipped',
       `Run ${message.runId} was not consolidated because ${runMetadata.failedWorkers} worker(s) failed.\n\n` +
@@ -120,10 +141,10 @@ async function handleConsolidateMessage(
   }
 
   try {
-    await processConsolidation(message);
+    await processConsolidation(message, log);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Consolidation failed:', errorMessage);
+    log.error('Consolidation failed', error);
 
     await sendAlert(
       'Consolidation Failed',
@@ -137,13 +158,13 @@ async function handleConsolidateMessage(
 }
 
 async function run(): Promise<void> {
-  console.log('Consolidator starting...');
+  baseLogger.info('Consolidator starting');
 
   while (true) {
     const received = await receiveConsolidateMessage();
 
     if (!received) {
-      console.log('No consolidate messages, waiting...');
+      baseLogger.debug('No consolidate messages, waiting');
       await new Promise((resolve) => setTimeout(resolve, 5000));
       continue;
     }
@@ -152,7 +173,7 @@ async function run(): Promise<void> {
       await handleConsolidateMessage(received.message);
       await received.complete();
     } catch (error) {
-      console.error('Error processing consolidate message:', error);
+      baseLogger.error('Error processing consolidate message', error);
       await received.abandon();
     }
   }
@@ -162,7 +183,7 @@ async function main(): Promise<void> {
   try {
     await run();
   } catch (error) {
-    console.error('Consolidator failed:', error);
+    baseLogger.error('Consolidator failed', error);
     process.exitCode = 1;
   } finally {
     await closeConnections();
@@ -171,14 +192,14 @@ async function main(): Promise<void> {
 }
 
 process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM, shutting down...');
+  baseLogger.info('Received SIGTERM, shutting down');
   await closeConnections();
   await closePool();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('Received SIGINT, shutting down...');
+  baseLogger.info('Received SIGINT, shutting down');
   await closeConnections();
   await closePool();
   process.exit(0);
