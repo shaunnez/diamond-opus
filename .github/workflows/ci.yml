@@ -41,6 +41,7 @@ jobs:
     name: Build Docker Images
     runs-on: ubuntu-latest
     needs: build-and-test
+    environment: staging
     # Only run if pushing to main AND ACR secrets are configured
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
