@@ -23,6 +23,11 @@ output "api_name" {
   value       = azurerm_container_app.api.name
 }
 
+output "api_identity_principal_id" {
+  description = "Principal ID of the API's managed identity (for granting scheduler job trigger permissions)"
+  value       = azurerm_container_app.api.identity[0].principal_id
+}
+
 output "worker_name" {
   description = "Name of the worker container app"
   value       = azurerm_container_app.worker.name
@@ -36,6 +41,21 @@ output "consolidator_name" {
 output "scheduler_job_name" {
   description = "Name of the scheduler job"
   value       = azurerm_container_app_job.scheduler.name
+}
+
+output "dashboard_fqdn" {
+  description = "Fully qualified domain name of the dashboard app"
+  value       = azurerm_container_app.dashboard.ingress[0].fqdn
+}
+
+output "dashboard_url" {
+  description = "URL of the dashboard app"
+  value       = "https://${azurerm_container_app.dashboard.ingress[0].fqdn}"
+}
+
+output "dashboard_name" {
+  description = "Name of the dashboard container app"
+  value       = azurerm_container_app.dashboard.name
 }
 
 output "log_analytics_workspace_id" {

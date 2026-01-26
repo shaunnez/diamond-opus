@@ -18,6 +18,11 @@ variable "resource_group_name" {
   type        = string
 }
 
+variable "subscription_id" {
+  description = "Azure subscription ID (for API to trigger scheduler job)"
+  type        = string
+}
+
 variable "image_tag" {
   description = "Docker image tag to deploy"
   type        = string
@@ -199,6 +204,31 @@ variable "scheduler_memory" {
   description = "Memory allocation for scheduler job"
   type        = string
   default     = "0.5Gi"
+}
+
+# Resource allocation - Dashboard
+variable "dashboard_cpu" {
+  description = "CPU allocation for dashboard container"
+  type        = number
+  default     = 0.25
+}
+
+variable "dashboard_memory" {
+  description = "Memory allocation for dashboard container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "dashboard_min_replicas" {
+  description = "Minimum replicas for dashboard"
+  type        = number
+  default     = 1
+}
+
+variable "dashboard_max_replicas" {
+  description = "Maximum replicas for dashboard"
+  type        = number
+  default     = 2
 }
 
 # Log Analytics configuration
