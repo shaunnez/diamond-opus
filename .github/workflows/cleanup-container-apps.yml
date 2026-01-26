@@ -1,0 +1,89 @@
+name: Cleanup Container Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to clean up'
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+      confirm_prod:
+        description: 'Type "DELETE-PROD" to confirm production cleanup'
+        required: false
+        type: string
+
+jobs:
+  cleanup:
+    name: Cleanup Container Apps
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Validate production confirmation
+        if: inputs.environment == 'prod'
+        run: |
+          if [ "${{ inputs.confirm_prod }}" != "DELETE-PROD" ]; then
+            echo "ERROR: To delete production, you must type 'DELETE-PROD' in the confirmation field"
+            exit 1
+          fi
+
+      - name: Set resource group
+        id: config
+        run: |
+          if [ "${{ inputs.environment }}" == "staging" ]; then
+            echo "resource_group=diamond-staging-rg" >> $GITHUB_OUTPUT
+          else
+            echo "resource_group=diamond-prod-rg" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Azure Login
+        uses: Azure/login@v2.3.0
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
+
+      - name: Delete Container Apps
+        env:
+          RESOURCE_GROUP: ${{ steps.config.outputs.resource_group }}
+        run: |
+          echo "Cleaning up container apps in: $RESOURCE_GROUP"
+
+          # List and delete container apps
+          echo "Fetching container apps..."
+          apps=$(az containerapp list --resource-group "$RESOURCE_GROUP" --query "[].name" -o tsv || echo "")
+
+          if [ -z "$apps" ]; then
+            echo "No container apps found"
+          else
+            for app in $apps; do
+              echo "Deleting container app: $app"
+              az containerapp delete --name "$app" --resource-group "$RESOURCE_GROUP" --yes
+            done
+          fi
+
+          # List and delete container app jobs
+          echo "Fetching container app jobs..."
+          jobs=$(az containerapp job list --resource-group "$RESOURCE_GROUP" --query "[].name" -o tsv || echo "")
+
+          if [ -z "$jobs" ]; then
+            echo "No container app jobs found"
+          else
+            for job in $jobs; do
+              echo "Deleting container app job: $job"
+              az containerapp job delete --name "$job" --resource-group "$RESOURCE_GROUP" --yes
+            done
+          fi
+
+          echo "Cleanup complete!"
+
+      - name: Summary
+        run: |
+          echo "## Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resource Group:** ${{ steps.config.outputs.resource_group }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "You can now re-run the deploy-${{ inputs.environment }} workflow to recreate the container apps." >> $GITHUB_STEP_SUMMARY
