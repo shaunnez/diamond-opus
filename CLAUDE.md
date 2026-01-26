@@ -282,6 +282,9 @@ Required variables (see `.env.example`):
 | `RESEND_API_KEY` | Resend API key for alerts |
 | `ALERT_EMAIL_TO` | Alert recipient email |
 | `ALERT_EMAIL_FROM` | Alert sender email |
+| `AZURE_SUBSCRIPTION_ID` | API: Azure subscription for scheduler job trigger |
+| `AZURE_RESOURCE_GROUP` | API: Resource group for scheduler job trigger |
+| `AZURE_SCHEDULER_JOB_NAME` | API: Container Apps Job name for scheduler |
 | `VITE_API_URL` | Dashboard: API base URL (default: http://localhost:3000) |
 
 ## Debugging Tips

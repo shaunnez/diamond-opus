@@ -1,6 +1,8 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { ServiceBusClient, ServiceBusSender } from "@azure/service-bus";
+import { ContainerAppsAPIClient } from "@azure/arm-appcontainers";
+import { DefaultAzureCredential } from "@azure/identity";
 import {
   optionalEnv,
   generateTraceId,
@@ -90,6 +92,65 @@ async function sendConsolidateMessage(
 }
 
 // ============================================================================
+// Container Apps Job Helpers
+// ============================================================================
+
+interface SchedulerJobConfig {
+  subscriptionId: string;
+  resourceGroupName: string;
+  jobName: string;
+}
+
+function getSchedulerJobConfig(): SchedulerJobConfig | null {
+  const subscriptionId = optionalEnv("AZURE_SUBSCRIPTION_ID", "");
+  const resourceGroupName = optionalEnv("AZURE_RESOURCE_GROUP", "");
+  const jobName = optionalEnv("AZURE_SCHEDULER_JOB_NAME", "");
+
+  if (!subscriptionId || !resourceGroupName || !jobName) {
+    return null;
+  }
+
+  return { subscriptionId, resourceGroupName, jobName };
+}
+
+async function triggerSchedulerJob(
+  runType: "full" | "incremental",
+): Promise<{ executionName: string }> {
+  const config = getSchedulerJobConfig();
+  if (!config) {
+    throw new Error("Azure Container Apps Job not configured");
+  }
+
+  const credential = new DefaultAzureCredential();
+  const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
+
+  // Start the Container Apps Job with environment override for run type
+  const result = await client.jobs.start(
+    config.resourceGroupName,
+    config.jobName,
+    {
+      template: {
+        containers: [
+          {
+            name: "scheduler",
+            env: [
+              {
+                name: "RUN_TYPE",
+                value: runType,
+              },
+            ],
+          },
+        ],
+      },
+    },
+  );
+
+  return {
+    executionName: result.name || `${config.jobName}-${Date.now()}`,
+  };
+}
+
+// ============================================================================
 // Trigger Scheduler (Start a new run)
 // ============================================================================
 
@@ -99,9 +160,9 @@ async function sendConsolidateMessage(
  *   post:
  *     summary: Trigger a new pipeline run (full or incremental)
  *     description: |
- *       This endpoint triggers the scheduler to start a new pipeline run.
- *       Note: The actual scheduling happens via Azure Functions or manual invocation.
- *       This endpoint provides a way to request a run be queued.
+ *       Triggers the scheduler Azure Container Apps Job to start a new pipeline run.
+ *       The job will perform a heatmap scan, partition work, and dispatch work items
+ *       to the Service Bus queue for workers to process.
  *     tags:
  *       - Triggers
  *     security:
@@ -120,13 +181,13 @@ async function sendConsolidateMessage(
  *                 default: incremental
  *     responses:
  *       200:
- *         description: Scheduler trigger acknowledged
+ *         description: Scheduler job started successfully
  *       400:
  *         description: Invalid request
  *       401:
  *         description: Unauthorized
  *       503:
- *         description: Service Bus not configured
+ *         description: Azure Container Apps Job not configured
  */
 router.post(
   "/scheduler",
@@ -135,31 +196,31 @@ router.post(
     try {
       const body = req.body as TriggerSchedulerBody;
 
-      // For now, we return info about what would happen
-      // In production, this could trigger an Azure Function or send a message
-      // to a dedicated scheduler queue
-
-      const client = getServiceBusClient();
-      if (!client) {
+      // Check if Azure Container Apps Job is configured
+      const jobConfig = getSchedulerJobConfig();
+      if (!jobConfig) {
+        // Fall back to manual instructions if not in Azure
         res.status(503).json({
           error: {
             code: "SERVICE_UNAVAILABLE",
             message:
-              "Service Bus not configured. Scheduler must be run manually.",
+              "Azure Container Apps Job not configured. Scheduler must be run manually.",
           },
           manual_command: `npm run dev:scheduler -- --${body.run_type}`,
         });
         return;
       }
 
-      // In a full implementation, you would send a message to trigger the scheduler
-      // For now, return instructions
+      // Trigger the Azure Container Apps Job
+      const result = await triggerSchedulerJob(body.run_type);
+
       res.json({
         data: {
-          message: `Scheduler trigger for ${body.run_type} run acknowledged`,
+          message: `Scheduler job triggered successfully for ${body.run_type} run`,
           run_type: body.run_type,
-          status: "pending",
-          note: "Run the scheduler manually with: npm run dev:scheduler",
+          status: "started",
+          execution_name: result.executionName,
+          job_name: jobConfig.jobName,
         },
       });
     } catch (error) {
