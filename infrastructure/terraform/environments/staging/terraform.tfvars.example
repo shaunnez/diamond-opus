@@ -1,5 +1,5 @@
 # Staging Environment Configuration
-# Copy this file to terraform.tfvars.local and fill in sensitive values
+# Copy this file to terraform.tfvars and fill in sensitive values
 
 subscription_id = "2dade7a0-6731-4d26-ba6d-02228cccbe2d"
 environment     = "staging"

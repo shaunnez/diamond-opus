@@ -39,6 +39,7 @@ tfplan
 .terraform.lock.hcl
 terraform.tfvars.local
 *.auto.tfvars
+**/environments/**/terraform.tfvars
 
 # Environment files for specific environments
 .env.staging

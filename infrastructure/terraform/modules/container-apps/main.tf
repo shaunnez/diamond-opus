@@ -69,7 +69,28 @@ resource "azurerm_container_app" "api" {
         name        = "HMAC_SECRETS"
         secret_name = "hmac-secrets"
       }
+
+      # Environment variables for scheduler job trigger
+      env {
+        name  = "AZURE_SUBSCRIPTION_ID"
+        value = var.subscription_id
+      }
+
+      env {
+        name  = "AZURE_RESOURCE_GROUP"
+        value = var.resource_group_name
+      }
+
+      env {
+        name  = "AZURE_SCHEDULER_JOB_NAME"
+        value = "${var.app_name_prefix}-scheduler"
+      }
     }
+  }
+
+  # Enable managed identity for Azure API calls
+  identity {
+    type = "SystemAssigned"
   }
 
   ingress {
@@ -391,4 +412,55 @@ resource "azurerm_container_app_job" "scheduler" {
   }
 
   tags = var.tags
+}
+
+# Dashboard Container App (HTTP, external ingress)
+resource "azurerm_container_app" "dashboard" {
+  name                         = "${var.app_name_prefix}-dashboard"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = var.dashboard_min_replicas
+    max_replicas = var.dashboard_max_replicas
+
+    container {
+      name   = "dashboard"
+      image  = "${var.container_registry_login_server}/diamond-dashboard:${var.image_tag}"
+      cpu    = var.dashboard_cpu
+      memory = var.dashboard_memory
+
+      env {
+        name  = "API_URL"
+        value = "https://${azurerm_container_app.api.ingress[0].fqdn}"
+      }
+    }
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 80
+    transport        = "http"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+
+  depends_on = [azurerm_container_app.api]
 }

@@ -10,6 +10,7 @@ This directory contains optimized Dockerfiles for all Diamond Opus services:
 - `Dockerfile.scheduler` - Batch job scheduler
 - `Dockerfile.worker` - Queue consumer for data ingestion
 - `Dockerfile.consolidator` - Queue consumer for transformation
+- `Dockerfile.dashboard` - React admin dashboard (nginx-served)
 
 ## Build Strategy
 
@@ -46,6 +47,7 @@ docker build -f docker/Dockerfile.api -t diamond-api .
 docker build -f docker/Dockerfile.scheduler -t diamond-scheduler .
 docker build -f docker/Dockerfile.worker -t diamond-worker .
 docker build -f docker/Dockerfile.consolidator -t diamond-consolidator .
+docker build -f docker/Dockerfile.dashboard -t diamond-dashboard .
 ```
 
 ### Build with Tags
@@ -129,6 +131,21 @@ CMD ["node", "packages/api/dist/index.js"]
 
 **Entry point:** `apps/consolidator/dist/index.js`
 
+### Dockerfile.dashboard
+
+**Two-stage build:**
+1. Node.js Alpine - builds Vite/React app
+2. nginx Alpine - serves static files
+
+**Entry point:** nginx serving `/usr/share/nginx/html`
+
+**Port:** 80
+
+Uses `nginx.dashboard.conf` for:
+- SPA routing (all routes → index.html)
+- API proxy to backend (`/api/` → `http://api:3000/api/`)
+- Static asset caching
+
 ## Image Sizes
 
 | Image | Size |
@@ -137,6 +154,7 @@ CMD ["node", "packages/api/dist/index.js"]
 | diamond-scheduler | ~150MB |
 | diamond-worker | ~150MB |
 | diamond-consolidator | ~160MB |
+| diamond-dashboard | ~25MB |
 
 ## Running Locally
 
@@ -168,6 +186,15 @@ services:
       dockerfile: docker/Dockerfile.consolidator
     env_file:
       - .env.local
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
 ```
 
 ```bash

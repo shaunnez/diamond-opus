@@ -126,7 +126,8 @@ diamond-opus/
 ├── apps/                        # Runnable applications
 │   ├── scheduler/              # Job partitioning (cron)
 │   ├── worker/                 # Diamond ingestion (queue consumer)
-│   └── consolidator/           # Data transformation (queue consumer)
+│   ├── consolidator/           # Data transformation (queue consumer)
+│   └── dashboard/              # React admin dashboard (Vite + Tailwind)
 ├── infrastructure/              # Azure Terraform IaC
 │   ├── terraform/modules/      # Reusable modules
 │   └── scripts/                # Deployment scripts
@@ -141,13 +142,16 @@ diamond-opus/
 
 ```bash
 # Build
-npm run build                    # Build all packages
+npm run build                    # Build all packages (including dashboard)
+npm run build:backend            # Build backend packages only
+npm run build:dashboard          # Build dashboard only
 
 # Development
 npm run dev:api                  # API on port 3000
 npm run dev:scheduler            # Run scheduler once
 npm run dev:worker               # Long-running worker
 npm run dev:consolidator         # Long-running consolidator
+npm run dev:dashboard            # Dashboard on port 5173
 
 # Manual Operations
 npm run worker:retry             # Retry failed partitions
@@ -243,6 +247,31 @@ curl -H "X-API-Key: your-api-key" http://localhost:3000/api/v2/diamonds
 
 Swagger UI available at `http://localhost:3000/api-docs` when API is running.
 
+## Dashboard
+
+The admin dashboard provides a web UI for monitoring and managing the diamond pipeline.
+
+### Features
+
+- **Pipeline Overview**: Real-time stats on runs, workers, and diamonds
+- **Run Management**: View run history, trigger new runs, monitor progress
+- **Consolidation**: Trigger consolidation, view status, force consolidate
+- **Worker Retry**: View failed workers, retry individual partitions
+- **Diamond Query**: Search and browse the diamond inventory
+- **Supplier Analytics**: View supplier performance metrics
+
+### Running the Dashboard
+
+```bash
+# Development mode (hot reload)
+npm run dev:dashboard
+
+# Production build
+npm run build:dashboard
+```
+
+The dashboard runs on `http://localhost:5173` and requires the API server to be running.
+
 ## Pricing Rules
 
 Pricing is controlled by rules in the `pricing_rules` table:
@@ -311,6 +340,7 @@ Each package has its own README with detailed documentation:
 - [apps/scheduler/README.md](apps/scheduler/README.md) - Job partitioning
 - [apps/worker/README.md](apps/worker/README.md) - Data ingestion
 - [apps/consolidator/README.md](apps/consolidator/README.md) - Transformation
+- [apps/dashboard/README.md](apps/dashboard/README.md) - Admin dashboard
 
 ## License
 

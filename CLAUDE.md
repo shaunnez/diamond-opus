@@ -8,8 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 npm install
 
-# Build all packages (in dependency order)
+# Build all packages (in dependency order, including dashboard)
 npm run build
+
+# Build backend packages only (excludes dashboard)
+npm run build:backend
+
+# Build dashboard only
+npm run build:dashboard
 
 # Run tests
 npm run test
@@ -23,6 +29,7 @@ npm run dev:api          # API on port 3000
 npm run dev:scheduler    # Run scheduler once (exits)
 npm run dev:worker       # Long-running worker
 npm run dev:consolidator # Long-running consolidator
+npm run dev:dashboard    # Dashboard on port 5173 (Vite)
 
 # Manual operations
 npm run worker:retry         # Retry failed partitions
@@ -101,6 +108,8 @@ This is a TypeScript monorepo using npm workspaces for diamond inventory managem
     ↓
 @diamond/api (Express routes, middleware)
 apps/scheduler, apps/worker, apps/consolidator
+
+@diamond/dashboard (React + Vite, standalone)
 ```
 
 ## Critical Rules
@@ -186,6 +195,13 @@ Dual auth system (checked in order):
 - `sql/bootstrap.sql` - Database schema (run manually in Supabase)
 - `sql/migrations/001_add_indexes.sql` - Performance indexes
 
+### Dashboard
+- `apps/dashboard/src/App.tsx` - Main app with routing
+- `apps/dashboard/src/api/` - API client functions (client.ts, triggers.ts, query.ts, analytics.ts)
+- `apps/dashboard/src/pages/` - Page components (Dashboard, Runs, Triggers, Query, etc.)
+- `apps/dashboard/src/components/ui/` - Reusable UI components
+- `apps/dashboard/src/hooks/useAuth.tsx` - Authentication hook
+
 ### Infrastructure
 - `infrastructure/terraform/` - Azure IaC modules
 - `docker/` - Multi-stage Dockerfiles
@@ -223,6 +239,13 @@ HEATMAP_MAX_WORKERS = 30       // Max parallel workers
 3. Update schema in `sql/bootstrap.sql`
 4. Add migration if needed in `sql/migrations/`
 
+### Modifying the dashboard
+1. Pages are in `apps/dashboard/src/pages/`
+2. API functions are in `apps/dashboard/src/api/`
+3. Reusable components are in `apps/dashboard/src/components/ui/`
+4. Dashboard uses React Query for data fetching
+5. Styling uses Tailwind CSS
+
 ## Testing
 
 ```bash
@@ -259,6 +282,10 @@ Required variables (see `.env.example`):
 | `RESEND_API_KEY` | Resend API key for alerts |
 | `ALERT_EMAIL_TO` | Alert recipient email |
 | `ALERT_EMAIL_FROM` | Alert sender email |
+| `AZURE_SUBSCRIPTION_ID` | API: Azure subscription for scheduler job trigger |
+| `AZURE_RESOURCE_GROUP` | API: Resource group for scheduler job trigger |
+| `AZURE_SCHEDULER_JOB_NAME` | API: Container Apps Job name for scheduler |
+| `VITE_API_URL` | Dashboard: API base URL (default: http://localhost:3000) |
 
 ## Debugging Tips
 
