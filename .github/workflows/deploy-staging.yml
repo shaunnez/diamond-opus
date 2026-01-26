@@ -81,82 +81,35 @@ jobs:
           ACR_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
           IMAGE_TAG: ${{ steps.sha.outputs.short }}
         run: |
-          # Helper function to create or update a container app
+          # Helper function to update an existing container app (created by Terraform)
+          # This workflow only updates images - Terraform manages container creation with env vars
           deploy_app() {
             local name=$1
-            local image=$2
-            local ingress=$3
-            local target_port=$4
+            local container_name=$2
+            local image=$3
 
             if az containerapp show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-              echo "Updating existing app: $name"
+              echo "Updating existing app: $name (container: $container_name)"
               az containerapp update \
                 --name "$name" \
                 --resource-group "$RESOURCE_GROUP" \
-                --container-name "$name" \
+                --container-name "$container_name" \
                 --image "$image"
             else
-              echo "Creating new app: $name"
-              if [ "$ingress" = "external" ]; then
-                az containerapp create \
-                  --name "$name" \
-                  --resource-group "$RESOURCE_GROUP" \
-                  --environment "$ENVIRONMENT" \
-                  --image "$image" \
-                  --ingress "$ingress" \
-                  --target-port "$target_port" \
-                  --registry-server "$ACR_SERVER" \
-                  --registry-username "${{ secrets.ACR_USERNAME }}" \
-                  --registry-password "${{ secrets.ACR_PASSWORD }}"
-              else
-                az containerapp create \
-                  --name "$name" \
-                  --resource-group "$RESOURCE_GROUP" \
-                  --environment "$ENVIRONMENT" \
-                  --image "$image" \
-                  --registry-server "$ACR_SERVER" \
-                  --registry-username "${{ secrets.ACR_USERNAME }}" \
-                  --registry-password "${{ secrets.ACR_PASSWORD }}"
-              fi
+              echo "WARNING: Container app '$name' does not exist - skipping."
+              echo "Container apps must be created by Terraform (infrastructure.yml) with proper environment variables."
+              echo "Run 'terraform apply' in infrastructure/terraform/environments/staging to create the container."
             fi
           }
 
-          # Helper function to create or update a container app job
-          deploy_job() {
-            local name=$1
-            local image=$2
+          # Deploy API (container name 'api' as defined in Terraform)
+          deploy_app "diamond-staging-api" "api" "$ACR_SERVER/diamond-api:$IMAGE_TAG"
 
-            if az containerapp job show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-              echo "Updating existing job: $name"
-              az containerapp job update \
-                --name "$name" \
-                --resource-group "$RESOURCE_GROUP" \
-                --container-name "$name" \
-                --image "$image"
-            else
-              echo "Creating new job: $name"
-              az containerapp job create \
-                --name "$name" \
-                --resource-group "$RESOURCE_GROUP" \
-                --environment "$ENVIRONMENT" \
-                --image "$image" \
-                --trigger-type "Manual" \
-                --replica-timeout 1800 \
-                --replica-retry-limit 1 \
-                --registry-server "$ACR_SERVER" \
-                --registry-username "${{ secrets.ACR_USERNAME }}" \
-                --registry-password "${{ secrets.ACR_PASSWORD }}"
-            fi
-          }
+          # Deploy Worker (container name 'worker' as defined in Terraform)
+          deploy_app "diamond-staging-worker" "worker" "$ACR_SERVER/diamond-worker:$IMAGE_TAG"
 
-          # Deploy API (external ingress on port 3000)
-          deploy_app "diamond-staging-api" "$ACR_SERVER/diamond-api:$IMAGE_TAG" "external" 3000
-
-          # Deploy Worker (no ingress - consumes from queue)
-          deploy_app "diamond-staging-worker" "$ACR_SERVER/diamond-worker:$IMAGE_TAG" "none" 0
-
-          # Deploy Consolidator (no ingress - consumes from queue)
-          deploy_app "diamond-staging-consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG" "none" 0
+          # Deploy Consolidator (container name 'consolidator' as defined in Terraform)
+          deploy_app "diamond-staging-consolidator" "consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG"
 
           # Scheduler is managed by Terraform (infrastructure.yml) with Schedule trigger
           # Only update the image if the job exists, don't create it here
@@ -171,5 +124,5 @@ jobs:
             echo "Scheduler job not found - will be created by Terraform"
           fi
 
-          # Deploy Dashboard (external ingress on port 80 - nginx)
-          deploy_app "diamond-staging-dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG" "external" 80
+          # Deploy Dashboard (container name 'dashboard' as defined in Terraform)
+          deploy_app "diamond-staging-dashboard" "dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG"
