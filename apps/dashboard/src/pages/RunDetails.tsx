@@ -7,9 +7,8 @@ import {
   PlayCircle,
   RefreshCw,
   Layers,
-  AlertTriangle,
 } from 'lucide-react';
-import { getRunDetails } from '../api/analytics';
+import { getRunDetails, type WorkerRun } from '../api/analytics';
 import { triggerConsolidate, retryWorkers } from '../api/triggers';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
@@ -17,7 +16,6 @@ import {
   Card,
   CardHeader,
   Button,
-  Badge,
   StatusBadge,
   RunTypeBadge,
   WorkerProgress,
@@ -47,8 +45,8 @@ export function RunDetails() {
     queryKey: ['run-details', runId],
     queryFn: () => getRunDetails(runId!),
     enabled: !!runId,
-    refetchInterval: (data) =>
-      data?.run?.status === 'running' ? 5000 : false,
+    refetchInterval: (query) =>
+      query.state.data?.run?.status === 'running' ? 5000 : false,
   });
 
   const consolidateMutation = useMutation({
@@ -97,24 +95,24 @@ export function RunDetails() {
     {
       key: 'partitionId',
       header: 'Partition',
-      render: (w: (typeof workers)[0]) => (
+      render: (w: WorkerRun) => (
         <span className="font-mono text-xs">{w.partitionId}</span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (w: (typeof workers)[0]) => <StatusBadge status={w.status} />,
+      render: (w: WorkerRun) => <StatusBadge status={w.status} />,
     },
     {
       key: 'recordsProcessed',
       header: 'Records',
-      render: (w: (typeof workers)[0]) => formatNumber(w.recordsProcessed),
+      render: (w: WorkerRun) => formatNumber(w.recordsProcessed),
     },
     {
       key: 'duration',
       header: 'Duration',
-      render: (w: (typeof workers)[0]) => {
+      render: (w: WorkerRun) => {
         if (!w.completedAt) return '-';
         const duration =
           new Date(w.completedAt).getTime() - new Date(w.startedAt).getTime();
@@ -124,7 +122,7 @@ export function RunDetails() {
     {
       key: 'errorMessage',
       header: 'Error',
-      render: (w: (typeof workers)[0]) =>
+      render: (w: WorkerRun) =>
         w.errorMessage ? (
           <span className="text-error-600 text-xs max-w-xs truncate block">
             {w.errorMessage}
@@ -255,7 +253,7 @@ export function RunDetails() {
             <Table
               columns={workerColumns}
               data={workers}
-              keyExtractor={(w) => w.id}
+              keyExtractor={(w) => String(w.id)}
               emptyMessage="No workers for this run"
             />
           </div>
