@@ -51,8 +51,28 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name        = "DATABASE_URL"
-        secret_name = "database-url"
+        name        = "DATABASE_HOST"
+        secret_name = "database-host"
+      }
+
+      env {
+        name        = "DATABASE_PORT"
+        secret_name = "database-port"
+      }
+
+      env {
+        name        = "DATABASE_NAME"
+        secret_name = "database-name"
+      }
+
+      env {
+        name        = "DATABASE_USERNAME"
+        secret_name = "database-username"
+      }
+
+      env {
+        name        = "DATABASE_PASSWORD"
+        secret_name = "database-password"
       }
 
       env {
@@ -111,8 +131,28 @@ resource "azurerm_container_app" "api" {
   }
 
   secret {
-    name  = "database-url"
-    value = var.database_url
+    name  = "database-host"
+    value = var.database_host
+  }
+
+  secret {
+    name  = "database-port"
+    value = var.database_port
+  }
+
+  secret {
+    name  = "database-name"
+    value = var.database_name
+  }
+
+  secret {
+    name  = "database-username"
+    value = var.database_username
+  }
+
+  secret {
+    name  = "database-password"
+    value = var.database_password
   }
 
   secret {
@@ -156,8 +196,28 @@ resource "azurerm_container_app" "worker" {
       memory = var.worker_memory
 
       env {
-        name        = "DATABASE_URL"
-        secret_name = "database-url"
+        name        = "DATABASE_HOST"
+        secret_name = "database-host"
+      }
+
+      env {
+        name        = "DATABASE_PORT"
+        secret_name = "database-port"
+      }
+
+      env {
+        name        = "DATABASE_NAME"
+        secret_name = "database-name"
+      }
+
+      env {
+        name        = "DATABASE_USERNAME"
+        secret_name = "database-username"
+      }
+
+      env {
+        name        = "DATABASE_PASSWORD"
+        secret_name = "database-password"
       }
 
       env {
@@ -194,8 +254,28 @@ resource "azurerm_container_app" "worker" {
   }
 
   secret {
-    name  = "database-url"
-    value = var.database_url
+    name  = "database-host"
+    value = var.database_host
+  }
+
+  secret {
+    name  = "database-port"
+    value = var.database_port
+  }
+
+  secret {
+    name  = "database-name"
+    value = var.database_name
+  }
+
+  secret {
+    name  = "database-username"
+    value = var.database_username
+  }
+
+  secret {
+    name  = "database-password"
+    value = var.database_password
   }
 
   secret {
@@ -249,8 +329,28 @@ resource "azurerm_container_app" "consolidator" {
       memory = var.consolidator_memory
 
       env {
-        name        = "DATABASE_URL"
-        secret_name = "database-url"
+        name        = "DATABASE_HOST"
+        secret_name = "database-host"
+      }
+
+      env {
+        name        = "DATABASE_PORT"
+        secret_name = "database-port"
+      }
+
+      env {
+        name        = "DATABASE_NAME"
+        secret_name = "database-name"
+      }
+
+      env {
+        name        = "DATABASE_USERNAME"
+        secret_name = "database-username"
+      }
+
+      env {
+        name        = "DATABASE_PASSWORD"
+        secret_name = "database-password"
       }
 
       env {
@@ -287,8 +387,28 @@ resource "azurerm_container_app" "consolidator" {
   }
 
   secret {
-    name  = "database-url"
-    value = var.database_url
+    name  = "database-host"
+    value = var.database_host
+  }
+
+  secret {
+    name  = "database-port"
+    value = var.database_port
+  }
+
+  secret {
+    name  = "database-name"
+    value = var.database_name
+  }
+
+  secret {
+    name  = "database-username"
+    value = var.database_username
+  }
+
+  secret {
+    name  = "database-password"
+    value = var.database_password
   }
 
   secret {
@@ -339,8 +459,28 @@ resource "azurerm_container_app_job" "scheduler" {
       memory = var.scheduler_memory
 
       env {
-        name        = "DATABASE_URL"
-        secret_name = "database-url"
+        name        = "DATABASE_HOST"
+        secret_name = "database-host"
+      }
+
+      env {
+        name        = "DATABASE_PORT"
+        secret_name = "database-port"
+      }
+
+      env {
+        name        = "DATABASE_NAME"
+        secret_name = "database-name"
+      }
+
+      env {
+        name        = "DATABASE_USERNAME"
+        secret_name = "database-username"
+      }
+
+      env {
+        name        = "DATABASE_PASSWORD"
+        secret_name = "database-password"
       }
 
       env {
@@ -377,8 +517,28 @@ resource "azurerm_container_app_job" "scheduler" {
   }
 
   secret {
-    name  = "database-url"
-    value = var.database_url
+    name  = "database-host"
+    value = var.database_host
+  }
+
+  secret {
+    name  = "database-port"
+    value = var.database_port
+  }
+
+  secret {
+    name  = "database-name"
+    value = var.database_name
+  }
+
+  secret {
+    name  = "database-username"
+    value = var.database_username
+  }
+
+  secret {
+    name  = "database-password"
+    value = var.database_password
   }
 
   secret {

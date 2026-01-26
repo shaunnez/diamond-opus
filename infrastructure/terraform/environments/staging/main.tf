@@ -78,10 +78,11 @@ module "container_apps" {
   source = "../../modules/container-apps"
   count  = var.enable_container_apps ? 1 : 0
 
-  environment_name = "diamond-${var.environment}-env"
-  app_name_prefix  = "diamond-${var.environment}"
-  location         = var.location
+  environment_name    = "diamond-${var.environment}-env"
+  app_name_prefix     = "diamond-${var.environment}"
+  location            = var.location
   resource_group_name = azurerm_resource_group.main.name
+  subscription_id     = var.subscription_id
 
   # Image configuration
   image_tag = var.image_tag
@@ -95,8 +96,14 @@ module "container_apps" {
   storage_connection_string    = module.storage.primary_connection_string
   servicebus_connection_string = module.service_bus.connection_string
 
+  # Database configuration (from variables)
+  database_host     = var.database_host
+  database_port     = var.database_port
+  database_name     = var.database_name
+  database_username = var.database_username
+  database_password = var.database_password
+
   # External configuration (from variables)
-  database_url     = var.database_url
   nivoda_endpoint  = var.nivoda_endpoint
   nivoda_username  = var.nivoda_username
   nivoda_password  = var.nivoda_password
