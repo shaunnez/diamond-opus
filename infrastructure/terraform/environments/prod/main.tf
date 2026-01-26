@@ -97,8 +97,14 @@ module "container_apps" {
   storage_connection_string    = module.storage.primary_connection_string
   servicebus_connection_string = module.service_bus.connection_string
 
+  # Database configuration (from variables)
+  database_host     = var.database_host
+  database_port     = var.database_port
+  database_name     = var.database_name
+  database_username = var.database_username
+  database_password = var.database_password
+
   # External configuration (from variables)
-  database_url     = var.database_url
   nivoda_endpoint  = var.nivoda_endpoint
   nivoda_username  = var.nivoda_username
   nivoda_password  = var.nivoda_password
