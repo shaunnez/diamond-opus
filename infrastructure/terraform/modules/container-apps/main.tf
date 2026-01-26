@@ -441,6 +441,7 @@ resource "azurerm_container_app_job" "scheduler" {
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = var.resource_group_name
 
+  trigger_type               = "Schedule"
   replica_timeout_in_seconds = 1800
   replica_retry_limit        = 1
 
