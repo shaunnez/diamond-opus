@@ -123,6 +123,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     workItem.runId,
     workItem.partitionId,
     workerId,
+    workItem as unknown as Record<string, unknown>,
   );
 
   let status: "completed" | "failed" = "completed";

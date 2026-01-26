@@ -35,6 +35,8 @@ export interface ConsolidateMessage {
   runId: string;
   /** Trace ID for distributed tracing correlation */
   traceId: string;
+  /** Force consolidation even if workers failed */
+  force?: boolean;
 }
 
 export type ServiceBusMessage = WorkItemMessage | WorkDoneMessage | ConsolidateMessage;
