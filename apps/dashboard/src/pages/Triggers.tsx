@@ -1,0 +1,387 @@
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Play, RefreshCw, Layers, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
+import { getRuns } from '../api/analytics';
+import { triggerScheduler, triggerConsolidate, retryWorkers, getFailedWorkers } from '../api/triggers';
+import { Header } from '../components/layout/Header';
+import { PageContainer } from '../components/layout/Layout';
+import {
+  Card,
+  CardHeader,
+  Button,
+  Select,
+  Alert,
+  Checkbox,
+  Badge,
+  ConfirmModal,
+} from '../components/ui';
+import { truncateId, formatRelativeTime } from '../utils/formatters';
+
+export function Triggers() {
+  // Scheduler state
+  const [schedulerRunType, setSchedulerRunType] = useState<'full' | 'incremental'>('incremental');
+  const [showSchedulerModal, setShowSchedulerModal] = useState(false);
+
+  // Consolidation state
+  const [selectedRunForConsolidate, setSelectedRunForConsolidate] = useState('');
+  const [forceConsolidate, setForceConsolidate] = useState(false);
+  const [showConsolidateModal, setShowConsolidateModal] = useState(false);
+
+  // Retry state
+  const [selectedRunForRetry, setSelectedRunForRetry] = useState('');
+  const [showRetryModal, setShowRetryModal] = useState(false);
+
+  // Fetch recent runs for dropdowns
+  const { data: runsData } = useQuery({
+    queryKey: ['runs-for-triggers'],
+    queryFn: () => getRuns({ limit: 20 }),
+  });
+
+  // Fetch failed workers for selected retry run
+  const { data: failedWorkersData } = useQuery({
+    queryKey: ['failed-workers', selectedRunForRetry],
+    queryFn: () => getFailedWorkers(selectedRunForRetry),
+    enabled: !!selectedRunForRetry,
+  });
+
+  // Mutations
+  const schedulerMutation = useMutation({
+    mutationFn: () => triggerScheduler(schedulerRunType),
+    onSuccess: () => setShowSchedulerModal(false),
+  });
+
+  const consolidateMutation = useMutation({
+    mutationFn: () => triggerConsolidate(selectedRunForConsolidate, forceConsolidate),
+    onSuccess: () => {
+      setShowConsolidateModal(false);
+      setSelectedRunForConsolidate('');
+      setForceConsolidate(false);
+    },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: () => retryWorkers(selectedRunForRetry),
+    onSuccess: () => {
+      setShowRetryModal(false);
+      setSelectedRunForRetry('');
+    },
+  });
+
+  // Get runs that can be consolidated (completed or failed but not running)
+  const consolidatableRuns = runsData?.data.filter(
+    (r) => r.status !== 'running' && r.completedWorkers > 0
+  ) ?? [];
+
+  // Get runs that have failed workers
+  const retryableRuns = runsData?.data.filter((r) => r.failedWorkers > 0) ?? [];
+
+  const selectedConsolidateRun = consolidatableRuns.find(
+    (r) => r.runId === selectedRunForConsolidate
+  );
+
+  return (
+    <>
+      <Header />
+      <PageContainer>
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Info Banner */}
+          <Alert variant="info" title="Manual Triggers">
+            Use these controls to manually trigger pipeline operations. Normal operations
+            run automatically, but these can be useful for testing, recovery, or forcing
+            specific actions.
+          </Alert>
+
+          {/* Scheduler Trigger */}
+          <Card>
+            <CardHeader
+              title="Trigger Scheduler"
+              subtitle="Start a new pipeline run to fetch diamonds from Nivoda"
+            />
+            <div className="mt-4 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-primary-50 rounded-xl">
+                  <Play className="w-6 h-6 text-primary-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-stone-600">
+                    The scheduler will partition the workload and queue work items for
+                    workers to process.
+                  </p>
+                  <ul className="mt-2 text-sm text-stone-500 list-disc list-inside">
+                    <li>
+                      <strong>Incremental:</strong> Only fetch diamonds updated since the
+                      last watermark
+                    </li>
+                    <li>
+                      <strong>Full:</strong> Fetch all diamonds (takes longer, use
+                      sparingly)
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex items-end gap-4">
+                <div className="flex-1 max-w-xs">
+                  <Select
+                    label="Run Type"
+                    value={schedulerRunType}
+                    onChange={(e) =>
+                      setSchedulerRunType(e.target.value as 'full' | 'incremental')
+                    }
+                    options={[
+                      { value: 'incremental', label: 'Incremental (recommended)' },
+                      { value: 'full', label: 'Full Scan' },
+                    ]}
+                  />
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowSchedulerModal(true)}
+                  icon={<Zap className="w-4 h-4" />}
+                >
+                  Start Run
+                </Button>
+              </div>
+
+              {schedulerRunType === 'full' && (
+                <Alert variant="warning">
+                  A full scan will fetch all diamonds and may take significantly longer
+                  than an incremental run. Only use this if you need to rebuild the
+                  entire dataset.
+                </Alert>
+              )}
+            </div>
+          </Card>
+
+          {/* Consolidation Trigger */}
+          <Card>
+            <CardHeader
+              title="Trigger Consolidation"
+              subtitle="Process raw diamonds from a completed run"
+            />
+            <div className="mt-4 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-success-50 rounded-xl">
+                  <Layers className="w-6 h-6 text-success-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-stone-600">
+                    Consolidation processes raw diamonds and updates the canonical
+                    diamonds table with pricing rules applied.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <Select
+                    label="Select Run"
+                    value={selectedRunForConsolidate}
+                    onChange={(e) => setSelectedRunForConsolidate(e.target.value)}
+                    options={[
+                      { value: '', label: 'Select a run...' },
+                      ...consolidatableRuns.map((r) => ({
+                        value: r.runId,
+                        label: `${truncateId(r.runId)} - ${r.runType} - ${formatRelativeTime(
+                          r.startedAt
+                        )}${r.failedWorkers > 0 ? ` (${r.failedWorkers} failed)` : ''}`,
+                      })),
+                    ]}
+                  />
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowConsolidateModal(true)}
+                  disabled={!selectedRunForConsolidate}
+                  icon={<Layers className="w-4 h-4" />}
+                >
+                  Consolidate
+                </Button>
+              </div>
+
+              {selectedConsolidateRun?.failedWorkers ? (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    label="Force consolidation (ignore failed workers)"
+                    checked={forceConsolidate}
+                    onChange={(e) => setForceConsolidate(e.target.checked)}
+                  />
+                  <Badge variant="warning">
+                    {selectedConsolidateRun.failedWorkers} failed workers
+                  </Badge>
+                </div>
+              ) : null}
+            </div>
+          </Card>
+
+          {/* Retry Workers */}
+          <Card>
+            <CardHeader
+              title="Retry Failed Workers"
+              subtitle="Re-queue failed workers for reprocessing"
+            />
+            <div className="mt-4 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-warning-50 rounded-xl">
+                  <RefreshCw className="w-6 h-6 text-warning-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-stone-600">
+                    Failed workers can be retried using their stored work item payload.
+                    They will be re-queued and picked up by available workers.
+                  </p>
+                </div>
+              </div>
+
+              {retryableRuns.length === 0 ? (
+                <Alert variant="success" title="No failed workers">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    All recent runs completed successfully without failures.
+                  </div>
+                </Alert>
+              ) : (
+                <>
+                  <div className="flex items-end gap-4">
+                    <div className="flex-1">
+                      <Select
+                        label="Select Run with Failures"
+                        value={selectedRunForRetry}
+                        onChange={(e) => setSelectedRunForRetry(e.target.value)}
+                        options={[
+                          { value: '', label: 'Select a run...' },
+                          ...retryableRuns.map((r) => ({
+                            value: r.runId,
+                            label: `${truncateId(r.runId)} - ${r.failedWorkers} failed - ${formatRelativeTime(
+                              r.startedAt
+                            )}`,
+                          })),
+                        ]}
+                      />
+                    </div>
+                    <Button
+                      variant="primary"
+                      onClick={() => setShowRetryModal(true)}
+                      disabled={!selectedRunForRetry}
+                      icon={<RefreshCw className="w-4 h-4" />}
+                    >
+                      Retry All
+                    </Button>
+                  </div>
+
+                  {failedWorkersData && failedWorkersData.workers.length > 0 && (
+                    <div className="p-4 bg-stone-50 rounded-lg">
+                      <p className="text-sm font-medium text-stone-700 mb-2">
+                        Failed Workers ({failedWorkersData.total_failed}):
+                      </p>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {failedWorkersData.workers.map((w) => (
+                          <div
+                            key={w.partition_id}
+                            className="text-xs p-2 bg-white rounded border border-stone-200"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono">{w.partition_id}</span>
+                              <Badge variant={w.has_payload ? 'success' : 'error'}>
+                                {w.has_payload ? 'Can retry' : 'No payload'}
+                              </Badge>
+                            </div>
+                            {w.error_message && (
+                              <p className="text-error-600 mt-1 truncate">
+                                {w.error_message}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Card>
+
+          {/* CLI Commands Reference */}
+          <Card>
+            <CardHeader
+              title="CLI Commands"
+              subtitle="Alternative commands for terminal use"
+            />
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="text-sm font-medium text-stone-700 mb-1">Run Scheduler:</p>
+                <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
+                  npm run dev:scheduler
+                </code>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-stone-700 mb-1">
+                  Trigger Consolidation:
+                </p>
+                <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
+                  npm run consolidator:trigger -- {'<runId>'} [--force]
+                </code>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-stone-700 mb-1">
+                  Retry Failed Workers:
+                </p>
+                <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
+                  npm run worker:retry -- retry {'<runId>'} [partitionId]
+                </code>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-stone-700 mb-1">
+                  List Failed Workers:
+                </p>
+                <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
+                  npm run worker:retry -- list {'<runId>'}
+                </code>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Modals */}
+        <ConfirmModal
+          isOpen={showSchedulerModal}
+          onClose={() => setShowSchedulerModal(false)}
+          onConfirm={() => schedulerMutation.mutate()}
+          title={`Start ${schedulerRunType === 'full' ? 'Full' : 'Incremental'} Run`}
+          message={
+            schedulerRunType === 'full'
+              ? 'This will trigger a full scan of all diamonds. This operation may take a long time.'
+              : 'This will trigger an incremental sync to fetch diamonds updated since the last run.'
+          }
+          confirmText="Start Run"
+          loading={schedulerMutation.isPending}
+          variant={schedulerRunType === 'full' ? 'danger' : 'primary'}
+        />
+
+        <ConfirmModal
+          isOpen={showConsolidateModal}
+          onClose={() => setShowConsolidateModal(false)}
+          onConfirm={() => consolidateMutation.mutate()}
+          title="Trigger Consolidation"
+          message={
+            forceConsolidate
+              ? 'This will force consolidation, ignoring any failed workers. Only completed data will be processed.'
+              : 'This will process all raw diamonds from this run and update the canonical diamonds table.'
+          }
+          confirmText="Consolidate"
+          loading={consolidateMutation.isPending}
+        />
+
+        <ConfirmModal
+          isOpen={showRetryModal}
+          onClose={() => setShowRetryModal(false)}
+          onConfirm={() => retryMutation.mutate()}
+          title="Retry Failed Workers"
+          message={`This will re-queue ${failedWorkersData?.total_failed ?? 0} failed worker(s) for processing.`}
+          confirmText="Retry All"
+          loading={retryMutation.isPending}
+        />
+      </PageContainer>
+    </>
+  );
+}

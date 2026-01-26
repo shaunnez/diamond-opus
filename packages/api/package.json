@@ -19,6 +19,7 @@
     "swagger": "tsx src/swagger/generator.ts"
   },
   "dependencies": {
+    "@azure/service-bus": "^7.9.3",
     "@diamond/database": "*",
     "@diamond/nivoda": "*",
     "@diamond/shared": "*",

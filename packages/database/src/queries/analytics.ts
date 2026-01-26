@@ -1,0 +1,647 @@
+import type { RunMetadata, WorkerRun, RunType, WorkerStatus } from '@diamond/shared';
+import { query } from '../client.js';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface RunWithStats extends RunMetadata {
+  totalRecordsProcessed: number;
+  durationMs: number | null;
+  status: 'running' | 'completed' | 'failed' | 'partial';
+}
+
+export interface DashboardSummary {
+  totalActiveDiamonds: number;
+  totalSuppliers: number;
+  lastSuccessfulRun: RunMetadata | null;
+  currentWatermark: Date | null;
+  recentRunsCount: {
+    total: number;
+    completed: number;
+    failed: number;
+    running: number;
+  };
+  diamondsByAvailability: {
+    available: number;
+    onHold: number;
+    sold: number;
+    unavailable: number;
+  };
+}
+
+export interface SupplierStats {
+  supplier: string;
+  totalDiamonds: number;
+  availableDiamonds: number;
+  onHoldDiamonds: number;
+  soldDiamonds: number;
+  avgPriceCents: number;
+  minPriceCents: number;
+  maxPriceCents: number;
+  lastUpdated: Date | null;
+}
+
+export interface ConsolidationProgress {
+  runId: string;
+  totalRawDiamonds: number;
+  consolidatedCount: number;
+  pendingCount: number;
+  progressPercent: number;
+  oldestPendingCreatedAt: Date | null;
+}
+
+export interface RunsFilter {
+  runType?: RunType;
+  status?: 'running' | 'completed' | 'failed' | 'partial';
+  startedAfter?: Date;
+  startedBefore?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+// ============================================================================
+// Dashboard Summary
+// ============================================================================
+
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  // Run all queries in parallel for efficiency
+  const [
+    diamondCountsResult,
+    supplierCountResult,
+    lastSuccessfulRunResult,
+    recentRunsResult,
+    availabilityResult,
+  ] = await Promise.all([
+    // Total active diamonds
+    query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM diamonds WHERE status = 'active'`
+    ),
+    // Total unique suppliers
+    query<{ count: string }>(
+      `SELECT COUNT(DISTINCT supplier) as count FROM diamonds WHERE status = 'active'`
+    ),
+    // Last successful run (completed with no failures)
+    query<{
+      run_id: string;
+      run_type: string;
+      expected_workers: number;
+      completed_workers: number;
+      failed_workers: number;
+      watermark_before: Date | null;
+      watermark_after: Date | null;
+      started_at: Date;
+      completed_at: Date | null;
+    }>(
+      `SELECT * FROM run_metadata
+       WHERE completed_at IS NOT NULL AND failed_workers = 0
+       ORDER BY completed_at DESC LIMIT 1`
+    ),
+    // Recent runs count (last 7 days)
+    query<{ status: string; count: string }>(
+      `SELECT
+        CASE
+          WHEN completed_at IS NULL AND failed_workers = 0 THEN 'running'
+          WHEN completed_at IS NOT NULL AND failed_workers = 0 THEN 'completed'
+          WHEN failed_workers > 0 AND completed_workers + failed_workers >= expected_workers THEN 'failed'
+          ELSE 'partial'
+        END as status,
+        COUNT(*) as count
+       FROM run_metadata
+       WHERE started_at > NOW() - INTERVAL '7 days'
+       GROUP BY 1`
+    ),
+    // Diamonds by availability
+    query<{ availability: string; count: string }>(
+      `SELECT availability, COUNT(*) as count
+       FROM diamonds WHERE status = 'active'
+       GROUP BY availability`
+    ),
+  ]);
+
+  const totalActiveDiamonds = parseInt(diamondCountsResult.rows[0]?.count ?? '0', 10);
+  const totalSuppliers = parseInt(supplierCountResult.rows[0]?.count ?? '0', 10);
+
+  const lastSuccessfulRunRow = lastSuccessfulRunResult.rows[0];
+  const lastSuccessfulRun = lastSuccessfulRunRow
+    ? {
+        runId: lastSuccessfulRunRow.run_id,
+        runType: lastSuccessfulRunRow.run_type as RunType,
+        expectedWorkers: lastSuccessfulRunRow.expected_workers,
+        completedWorkers: lastSuccessfulRunRow.completed_workers,
+        failedWorkers: lastSuccessfulRunRow.failed_workers,
+        watermarkBefore: lastSuccessfulRunRow.watermark_before ?? undefined,
+        watermarkAfter: lastSuccessfulRunRow.watermark_after ?? undefined,
+        startedAt: lastSuccessfulRunRow.started_at,
+        completedAt: lastSuccessfulRunRow.completed_at ?? undefined,
+      }
+    : null;
+
+  const recentRunsCount = {
+    total: 0,
+    completed: 0,
+    failed: 0,
+    running: 0,
+  };
+  for (const row of recentRunsResult.rows) {
+    const count = parseInt(row.count, 10);
+    recentRunsCount.total += count;
+    if (row.status === 'completed') recentRunsCount.completed = count;
+    else if (row.status === 'failed') recentRunsCount.failed = count;
+    else if (row.status === 'running') recentRunsCount.running = count;
+  }
+
+  const diamondsByAvailability = {
+    available: 0,
+    onHold: 0,
+    sold: 0,
+    unavailable: 0,
+  };
+  for (const row of availabilityResult.rows) {
+    const count = parseInt(row.count, 10);
+    if (row.availability === 'available') diamondsByAvailability.available = count;
+    else if (row.availability === 'on_hold') diamondsByAvailability.onHold = count;
+    else if (row.availability === 'sold') diamondsByAvailability.sold = count;
+    else if (row.availability === 'unavailable') diamondsByAvailability.unavailable = count;
+  }
+
+  return {
+    totalActiveDiamonds,
+    totalSuppliers,
+    lastSuccessfulRun,
+    currentWatermark: lastSuccessfulRun?.watermarkAfter ?? null,
+    recentRunsCount,
+    diamondsByAvailability,
+  };
+}
+
+// ============================================================================
+// Runs Queries
+// ============================================================================
+
+export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
+  runs: RunWithStats[];
+  total: number;
+}> {
+  const conditions: string[] = ['1=1'];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  if (filters.runType) {
+    conditions.push(`run_type = $${paramIndex++}`);
+    values.push(filters.runType);
+  }
+
+  if (filters.startedAfter) {
+    conditions.push(`started_at >= $${paramIndex++}`);
+    values.push(filters.startedAfter);
+  }
+
+  if (filters.startedBefore) {
+    conditions.push(`started_at <= $${paramIndex++}`);
+    values.push(filters.startedBefore);
+  }
+
+  // Status filter requires CASE expression
+  if (filters.status) {
+    const statusCondition = getStatusCondition(filters.status);
+    conditions.push(statusCondition);
+  }
+
+  const whereClause = conditions.join(' AND ');
+  const limit = filters.limit ?? 50;
+  const offset = filters.offset ?? 0;
+
+  const [countResult, dataResult] = await Promise.all([
+    query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM run_metadata WHERE ${whereClause}`,
+      values
+    ),
+    query<{
+      run_id: string;
+      run_type: string;
+      expected_workers: number;
+      completed_workers: number;
+      failed_workers: number;
+      watermark_before: Date | null;
+      watermark_after: Date | null;
+      started_at: Date;
+      completed_at: Date | null;
+      total_records: string;
+    }>(
+      `SELECT
+        rm.*,
+        COALESCE(SUM(wr.records_processed), 0) as total_records
+       FROM run_metadata rm
+       LEFT JOIN worker_runs wr ON rm.run_id = wr.run_id
+       WHERE ${whereClause}
+       GROUP BY rm.run_id
+       ORDER BY rm.started_at DESC
+       LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+      [...values, limit, offset]
+    ),
+  ]);
+
+  const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  const runs = dataResult.rows.map((row) => ({
+    runId: row.run_id,
+    runType: row.run_type as RunType,
+    expectedWorkers: row.expected_workers,
+    completedWorkers: row.completed_workers,
+    failedWorkers: row.failed_workers,
+    watermarkBefore: row.watermark_before ?? undefined,
+    watermarkAfter: row.watermark_after ?? undefined,
+    startedAt: row.started_at,
+    completedAt: row.completed_at ?? undefined,
+    totalRecordsProcessed: parseInt(row.total_records, 10),
+    durationMs: row.completed_at
+      ? row.completed_at.getTime() - row.started_at.getTime()
+      : null,
+    status: getRunStatus(row),
+  }));
+
+  return { runs, total };
+}
+
+function getStatusCondition(status: string): string {
+  switch (status) {
+    case 'running':
+      return '(completed_at IS NULL AND failed_workers = 0)';
+    case 'completed':
+      return '(completed_at IS NOT NULL AND failed_workers = 0)';
+    case 'failed':
+      return '(failed_workers > 0 AND completed_workers + failed_workers >= expected_workers)';
+    case 'partial':
+      return '(failed_workers > 0 AND completed_workers + failed_workers < expected_workers)';
+    default:
+      return '1=1';
+  }
+}
+
+function getRunStatus(row: {
+  completed_at: Date | null;
+  failed_workers: number;
+  completed_workers: number;
+  expected_workers: number;
+}): 'running' | 'completed' | 'failed' | 'partial' {
+  if (row.completed_at === null && row.failed_workers === 0) return 'running';
+  if (row.completed_at !== null && row.failed_workers === 0) return 'completed';
+  if (row.failed_workers > 0 && row.completed_workers + row.failed_workers >= row.expected_workers)
+    return 'failed';
+  return 'partial';
+}
+
+export async function getRunDetails(runId: string): Promise<{
+  run: RunWithStats | null;
+  workers: WorkerRun[];
+}> {
+  const [runResult, workersResult] = await Promise.all([
+    query<{
+      run_id: string;
+      run_type: string;
+      expected_workers: number;
+      completed_workers: number;
+      failed_workers: number;
+      watermark_before: Date | null;
+      watermark_after: Date | null;
+      started_at: Date;
+      completed_at: Date | null;
+    }>(`SELECT * FROM run_metadata WHERE run_id = $1`, [runId]),
+    query<{
+      id: string;
+      run_id: string;
+      partition_id: string;
+      worker_id: string;
+      status: string;
+      records_processed: number;
+      error_message: string | null;
+      work_item_payload: Record<string, unknown> | null;
+      started_at: Date;
+      completed_at: Date | null;
+    }>(`SELECT * FROM worker_runs WHERE run_id = $1 ORDER BY partition_id`, [runId]),
+  ]);
+
+  const runRow = runResult.rows[0];
+  if (!runRow) {
+    return { run: null, workers: [] };
+  }
+
+  // Get total records
+  const recordsResult = await query<{ total: string }>(
+    `SELECT COALESCE(SUM(records_processed), 0) as total FROM worker_runs WHERE run_id = $1`,
+    [runId]
+  );
+
+  const run: RunWithStats = {
+    runId: runRow.run_id,
+    runType: runRow.run_type as RunType,
+    expectedWorkers: runRow.expected_workers,
+    completedWorkers: runRow.completed_workers,
+    failedWorkers: runRow.failed_workers,
+    watermarkBefore: runRow.watermark_before ?? undefined,
+    watermarkAfter: runRow.watermark_after ?? undefined,
+    startedAt: runRow.started_at,
+    completedAt: runRow.completed_at ?? undefined,
+    totalRecordsProcessed: parseInt(recordsResult.rows[0]?.total ?? '0', 10),
+    durationMs: runRow.completed_at
+      ? runRow.completed_at.getTime() - runRow.started_at.getTime()
+      : null,
+    status: getRunStatus(runRow),
+  };
+
+  const workers: WorkerRun[] = workersResult.rows.map((row) => ({
+    id: row.id,
+    runId: row.run_id,
+    partitionId: row.partition_id,
+    workerId: row.worker_id,
+    status: row.status as WorkerStatus,
+    recordsProcessed: row.records_processed,
+    errorMessage: row.error_message ?? undefined,
+    workItemPayload: row.work_item_payload ?? undefined,
+    startedAt: row.started_at,
+    completedAt: row.completed_at ?? undefined,
+  }));
+
+  return { run, workers };
+}
+
+// ============================================================================
+// Supplier Stats
+// ============================================================================
+
+export async function getSupplierStats(): Promise<SupplierStats[]> {
+  const result = await query<{
+    supplier: string;
+    total_diamonds: string;
+    available_diamonds: string;
+    on_hold_diamonds: string;
+    sold_diamonds: string;
+    avg_price_cents: string;
+    min_price_cents: string;
+    max_price_cents: string;
+    last_updated: Date | null;
+  }>(
+    `SELECT
+      supplier,
+      COUNT(*) as total_diamonds,
+      COUNT(*) FILTER (WHERE availability = 'available') as available_diamonds,
+      COUNT(*) FILTER (WHERE availability = 'on_hold') as on_hold_diamonds,
+      COUNT(*) FILTER (WHERE availability = 'sold') as sold_diamonds,
+      COALESCE(AVG(supplier_price_cents), 0) as avg_price_cents,
+      COALESCE(MIN(supplier_price_cents), 0) as min_price_cents,
+      COALESCE(MAX(supplier_price_cents), 0) as max_price_cents,
+      MAX(updated_at) as last_updated
+     FROM diamonds
+     WHERE status = 'active'
+     GROUP BY supplier
+     ORDER BY total_diamonds DESC`
+  );
+
+  return result.rows.map((row) => ({
+    supplier: row.supplier,
+    totalDiamonds: parseInt(row.total_diamonds, 10),
+    availableDiamonds: parseInt(row.available_diamonds, 10),
+    onHoldDiamonds: parseInt(row.on_hold_diamonds, 10),
+    soldDiamonds: parseInt(row.sold_diamonds, 10),
+    avgPriceCents: Math.round(parseFloat(row.avg_price_cents)),
+    minPriceCents: parseInt(row.min_price_cents, 10),
+    maxPriceCents: parseInt(row.max_price_cents, 10),
+    lastUpdated: row.last_updated,
+  }));
+}
+
+// ============================================================================
+// Consolidation Progress
+// ============================================================================
+
+export async function getConsolidationProgress(runId: string): Promise<ConsolidationProgress | null> {
+  const result = await query<{
+    total_raw: string;
+    consolidated_count: string;
+    pending_count: string;
+    oldest_pending: Date | null;
+  }>(
+    `SELECT
+      COUNT(*) as total_raw,
+      COUNT(*) FILTER (WHERE consolidated = true) as consolidated_count,
+      COUNT(*) FILTER (WHERE consolidated = false) as pending_count,
+      MIN(created_at) FILTER (WHERE consolidated = false) as oldest_pending
+     FROM raw_diamonds_nivoda
+     WHERE run_id = $1`,
+    [runId]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const totalRaw = parseInt(row.total_raw, 10);
+  const consolidatedCount = parseInt(row.consolidated_count, 10);
+  const pendingCount = parseInt(row.pending_count, 10);
+
+  return {
+    runId,
+    totalRawDiamonds: totalRaw,
+    consolidatedCount,
+    pendingCount,
+    progressPercent: totalRaw > 0 ? Math.round((consolidatedCount / totalRaw) * 100) : 0,
+    oldestPendingCreatedAt: row.oldest_pending,
+  };
+}
+
+export async function getOverallConsolidationStats(): Promise<{
+  totalRaw: number;
+  totalConsolidated: number;
+  totalPending: number;
+  progressPercent: number;
+}> {
+  const result = await query<{
+    total_raw: string;
+    consolidated_count: string;
+    pending_count: string;
+  }>(
+    `SELECT
+      COUNT(*) as total_raw,
+      COUNT(*) FILTER (WHERE consolidated = true) as consolidated_count,
+      COUNT(*) FILTER (WHERE consolidated = false) as pending_count
+     FROM raw_diamonds_nivoda`
+  );
+
+  const row = result.rows[0]!;
+  const totalRaw = parseInt(row.total_raw, 10);
+  const consolidatedCount = parseInt(row.consolidated_count, 10);
+  const pendingCount = parseInt(row.pending_count, 10);
+
+  return {
+    totalRaw,
+    totalConsolidated: consolidatedCount,
+    totalPending: pendingCount,
+    progressPercent: totalRaw > 0 ? Math.round((consolidatedCount / totalRaw) * 100) : 0,
+  };
+}
+
+// ============================================================================
+// Query Proxy - Flexible database queries
+// ============================================================================
+
+export type QueryOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
+
+export interface QueryFilter {
+  [field: string]: {
+    [K in QueryOperator]?: unknown;
+  };
+}
+
+export interface QueryOptions {
+  select?: string;
+  filters?: QueryFilter;
+  order?: { column: string; ascending: boolean };
+  limit?: number;
+  offset?: number;
+}
+
+// Allowlist of tables that can be queried
+const ALLOWED_TABLES = ['diamonds', 'run_metadata', 'worker_runs'] as const;
+type AllowedTable = (typeof ALLOWED_TABLES)[number];
+
+// Allowlist of columns per table for security
+const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
+  diamonds: [
+    'id', 'supplier', 'supplier_stone_id', 'offer_id', 'shape', 'carats', 'color', 'clarity',
+    'cut', 'polish', 'symmetry', 'fluorescence', 'lab_grown', 'treated',
+    'supplier_price_cents', 'price_per_carat_cents', 'retail_price_cents',
+    'markup_ratio', 'rating', 'availability', 'raw_availability',
+    'image_url', 'video_url', 'certificate_lab', 'certificate_number',
+    'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',
+  ],
+  run_metadata: [
+    'run_id', 'run_type', 'expected_workers', 'completed_workers', 'failed_workers',
+    'watermark_before', 'watermark_after', 'started_at', 'completed_at',
+  ],
+  worker_runs: [
+    'id', 'run_id', 'partition_id', 'worker_id', 'status',
+    'records_processed', 'error_message', 'started_at', 'completed_at',
+  ],
+};
+
+export function isAllowedTable(table: string): table is AllowedTable {
+  return ALLOWED_TABLES.includes(table as AllowedTable);
+}
+
+function validateColumns(table: AllowedTable, columns: string[]): boolean {
+  const allowed = ALLOWED_COLUMNS[table];
+  return columns.every((col) => {
+    // Handle aggregate functions and aliases
+    const cleanCol = col.replace(/\s+as\s+\w+$/i, '').trim();
+    const match = cleanCol.match(/^(?:count|sum|avg|min|max)\((\*|\w+)\)$/i);
+    if (match) {
+      return match[1] === '*' || allowed.includes(match[1]!);
+    }
+    return allowed.includes(cleanCol);
+  });
+}
+
+function buildOperatorCondition(
+  field: string,
+  operator: QueryOperator,
+  value: unknown,
+  paramIndex: number
+): { condition: string; values: unknown[]; nextIndex: number } {
+  switch (operator) {
+    case 'eq':
+      return { condition: `${field} = $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'neq':
+      return { condition: `${field} != $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'gt':
+      return { condition: `${field} > $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'gte':
+      return { condition: `${field} >= $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'lt':
+      return { condition: `${field} < $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'lte':
+      return { condition: `${field} <= $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'like':
+      return { condition: `${field} LIKE $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'ilike':
+      return { condition: `${field} ILIKE $${paramIndex}`, values: [value], nextIndex: paramIndex + 1 };
+    case 'in':
+      return { condition: `${field} = ANY($${paramIndex})`, values: [value], nextIndex: paramIndex + 1 };
+    case 'is':
+      // For IS NULL / IS NOT NULL
+      if (value === null) {
+        return { condition: `${field} IS NULL`, values: [], nextIndex: paramIndex };
+      }
+      return { condition: `${field} IS NOT NULL`, values: [], nextIndex: paramIndex };
+    default:
+      throw new Error(`Unknown operator: ${operator}`);
+  }
+}
+
+export async function executeQuery(
+  table: string,
+  options: QueryOptions
+): Promise<{ rows: Record<string, unknown>[]; count: number }> {
+  if (!isAllowedTable(table)) {
+    throw new Error(`Table '${table}' is not allowed for querying`);
+  }
+
+  // Parse and validate select columns
+  const selectClause = options.select || '*';
+  if (selectClause !== '*') {
+    const columns = selectClause.split(',').map((c) => c.trim());
+    if (!validateColumns(table, columns)) {
+      throw new Error(`Invalid columns in select clause`);
+    }
+  }
+
+  // Build WHERE clause from filters
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  if (options.filters) {
+    for (const [field, operators] of Object.entries(options.filters)) {
+      // Validate field name
+      if (!ALLOWED_COLUMNS[table].includes(field)) {
+        throw new Error(`Invalid field '${field}' for table '${table}'`);
+      }
+
+      for (const [op, value] of Object.entries(operators)) {
+        const result = buildOperatorCondition(field, op as QueryOperator, value, paramIndex);
+        conditions.push(result.condition);
+        values.push(...result.values);
+        paramIndex = result.nextIndex;
+      }
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Build ORDER BY clause
+  let orderClause = '';
+  if (options.order) {
+    if (!ALLOWED_COLUMNS[table].includes(options.order.column)) {
+      throw new Error(`Invalid order column '${options.order.column}'`);
+    }
+    orderClause = `ORDER BY ${options.order.column} ${options.order.ascending ? 'ASC' : 'DESC'}`;
+  }
+
+  // Build LIMIT/OFFSET
+  const limit = Math.min(options.limit ?? 100, 1000);
+  const offset = options.offset ?? 0;
+
+  // Execute count query
+  const countSql = `SELECT COUNT(*) as count FROM ${table} ${whereClause}`;
+  const countResult = await query<{ count: string }>(countSql, values);
+  const count = parseInt(countResult.rows[0]?.count ?? '0', 10);
+
+  // Execute data query
+  const dataSql = `SELECT ${selectClause} FROM ${table} ${whereClause} ${orderClause} LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
+  const dataResult = await query<Record<string, unknown>>(dataSql, [...values, limit, offset]);
+
+  return {
+    rows: dataResult.rows,
+    count,
+  };
+}
