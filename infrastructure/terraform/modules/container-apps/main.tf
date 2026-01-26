@@ -448,7 +448,7 @@ resource "azurerm_container_app_job" "scheduler" {
   # Schedule-based trigger (runs daily at 2 AM UTC)
   schedule_trigger_config {
     cron_expression          = var.scheduler_cron_expression
-    parallelism              = 1
+    parallelism              = var.scheduler_parallelism
     replica_completion_count = 1
   }
 
