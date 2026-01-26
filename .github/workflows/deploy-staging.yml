@@ -2,7 +2,10 @@ name: Deploy Staging
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches:
       - main
 
@@ -11,10 +14,12 @@ jobs:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     environment: staging
+    # Only run if CI workflow succeeded (or on manual trigger)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     strategy:
       matrix:
-        app: [api, scheduler, worker, consolidator]
+        app: [api, scheduler, worker, consolidator, dashboard]
 
     steps:
       - name: Checkout
@@ -98,3 +103,10 @@ jobs:
             --resource-group diamond-staging-rg \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-scheduler:${{ steps.sha.outputs.short }} \
             || echo "Scheduler job not found, skipping..."
+
+          # Update Dashboard
+          az containerapp update \
+            --name diamond-staging-dashboard \
+            --resource-group diamond-staging-rg \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-dashboard:${{ steps.sha.outputs.short }} \
+            || echo "Dashboard container app not found, skipping..."

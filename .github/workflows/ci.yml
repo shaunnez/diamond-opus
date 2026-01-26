@@ -44,7 +44,7 @@ jobs:
 
     strategy:
       matrix:
-        app: [api, scheduler, worker, consolidator]
+        app: [api, scheduler, worker, consolidator, dashboard]
 
     steps:
       - name: Checkout

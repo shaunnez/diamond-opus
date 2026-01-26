@@ -22,7 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        app: [api, scheduler, worker, consolidator]
+        app: [api, scheduler, worker, consolidator, dashboard]
 
     steps:
       - name: Checkout
@@ -119,6 +119,12 @@ jobs:
             --name diamond-prod-scheduler \
             --resource-group diamond-prod-rg \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-scheduler:${{ steps.tag.outputs.tag }}
+
+          # Update Dashboard
+          az containerapp update \
+            --name diamond-prod-dashboard \
+            --resource-group diamond-prod-rg \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-dashboard:${{ steps.tag.outputs.tag }}
 
       - name: Create deployment tag
         run: |
