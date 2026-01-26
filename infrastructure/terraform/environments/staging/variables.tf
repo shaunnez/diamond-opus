@@ -30,9 +30,9 @@ variable "image_tag" {
 
 # SKU configurations
 variable "servicebus_sku" {
-  description = "Service Bus SKU"
+  description = "Service Bus SKU (Basic for staging, Standard for prod)"
   type        = string
-  default     = "Standard"
+  default     = "Basic"
 }
 
 variable "storage_replication_type" {
@@ -143,4 +143,60 @@ variable "consolidator_max_replicas" {
   description = "Maximum consolidator replicas"
   type        = number
   default     = 1
+}
+
+# Log Analytics configuration
+variable "log_analytics_retention_days" {
+  description = "Log Analytics workspace retention in days (7 for staging to reduce costs)"
+  type        = number
+  default     = 7
+}
+
+# Container resource allocation (optimized for cost in staging)
+variable "api_cpu" {
+  description = "CPU allocation for API container"
+  type        = number
+  default     = 0.25
+}
+
+variable "api_memory" {
+  description = "Memory allocation for API container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "worker_cpu" {
+  description = "CPU allocation for worker container"
+  type        = number
+  default     = 0.5
+}
+
+variable "worker_memory" {
+  description = "Memory allocation for worker container"
+  type        = string
+  default     = "1Gi"
+}
+
+variable "consolidator_cpu" {
+  description = "CPU allocation for consolidator container"
+  type        = number
+  default     = 0.25
+}
+
+variable "consolidator_memory" {
+  description = "Memory allocation for consolidator container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "scheduler_cpu" {
+  description = "CPU allocation for scheduler job"
+  type        = number
+  default     = 0.25
+}
+
+variable "scheduler_memory" {
+  description = "Memory allocation for scheduler job"
+  type        = string
+  default     = "0.5Gi"
 }

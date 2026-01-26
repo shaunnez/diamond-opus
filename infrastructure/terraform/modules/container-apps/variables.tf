@@ -117,13 +117,13 @@ variable "scheduler_cron_expression" {
 variable "api_cpu" {
   description = "CPU allocation for API container"
   type        = number
-  default     = 0.5
+  default     = 0.25
 }
 
 variable "api_memory" {
   description = "Memory allocation for API container"
   type        = string
-  default     = "1Gi"
+  default     = "0.5Gi"
 }
 
 variable "api_min_replicas" {
@@ -167,13 +167,13 @@ variable "worker_max_replicas" {
 variable "consolidator_cpu" {
   description = "CPU allocation for consolidator container"
   type        = number
-  default     = 0.5
+  default     = 0.25
 }
 
 variable "consolidator_memory" {
   description = "Memory allocation for consolidator container"
   type        = string
-  default     = "1Gi"
+  default     = "0.5Gi"
 }
 
 variable "consolidator_min_replicas" {
@@ -192,13 +192,20 @@ variable "consolidator_max_replicas" {
 variable "scheduler_cpu" {
   description = "CPU allocation for scheduler job"
   type        = number
-  default     = 0.5
+  default     = 0.25
 }
 
 variable "scheduler_memory" {
   description = "Memory allocation for scheduler job"
   type        = string
-  default     = "1Gi"
+  default     = "0.5Gi"
+}
+
+# Log Analytics configuration
+variable "log_analytics_retention_days" {
+  description = "Log Analytics workspace retention in days"
+  type        = number
+  default     = 30
 }
 
 variable "tags" {

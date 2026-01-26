@@ -36,15 +36,15 @@ variable "servicebus_sku" {
 }
 
 variable "storage_replication_type" {
-  description = "Storage replication type"
+  description = "Storage replication type (ZRS for cost-optimized zone redundancy)"
   type        = string
-  default     = "GRS"
+  default     = "ZRS"
 }
 
 variable "acr_sku" {
-  description = "Container Registry SKU"
+  description = "Container Registry SKU (Basic is sufficient for most workloads)"
   type        = string
-  default     = "Standard"
+  default     = "Basic"
 }
 
 # External service configuration
@@ -143,4 +143,60 @@ variable "consolidator_max_replicas" {
   description = "Maximum consolidator replicas"
   type        = number
   default     = 2
+}
+
+# Log Analytics configuration
+variable "log_analytics_retention_days" {
+  description = "Log Analytics workspace retention in days"
+  type        = number
+  default     = 30
+}
+
+# Container resource allocation (production values)
+variable "api_cpu" {
+  description = "CPU allocation for API container"
+  type        = number
+  default     = 0.25
+}
+
+variable "api_memory" {
+  description = "Memory allocation for API container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "worker_cpu" {
+  description = "CPU allocation for worker container (higher for Nivoda API workload)"
+  type        = number
+  default     = 0.5
+}
+
+variable "worker_memory" {
+  description = "Memory allocation for worker container"
+  type        = string
+  default     = "1Gi"
+}
+
+variable "consolidator_cpu" {
+  description = "CPU allocation for consolidator container"
+  type        = number
+  default     = 0.25
+}
+
+variable "consolidator_memory" {
+  description = "Memory allocation for consolidator container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "scheduler_cpu" {
+  description = "CPU allocation for scheduler job"
+  type        = number
+  default     = 0.25
+}
+
+variable "scheduler_memory" {
+  description = "Memory allocation for scheduler job"
+  type        = string
+  default     = "0.5Gi"
 }
