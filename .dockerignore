@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt in Docker)
+dist
+**/dist
+
+# Development files
+*.log
+npm-debug.log*
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test and coverage
+coverage
+**/coverage
+.nyc_output
+
+# Documentation (not needed in runtime)
+*.md
+!README.md
+docs
+
+# Terraform and infrastructure
+infrastructure
+
+# Docker files (not needed inside container)
+docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD
+.github
+
+# Misc
+.DS_Store
+Thumbs.db
