@@ -109,13 +109,26 @@ module "container_apps" {
   # Scheduler configuration
   scheduler_cron_expression = var.scheduler_cron_expression
 
-  # Resource allocation
+  # Resource allocation - replicas
   api_min_replicas          = var.api_min_replicas
   api_max_replicas          = var.api_max_replicas
   worker_min_replicas       = var.worker_min_replicas
   worker_max_replicas       = var.worker_max_replicas
   consolidator_min_replicas = var.consolidator_min_replicas
   consolidator_max_replicas = var.consolidator_max_replicas
+
+  # Resource allocation - CPU/memory (optimized for cost)
+  api_cpu            = var.api_cpu
+  api_memory         = var.api_memory
+  worker_cpu         = var.worker_cpu
+  worker_memory      = var.worker_memory
+  consolidator_cpu   = var.consolidator_cpu
+  consolidator_memory = var.consolidator_memory
+  scheduler_cpu      = var.scheduler_cpu
+  scheduler_memory   = var.scheduler_memory
+
+  # Log Analytics
+  log_analytics_retention_days = var.log_analytics_retention_days
 
   tags = local.tags
 }
