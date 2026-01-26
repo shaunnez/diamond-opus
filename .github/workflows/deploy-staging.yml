@@ -158,8 +158,18 @@ jobs:
           # Deploy Consolidator (no ingress - consumes from queue)
           deploy_app "diamond-staging-consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG" "none" 0
 
-          # Deploy Scheduler (job, not continuous app)
-          deploy_job "diamond-staging-scheduler" "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+          # Scheduler is managed by Terraform (infrastructure.yml) with Schedule trigger
+          # Only update the image if the job exists, don't create it here
+          if az containerapp job show --name "diamond-staging-scheduler" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            echo "Updating scheduler job image"
+            az containerapp job update \
+              --name "diamond-staging-scheduler" \
+              --resource-group "$RESOURCE_GROUP" \
+              --container-name "scheduler" \
+              --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+          else
+            echo "Scheduler job not found - will be created by Terraform"
+          fi
 
           # Deploy Dashboard (external ingress on port 80 - nginx)
           deploy_app "diamond-staging-dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG" "external" 80

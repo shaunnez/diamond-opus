@@ -131,8 +131,9 @@ module "container_apps" {
   worker_memory      = var.worker_memory
   consolidator_cpu   = var.consolidator_cpu
   consolidator_memory = var.consolidator_memory
-  scheduler_cpu      = var.scheduler_cpu
-  scheduler_memory   = var.scheduler_memory
+  scheduler_cpu         = var.scheduler_cpu
+  scheduler_memory      = var.scheduler_memory
+  scheduler_parallelism = var.scheduler_parallelism
 
   # Log Analytics
   log_analytics_retention_days = var.log_analytics_retention_days
