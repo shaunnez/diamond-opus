@@ -26,17 +26,16 @@ scheduler_cron_expression = "0 2 * * *"
 
 # Nivoda API Configuration
 nivoda_endpoint  = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
-nivoda_username  = ""  # Your Nivoda username
-nivoda_password  = ""  # Your Nivoda password
-
+nivoda_username  = "testaccount@sample.com"
+nivoda_password  = "staging-nivoda-22"
+ 
 # Database (Supabase)
-# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-database_url = ""
-
+database_url = "postgresql://postgres:superstrongpassword123!@db.yazrhmjedaaplwbsaqob.supabase.co:5432/postgres"
+ 
 # API Configuration
-hmac_secrets = "{}"  # JSON object of client secrets, e.g. {"client1":"secret1"}
-
+hmac_secrets = "{\"shopify\":\"secret1\",\"internal\":\"secret2\"}"
+ 
 # Alerts (Resend)
-resend_api_key   = ""
-alert_email_to   = ""
-alert_email_from = ""
+resend_api_key   = "re_..."
+alert_email_to   = "alerts@example.com"
+alert_email_from = "noreply@yourdomain.com"
