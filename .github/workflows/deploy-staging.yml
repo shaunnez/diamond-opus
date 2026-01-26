@@ -76,19 +76,23 @@ jobs:
           az containerapp update \
             --name diamond-staging-api \
             --resource-group diamond-staging-rg \
+            --container-name api \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-api:${{ steps.sha.outputs.short }}
 
           az containerapp update \
             --name diamond-staging-worker \
             --resource-group diamond-staging-rg \
+            --container-name worker \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-worker:${{ steps.sha.outputs.short }}
 
           az containerapp update \
             --name diamond-staging-consolidator \
             --resource-group diamond-staging-rg \
+            --container-name consolidator \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-consolidator:${{ steps.sha.outputs.short }}
 
           az containerapp job update \
             --name diamond-staging-scheduler \
             --resource-group diamond-staging-rg \
+            --container-name scheduler \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-scheduler:${{ steps.sha.outputs.short }}
