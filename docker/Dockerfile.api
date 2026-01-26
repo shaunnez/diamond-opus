@@ -1,5 +1,4 @@
 FROM node:20-alpine AS builder
-ENV NODE_ENV=production
 
 WORKDIR /app
 
@@ -24,6 +23,7 @@ RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && np
 FROM node:20-alpine
 
 WORKDIR /app
+ENV NODE_ENV=production
 
 COPY package*.json ./
 COPY packages/shared/package.json ./packages/shared/
