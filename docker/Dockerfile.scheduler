@@ -2,11 +2,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy all package.json files for npm workspaces
 COPY package*.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY packages/api/package.json ./packages/api/
 COPY apps/scheduler/package.json ./apps/scheduler/
+COPY apps/worker/package.json ./apps/worker/
+COPY apps/consolidator/package.json ./apps/consolidator/
 
 RUN npm ci
 
@@ -22,11 +27,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Copy all package.json files for npm workspaces
 COPY package*.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY packages/api/package.json ./packages/api/
 COPY apps/scheduler/package.json ./apps/scheduler/
+COPY apps/worker/package.json ./apps/worker/
+COPY apps/consolidator/package.json ./apps/consolidator/
 
 RUN npm ci --omit=dev
 
