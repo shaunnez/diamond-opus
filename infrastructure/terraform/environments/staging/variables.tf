@@ -225,3 +225,12 @@ variable "scheduler_memory" {
   type        = string
   default     = "0.5Gi"
 }
+
+variable "scheduler_parallelism" {
+  type    = number
+  default = 1
+  validation {
+    condition     = var.scheduler_parallelism >= 1
+    error_message = "scheduler_parallelism must be >= 1"
+  }
+}
