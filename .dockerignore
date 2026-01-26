@@ -39,8 +39,7 @@ docs
 infrastructure
 
 # Docker files (not needed inside container)
-docker
-Dockerfile*
+docker/Dockerfile.*
 docker-compose*
 .dockerignore
 
