@@ -26,6 +26,7 @@ RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && np
 FROM node:20-alpine
 
 WORKDIR /app
+ENV NODE_ENV=production
 
 # Copy all package.json files for npm workspaces
 COPY package*.json ./
