@@ -9,7 +9,7 @@ COPY package*.json ./
 COPY apps/dashboard/package.json ./apps/dashboard/
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source files
 COPY apps/dashboard ./apps/dashboard
