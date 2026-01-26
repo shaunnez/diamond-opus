@@ -132,6 +132,7 @@ module "container_apps" {
   consolidator_memory = var.consolidator_memory
   scheduler_cpu      = var.scheduler_cpu
   scheduler_memory   = var.scheduler_memory
+  parallelism         = var.scheduler_parallelism
 
   # Log Analytics (reduced retention for staging)
   log_analytics_retention_days = var.log_analytics_retention_days
