@@ -10,6 +10,7 @@ config({ path: resolve(rootDir, '.env') });
 
 import {
   CONSOLIDATOR_BATCH_SIZE,
+  CONSOLIDATOR_CONCURRENCY,
   createLogger,
   type ConsolidateMessage,
   type Watermark,
@@ -31,11 +32,40 @@ import { sendAlert } from './alerts.js';
 
 const baseLogger = createLogger({ service: 'consolidator' });
 
+interface ProcessResult {
+  id: string;
+  success: boolean;
+}
+
+async function processWithConcurrency<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  concurrency: number
+): Promise<R[]> {
+  const results: R[] = [];
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const currentIndex = index++;
+      const item = items[currentIndex];
+      if (item !== undefined) {
+        results[currentIndex] = await processor(item);
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
+  await Promise.all(workers);
+
+  return results;
+}
+
 async function processConsolidation(
   message: ConsolidateMessage,
   log: Logger
 ): Promise<void> {
-  log.info('Starting consolidation');
+  log.info('Starting consolidation', { concurrency: CONSOLIDATOR_CONCURRENCY });
 
   const pricingEngine = new PricingEngine();
   await pricingEngine.loadRules();
@@ -57,25 +87,29 @@ async function processConsolidation(
 
     log.debug('Processing batch', { batchSize: rawDiamonds.length });
 
-    const processedIds: string[] = [];
+    const results = await processWithConcurrency(
+      rawDiamonds,
+      async (rawDiamond): Promise<ProcessResult> => {
+        try {
+          const baseDiamond = mapRawPayloadToDiamond(rawDiamond.payload);
+          const pricedDiamond = pricingEngine.applyPricing(baseDiamond);
+          await upsertDiamond(pricedDiamond);
+          return { id: rawDiamond.id, success: true };
+        } catch (error) {
+          log.error('Error processing raw diamond', error, {
+            rawDiamondId: rawDiamond.id,
+          });
+          return { id: rawDiamond.id, success: false };
+        }
+      },
+      CONSOLIDATOR_CONCURRENCY
+    );
 
-    for (const rawDiamond of rawDiamonds) {
-      try {
-        const baseDiamond = mapRawPayloadToDiamond(rawDiamond.payload);
+    const processedIds = results.filter((r) => r.success).map((r) => r.id);
+    const errorCount = results.filter((r) => !r.success).length;
 
-        const pricedDiamond = pricingEngine.applyPricing(baseDiamond);
-
-        await upsertDiamond(pricedDiamond);
-
-        processedIds.push(rawDiamond.id);
-        totalProcessed++;
-      } catch (error) {
-        totalErrors++;
-        log.error('Error processing raw diamond', error, {
-          rawDiamondId: rawDiamond.id,
-        });
-      }
-    }
+    totalProcessed += processedIds.length;
+    totalErrors += errorCount;
 
     if (processedIds.length > 0) {
       await markAsConsolidated(processedIds);
@@ -85,6 +119,7 @@ async function processConsolidation(
       totalProcessed,
       totalErrors,
       batchProcessed: processedIds.length,
+      batchErrors: errorCount,
     });
 
     if (rawDiamonds.length < CONSOLIDATOR_BATCH_SIZE) {
@@ -124,7 +159,7 @@ async function handleConsolidateMessage(
     return;
   }
 
-  if (runMetadata.failedWorkers > 0) {
+  if (runMetadata.failedWorkers > 0 && !message.force) {
     log.error('Workers failed, skipping consolidation', {
       failedWorkers: runMetadata.failedWorkers,
       expectedWorkers: runMetadata.expectedWorkers,
@@ -138,6 +173,14 @@ async function handleConsolidateMessage(
         `Failed workers: ${runMetadata.failedWorkers}`
     );
     return;
+  }
+
+  if (runMetadata.failedWorkers > 0 && message.force) {
+    log.warn('Force consolidation enabled, proceeding despite failed workers', {
+      failedWorkers: runMetadata.failedWorkers,
+      expectedWorkers: runMetadata.expectedWorkers,
+      completedWorkers: runMetadata.completedWorkers,
+    });
   }
 
   try {

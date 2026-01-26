@@ -21,6 +21,7 @@ interface WorkerRunRow {
   status: string;
   records_processed: number;
   error_message: string | null;
+  work_item_payload: Record<string, unknown> | null;
   started_at: Date;
   completed_at: Date | null;
 }
@@ -48,6 +49,7 @@ function mapRowToWorkerRun(row: WorkerRunRow): WorkerRun {
     status: row.status as WorkerStatus,
     recordsProcessed: row.records_processed,
     errorMessage: row.error_message ?? undefined,
+    workItemPayload: row.work_item_payload ?? undefined,
     startedAt: row.started_at,
     completedAt: row.completed_at ?? undefined,
   };
@@ -113,13 +115,14 @@ export async function completeRun(runId: string, watermarkAfter?: Date): Promise
 export async function createWorkerRun(
   runId: string,
   partitionId: string,
-  workerId: string
+  workerId: string,
+  workItemPayload?: Record<string, unknown>
 ): Promise<WorkerRun> {
   const result = await query<WorkerRunRow>(
-    `INSERT INTO worker_runs (run_id, partition_id, worker_id, status)
-     VALUES ($1, $2, $3, 'running')
+    `INSERT INTO worker_runs (run_id, partition_id, worker_id, status, work_item_payload)
+     VALUES ($1, $2, $3, 'running', $4)
      RETURNING *`,
-    [runId, partitionId, workerId]
+    [runId, partitionId, workerId, workItemPayload ? JSON.stringify(workItemPayload) : null]
   );
   return mapRowToWorkerRun(result.rows[0]!);
 }
@@ -144,4 +147,58 @@ export async function getWorkerRunsByRunId(runId: string): Promise<WorkerRun[]> 
     [runId]
   );
   return result.rows.map(mapRowToWorkerRun);
+}
+
+export async function getFailedWorkerRuns(runId: string): Promise<WorkerRun[]> {
+  const result = await query<WorkerRunRow>(
+    `SELECT * FROM worker_runs WHERE run_id = $1 AND status = 'failed' ORDER BY started_at`,
+    [runId]
+  );
+  return result.rows.map(mapRowToWorkerRun);
+}
+
+export async function resetFailedWorker(
+  runId: string,
+  partitionId: string
+): Promise<void> {
+  // Delete the failed worker run record so it can be recreated
+  await query(
+    `DELETE FROM worker_runs WHERE run_id = $1 AND partition_id = $2 AND status = 'failed'`,
+    [runId, partitionId]
+  );
+
+  // Decrement the failed workers count and completed workers count
+  await query(
+    `UPDATE run_metadata
+     SET failed_workers = GREATEST(0, failed_workers - 1)
+     WHERE run_id = $1`,
+    [runId]
+  );
+}
+
+export async function resetAllFailedWorkers(runId: string): Promise<number> {
+  // Get count of failed workers first
+  const countResult = await query<{ count: string }>(
+    `SELECT COUNT(*) as count FROM worker_runs WHERE run_id = $1 AND status = 'failed'`,
+    [runId]
+  );
+  const failedCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
+
+  if (failedCount === 0) {
+    return 0;
+  }
+
+  // Delete all failed worker run records
+  await query(
+    `DELETE FROM worker_runs WHERE run_id = $1 AND status = 'failed'`,
+    [runId]
+  );
+
+  // Reset the failed workers count
+  await query(
+    `UPDATE run_metadata SET failed_workers = 0 WHERE run_id = $1`,
+    [runId]
+  );
+
+  return failedCount;
 }

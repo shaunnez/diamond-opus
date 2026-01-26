@@ -22,6 +22,7 @@ export interface WorkerRun {
   status: WorkerStatus;
   recordsProcessed: number;
   errorMessage?: string;
+  workItemPayload?: Record<string, unknown>;
   startedAt: Date;
   completedAt?: Date;
 }

@@ -148,6 +148,7 @@ CREATE TABLE worker_runs (
   status TEXT NOT NULL,
   records_processed INTEGER DEFAULT 0,
   error_message TEXT,
+  work_item_payload JSONB,  -- Stores original work item for retry capability
   started_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
 
@@ -155,6 +156,9 @@ CREATE TABLE worker_runs (
 );
 
 CREATE INDEX idx_worker_runs_status ON worker_runs(run_id, status);
+
+-- Migration for existing databases (run manually if upgrading):
+-- ALTER TABLE worker_runs ADD COLUMN IF NOT EXISTS work_item_payload JSONB;
 
 -- Hold history table
 CREATE TABLE hold_history (

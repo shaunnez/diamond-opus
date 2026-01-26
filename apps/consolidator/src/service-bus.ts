@@ -1,6 +1,7 @@
 import {
   ServiceBusClient,
   ServiceBusReceiver,
+  ServiceBusSender,
   ServiceBusReceivedMessage,
 } from '@azure/service-bus';
 import {
@@ -11,6 +12,7 @@ import {
 
 let serviceBusClient: ServiceBusClient | null = null;
 let consolidateReceiver: ServiceBusReceiver | null = null;
+let consolidateSender: ServiceBusSender | null = null;
 
 function getServiceBusClient(): ServiceBusClient {
   if (!serviceBusClient) {
@@ -27,6 +29,22 @@ export function getConsolidateReceiver(): ServiceBusReceiver {
     consolidateReceiver = client.createReceiver(SERVICE_BUS_QUEUES.CONSOLIDATE);
   }
   return consolidateReceiver;
+}
+
+function getConsolidateSender(): ServiceBusSender {
+  if (!consolidateSender) {
+    const client = getServiceBusClient();
+    consolidateSender = client.createSender(SERVICE_BUS_QUEUES.CONSOLIDATE);
+  }
+  return consolidateSender;
+}
+
+export async function sendConsolidateMessage(message: ConsolidateMessage): Promise<void> {
+  const sender = getConsolidateSender();
+  await sender.sendMessages({
+    body: message,
+    contentType: 'application/json',
+  });
 }
 
 export async function receiveConsolidateMessage(): Promise<{
@@ -59,6 +77,10 @@ export async function closeConnections(): Promise<void> {
   if (consolidateReceiver) {
     await consolidateReceiver.close();
     consolidateReceiver = null;
+  }
+  if (consolidateSender) {
+    await consolidateSender.close();
+    consolidateSender = null;
   }
   if (serviceBusClient) {
     await serviceBusClient.close();
