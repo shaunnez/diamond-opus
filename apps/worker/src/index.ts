@@ -1,13 +1,17 @@
-import { config } from "dotenv";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(__dirname, "../../..");
+// Only load dotenv in development - production uses container env vars
+if (process.env.NODE_ENV !== 'production') {
+  const { config } = await import('dotenv');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, resolve } = await import('node:path');
 
-config({ path: resolve(rootDir, ".env.local") });
-config({ path: resolve(rootDir, ".env") });
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const rootDir = resolve(__dirname, '../../..');
+
+  config({ path: resolve(rootDir, '.env.local') });
+  config({ path: resolve(rootDir, '.env') });
+}
 import {
   WORKER_PAGE_SIZE,
   DIAMOND_SHAPES,
