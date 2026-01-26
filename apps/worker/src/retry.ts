@@ -1,28 +1,25 @@
-import { config } from 'dotenv';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(__dirname, '../../..');
+const rootDir = resolve(__dirname, "../../..");
 
-config({ path: resolve(rootDir, '.env.local') });
-config({ path: resolve(rootDir, '.env') });
+config({ path: resolve(rootDir, ".env.local") });
+config({ path: resolve(rootDir, ".env") });
 
-import {
-  createLogger,
-  type WorkItemMessage,
-} from '@diamond/shared';
+import { createLogger, type WorkItemMessage } from "@diamond/shared";
 import {
   getRunMetadata,
   getFailedWorkerRuns,
   resetFailedWorker,
-  resetAllFailedWorkers,
+  // resetAllFailedWorkers,
   closePool,
-} from '@diamond/database';
-import { ServiceBusClient, ServiceBusSender } from '@azure/service-bus';
-import { requireEnv, SERVICE_BUS_QUEUES } from '@diamond/shared';
+} from "@diamond/database";
+import { ServiceBusClient, ServiceBusSender } from "@azure/service-bus";
+import { requireEnv, SERVICE_BUS_QUEUES } from "@diamond/shared";
 
-const logger = createLogger({ service: 'worker-retry' });
+const logger = createLogger({ service: "worker-retry" });
 
 let serviceBusClient: ServiceBusClient | null = null;
 let workItemsSender: ServiceBusSender | null = null;
@@ -30,7 +27,7 @@ let workItemsSender: ServiceBusSender | null = null;
 function getServiceBusClient(): ServiceBusClient {
   if (!serviceBusClient) {
     serviceBusClient = new ServiceBusClient(
-      requireEnv('AZURE_SERVICE_BUS_CONNECTION_STRING')
+      requireEnv("AZURE_SERVICE_BUS_CONNECTION_STRING"),
     );
   }
   return serviceBusClient;
@@ -48,7 +45,7 @@ async function sendWorkItem(message: WorkItemMessage): Promise<void> {
   const sender = getWorkItemsSender();
   await sender.sendMessages({
     body: message,
-    contentType: 'application/json',
+    contentType: "application/json",
   });
 }
 
@@ -87,12 +84,12 @@ async function listFailedWorkers(runId: string): Promise<void> {
 
   const runMetadata = await getRunMetadata(runId);
   if (!runMetadata) {
-    log.error('Run not found');
+    log.error("Run not found");
     process.exitCode = 1;
     return;
   }
 
-  log.info('Run metadata', {
+  log.info("Run metadata", {
     runType: runMetadata.runType,
     expectedWorkers: runMetadata.expectedWorkers,
     completedWorkers: runMetadata.completedWorkers,
@@ -104,28 +101,31 @@ async function listFailedWorkers(runId: string): Promise<void> {
   const failedWorkers = await getFailedWorkerRuns(runId);
 
   if (failedWorkers.length === 0) {
-    log.info('No failed workers found');
+    log.info("No failed workers found");
     return;
   }
 
-  console.log('\nFailed Workers:');
-  console.log('---------------');
+  console.log("\nFailed Workers:");
+  console.log("---------------");
   for (const worker of failedWorkers) {
     console.log(`  Partition: ${worker.partitionId}`);
     console.log(`    Status: ${worker.status}`);
-    console.log(`    Error: ${worker.errorMessage ?? 'N/A'}`);
+    console.log(`    Error: ${worker.errorMessage ?? "N/A"}`);
     console.log(`    Records Processed: ${worker.recordsProcessed}`);
-    console.log(`    Has Payload: ${worker.workItemPayload ? 'Yes' : 'No'}`);
-    console.log('');
+    console.log(`    Has Payload: ${worker.workItemPayload ? "Yes" : "No"}`);
+    console.log("");
   }
 }
 
-async function retryFailedWorkers(runId: string, partitionId?: string): Promise<void> {
+async function retryFailedWorkers(
+  runId: string,
+  partitionId?: string,
+): Promise<void> {
   const log = logger.child({ runId, partitionId });
 
   const runMetadata = await getRunMetadata(runId);
   if (!runMetadata) {
-    log.error('Run not found');
+    log.error("Run not found");
     process.exitCode = 1;
     return;
   }
@@ -133,7 +133,7 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
   const failedWorkers = await getFailedWorkerRuns(runId);
 
   if (failedWorkers.length === 0) {
-    log.info('No failed workers found');
+    log.info("No failed workers found");
     return;
   }
 
@@ -142,16 +142,16 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
     : failedWorkers;
 
   if (workersToRetry.length === 0) {
-    log.error('No matching failed workers found', { partitionId });
+    log.error("No matching failed workers found", { partitionId });
     process.exitCode = 1;
     return;
   }
 
-  log.info('Retrying failed workers', { count: workersToRetry.length });
+  log.info("Retrying failed workers", { count: workersToRetry.length });
 
   for (const worker of workersToRetry) {
     if (!worker.workItemPayload) {
-      log.error('Worker has no stored payload, cannot retry', {
+      log.error("Worker has no stored payload, cannot retry", {
         partitionId: worker.partitionId,
       });
       continue;
@@ -159,7 +159,7 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
 
     const workItem = worker.workItemPayload as unknown as WorkItemMessage;
 
-    log.info('Re-queuing work item', {
+    log.info("Re-queuing work item", {
       partitionId: worker.partitionId,
       minPrice: workItem.minPrice,
       maxPrice: workItem.maxPrice,
@@ -172,10 +172,12 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
     // Re-queue the work item
     await sendWorkItem(workItem);
 
-    log.info('Work item re-queued successfully', { partitionId: worker.partitionId });
+    log.info("Work item re-queued successfully", {
+      partitionId: worker.partitionId,
+    });
   }
 
-  log.info('All specified workers have been re-queued');
+  log.info("All specified workers have been re-queued");
 }
 
 async function main(): Promise<void> {
@@ -193,10 +195,10 @@ async function main(): Promise<void> {
 
   try {
     switch (command) {
-      case 'list':
+      case "list":
         await listFailedWorkers(runId!);
         break;
-      case 'retry':
+      case "retry":
         await retryFailedWorkers(runId!, partitionId);
         break;
       default:
@@ -205,7 +207,7 @@ async function main(): Promise<void> {
         process.exitCode = 1;
     }
   } catch (error) {
-    logger.error('Command failed', error);
+    logger.error("Command failed", error);
     process.exitCode = 1;
   } finally {
     await closeConnections();
