@@ -1,5 +1,5 @@
 # Staging Environment Configuration
-# Copy this file to terraform.tfvars.local and fill in sensitive values
+# Copy this file to terraform.tfvars and fill in sensitive values
 
 subscription_id = "2dade7a0-6731-4d26-ba6d-02228cccbe2d"
 environment     = "staging"
@@ -24,9 +24,19 @@ consolidator_max_replicas = 1
 # Scheduler runs at 2 AM UTC
 scheduler_cron_expression = "0 2 * * *"
 
-# Nivoda staging endpoint
-nivoda_endpoint = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
+# Nivoda API Configuration
+nivoda_endpoint  = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
+nivoda_username  = ""  # Your Nivoda username
+nivoda_password  = ""  # Your Nivoda password
 
-# NOTE: Sensitive values should be provided via:
-# - Environment variables: TF_VAR_database_url, TF_VAR_nivoda_username, etc.
-# - Or a separate terraform.tfvars.local file (gitignored)
+# Database (Supabase)
+# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
+database_url = ""
+
+# API Configuration
+hmac_secrets = "{}"  # JSON object of client secrets, e.g. {"client1":"secret1"}
+
+# Alerts (Resend)
+resend_api_key   = ""
+alert_email_to   = ""
+alert_email_from = ""
