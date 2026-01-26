@@ -24,9 +24,18 @@ consolidator_max_replicas = 1
 # Scheduler runs at 2 AM UTC
 scheduler_cron_expression = "0 2 * * *"
 
-# Nivoda staging endpoint
-nivoda_endpoint = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
-
-# NOTE: Sensitive values should be provided via:
-# - Environment variables: TF_VAR_database_url, TF_VAR_nivoda_username, etc.
-# - Or a separate terraform.tfvars.local file (gitignored)
+# Nivoda API Configuration
+nivoda_endpoint  = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
+nivoda_username  = "testaccount@sample.com"
+nivoda_password  = "staging-nivoda-22"
+ 
+# Database (Supabase)
+database_url = "postgresql://postgres:superstrongpassword123!@db.yazrhmjedaaplwbsaqob.supabase.co:5432/postgres"
+ 
+# API Configuration
+hmac_secrets = "{\"shopify\":\"secret1\",\"internal\":\"secret2\"}"
+ 
+# Alerts (Resend)
+resend_api_key   = "re_..."
+alert_email_to   = "alerts@example.com"
+alert_email_from = "noreply@yourdomain.com"
