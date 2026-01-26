@@ -79,10 +79,11 @@ module "container_apps" {
   source = "../../modules/container-apps"
   count  = var.enable_container_apps ? 1 : 0
 
-  environment_name = "diamond-${var.environment}-env"
-  app_name_prefix  = "diamond-${var.environment}"
-  location         = var.location
+  environment_name    = "diamond-${var.environment}-env"
+  app_name_prefix     = "diamond-${var.environment}"
+  location            = var.location
   resource_group_name = azurerm_resource_group.main.name
+  subscription_id     = var.subscription_id
 
   # Image configuration
   image_tag = var.image_tag
