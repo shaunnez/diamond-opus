@@ -266,3 +266,12 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "scheduler_parallelism" {
+  type    = number
+  default = 1
+  validation {
+    condition     = var.scheduler_parallelism >= 1
+    error_message = "scheduler_parallelism must be >= 1"
+  }
+}
