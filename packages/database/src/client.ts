@@ -1,5 +1,5 @@
 import pg from "pg";
-import { requireEnv } from "@diamond/shared";
+import { optionalEnv, requireEnv } from "@diamond/shared";
 
 const { Pool } = pg;
 
@@ -7,12 +7,20 @@ let pool: pg.Pool | null = null;
 
 export function getPool(): pg.Pool {
   if (!pool) {
+    const url = optionalEnv("DATABASE_URL", "");
+    if (url) {
+      pool = new Pool({
+        connectionString: url,
+        ssl: { rejectUnauthorized: false },
+      });
+      return pool;
+    }
     const poolParams = {
-      host: requireEnv("DATABASE_HOST"),
-      port: Number(requireEnv("DATABASE_PORT")),
-      database: requireEnv("DATABASE_NAME"),
-      user: requireEnv("DATABASE_USERNAME"),
-      password: requireEnv("DATABASE_PASSWORD"),
+      host: optionalEnv("DATABASE_HOST", "localhost"),
+      port: Number(optionalEnv("DATABASE_PORT", "5432")),
+      database: optionalEnv("DATABASE_NAME", "postgres"),
+      user: optionalEnv("DATABASE_USERNAME", "postgres"),
+      password: optionalEnv("DATABASE_PASSWORD", ""),
       min: 2,
       max: 15,
       idleTimeoutMillis: 30000,
