@@ -34,6 +34,7 @@ CREATE TABLE raw_diamonds_nivoda (
 
 CREATE INDEX idx_raw_nivoda_consolidated ON raw_diamonds_nivoda(consolidated) WHERE NOT consolidated;
 CREATE INDEX idx_raw_nivoda_run_id ON raw_diamonds_nivoda(run_id);
+CREATE INDEX idx_raw_nivoda_unconsolidated_created ON raw_diamonds_nivoda(created_at ASC) WHERE NOT consolidated;
 
 -- Canonical diamonds table
 CREATE TABLE diamonds (
@@ -101,6 +102,11 @@ CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity) WHER
 CREATE INDEX idx_diamonds_price ON diamonds(supplier_price_cents) WHERE status = 'active';
 CREATE INDEX idx_diamonds_availability ON diamonds(availability) WHERE status = 'active';
 CREATE INDEX idx_diamonds_offer ON diamonds(offer_id);
+CREATE INDEX idx_diamonds_lab_grown ON diamonds(lab_grown) WHERE status = 'active';
+CREATE INDEX idx_diamonds_cut ON diamonds(cut) WHERE status = 'active';
+CREATE INDEX idx_diamonds_created ON diamonds(created_at DESC) WHERE status = 'active';
+CREATE INDEX idx_diamonds_deleted ON diamonds(deleted_at) WHERE status = 'deleted';
+CREATE INDEX idx_diamonds_carats ON diamonds(carats) WHERE status = 'active';
 
 -- Pricing rules table
 CREATE TABLE pricing_rules (
@@ -139,6 +145,8 @@ CREATE TABLE run_metadata (
   completed_at TIMESTAMPTZ
 );
 
+CREATE INDEX idx_run_metadata_incomplete ON run_metadata(started_at DESC) WHERE completed_at IS NULL;
+
 -- Worker runs table
 CREATE TABLE worker_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -155,6 +163,7 @@ CREATE TABLE worker_runs (
 );
 
 CREATE INDEX idx_worker_runs_status ON worker_runs(run_id, status);
+CREATE INDEX idx_worker_runs_run_started ON worker_runs(run_id, started_at);
 
 -- Hold history table
 CREATE TABLE hold_history (
@@ -168,6 +177,8 @@ CREATE TABLE hold_history (
   hold_until TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_hold_history_diamond_id ON hold_history(diamond_id, created_at DESC);
 
 -- Purchase history table
 CREATE TABLE purchase_history (
@@ -183,6 +194,8 @@ CREATE TABLE purchase_history (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_purchase_history_diamond_id ON purchase_history(diamond_id);
 
 -- Insert default pricing rule
 INSERT INTO pricing_rules (priority, markup_ratio, rating)
