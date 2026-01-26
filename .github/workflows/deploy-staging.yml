@@ -130,6 +130,7 @@ jobs:
               az containerapp job update \
                 --name "$name" \
                 --resource-group "$RESOURCE_GROUP" \
+                --container-name "$name" \
                 --image "$image"
             else
               echo "Creating new job: $name"
