@@ -22,9 +22,12 @@
       "@diamond/api": ["packages/api/src/index.ts"]
     }
   },
-  "include": [
-    "packages/*/src/**/*.ts",
-    "apps/*/src/**/*.ts"
-  ],
-  "exclude": ["node_modules", "dist", "**/dist/**", "**/__tests__/**"]
+  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/dist/**",
+    "**/__tests__/**",
+    "**/apps/dashboard/**"
+  ]
 }

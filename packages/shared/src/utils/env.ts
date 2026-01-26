@@ -6,8 +6,11 @@ export function requireEnv(name: string): string {
   return value;
 }
 
-export function optionalEnv(name: string, defaultValue: string): string {
-  return process.env[name] ?? defaultValue;
+export function optionalEnv(
+  name: string,
+  defaultValue: string | undefined,
+): string {
+  return process.env[name] ?? defaultValue ?? "";
 }
 
 export function parseJsonEnv<T>(name: string): T {
