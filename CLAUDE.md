@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 npm install
 
-# Build all packages
+# Build all packages (in dependency order)
 npm run build
 
 # Run tests
@@ -20,31 +20,79 @@ npm run test -w @diamond/pricing-engine
 
 # Development servers
 npm run dev:api          # API on port 3000
-npm run dev:scheduler    # Run scheduler once
+npm run dev:scheduler    # Run scheduler once (exits)
 npm run dev:worker       # Long-running worker
 npm run dev:consolidator # Long-running consolidator
+
+# Manual operations
+npm run worker:retry         # Retry failed partitions
+npm run consolidator:trigger # Manually trigger consolidation
 
 # Generate Swagger spec
 npm run swagger
 
 # Type checking
 npm run typecheck
+
+# Linting
+npm run lint
 ```
 
 ## Architecture Overview
 
-This is a TypeScript monorepo using npm workspaces for diamond inventory management.
+This is a TypeScript monorepo using npm workspaces for diamond inventory management. It implements a **two-stage data pipeline** that ingests diamond data from Nivoda, applies pricing rules, and serves via REST API.
+
+### System Architecture
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Scheduler  │────▶│ Service Bus │────▶│   Workers   │
+│ (cron job)  │     │  (queues)   │     │ (consumers) │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                                      │
+       │ reads                               │ writes
+       ▼                                      ▼
+┌─────────────┐                         ┌─────────────┐
+│Azure Storage│                         │raw_diamonds │
+│ (watermark) │                         │  _nivoda    │
+└─────────────┘                         └─────────────┘
+                                              │
+                                              ▼
+                    ┌─────────────┐     ┌─────────────┐
+                    │   diamonds  │◀────│ Consolidator│
+                    │  (canon.)   │     │  (consumer) │
+                    └─────────────┘     └─────────────┘
+                          │
+                          ▼
+                    ┌─────────────┐
+                    │  REST API   │
+                    │  (Express)  │
+                    └─────────────┘
+```
 
 ### Two-Stage Pipeline
 
-1. **Scheduler** partitions workload using `diamonds_by_query_count` (CRITICAL: never use `total_count` from paginated results)
-2. **Workers** fetch diamonds via Nivoda GraphQL API and write to `raw_diamonds_nivoda`
-3. **Consolidator** maps raw data to canonical `diamonds` table, applies pricing rules, advances watermark
+**Stage 1: Raw Ingestion (Scheduler → Workers)**
+1. **Scheduler** reads watermark from Azure Blob Storage
+2. Performs **heatmap scan** to analyze Nivoda inventory density by price
+3. Partitions workload into price ranges, creating `WorkItemMessage` for each
+4. Sends work items to Azure Service Bus `work-items` queue
+5. **Workers** consume messages, fetch diamonds via Nivoda GraphQL API
+6. Write raw JSON payloads to `raw_diamonds_nivoda` table
+7. Last successful worker triggers consolidation (atomic counter)
+
+**Stage 2: Consolidation**
+1. **Consolidator** receives `ConsolidateMessage` from Service Bus
+2. Validates all workers completed successfully (skips if any failed)
+3. Batches raw diamonds, maps to canonical schema
+4. Applies pricing rules from `pricing_rules` table
+5. Upserts into `diamonds` table
+6. **Only on success**: Advances watermark in Azure Blob Storage
 
 ### Package Dependencies
 
 ```
-@diamond/shared (types, utils, constants)
+@diamond/shared (types, utils, constants, logging)
     ↓
 @diamond/database (pg client, queries)
     ↓
@@ -57,44 +105,165 @@ apps/scheduler, apps/worker, apps/consolidator
 
 ## Critical Rules
 
-### Identity Mapping
+### Identity Mapping (IMPORTANT)
 
-- `offer_id` = `items[].id` → Use for ordering/purchasing
-- `supplier_stone_id` = `diamond.Id` → Use for tracking/deduplication
+```
+Nivoda Response:
+{
+  "id": "abc123",          ← This is OFFER_ID (use for ordering/holds)
+  "diamond": {
+    "id": "xyz789"         ← This is SUPPLIER_STONE_ID (use for tracking/dedup)
+  }
+}
+```
+
+- `offer_id` = `items[].id` → Use for ordering/purchasing operations
+- `supplier_stone_id` = `diamond.id` → Use for tracking/deduplication
+
+### Counting Diamonds (CRITICAL)
+
+- **ALWAYS** use `diamonds_by_query_count` for accurate counts
+- **NEVER** use `total_count` from paginated search results (unreliable)
+- The scheduler heatmap relies on accurate counts for partitioning
 
 ### Failure Handling
 
-- If ANY worker fails → skip consolidation, do NOT advance watermark
+- If **ANY** worker fails → skip consolidation, do **NOT** advance watermark
 - Last worker triggers consolidation via atomic counter increment
-- Consolidator failure → send alert via Resend, do NOT advance watermark
+- Consolidator failure → send alert via Resend, do **NOT** advance watermark
+- Failed runs can be force-consolidated with `force: true` flag
 
 ### Database
 
 - **No local Postgres** - Supabase only via `DATABASE_URL`
-- Prices stored in **cents** (BIGINT) to avoid float issues
+- All prices stored in **cents** (BIGINT) to avoid float precision issues
 - Soft deletes: `status = 'deleted'` and `deleted_at` timestamp
+- Connection pool: min 2, max 15 connections
 
 ### Nivoda API
 
 - Token caching: 6 hour lifetime, re-auth 5 minutes before expiry
-- `searchDiamonds` enforces max limit of 50
-- All queries wrapped with `as(token: $token)`
+- `searchDiamonds` enforces max limit of 50 items per request
+- All queries wrapped with `as(token: $token)` for authentication
+- Use `withRetry` utility for transient failure handling
+
+### Heatmap Algorithm
+
+The scheduler uses adaptive density scanning to partition work:
+
+- **Dense zone** ($0-$20,000): Fixed $100 steps, most diamonds here
+- **Sparse zone** ($20,000+): Adaptive stepping based on actual density
+- **Max workers**: 30 for full runs, 10 for incremental
+- **Min records per worker**: 1,000 to avoid overhead
 
 ## Authentication
 
 Dual auth system (checked in order):
 
-1. `X-API-Key` header → hash and compare against `api_keys` table
-2. HMAC headers (`X-Client-Id`, `X-Timestamp`, `X-Signature`) → validate signature
-3. Neither valid → 401
+1. **API Key Auth**: `X-API-Key` header → SHA256 hash against `api_keys` table
+2. **HMAC Auth**: `X-Client-Id`, `X-Timestamp`, `X-Signature` headers
+   - Canonical string: `METHOD\nPATH\nTIMESTAMP\nSHA256(BODY)`
+   - Timestamp tolerance: 300 seconds (5 minutes)
+   - Secrets stored in `HMAC_SECRETS` env var as JSON
+3. Neither valid → 401 Unauthorized
 
 ## Key Files
 
-- `sql/bootstrap.sql` - Database schema (run manually in Supabase)
+### Pipeline
+- `apps/scheduler/src/index.ts` - Job partitioning (uses heatmap)
+- `apps/scheduler/src/heatmap.ts` - Density scanning algorithm
+- `apps/worker/src/index.ts` - Data ingestion with retry
+- `apps/consolidator/src/index.ts` - Transformation and watermark
+
+### Packages
 - `packages/nivoda/src/adapter.ts` - Nivoda GraphQL client
 - `packages/nivoda/src/mapper.ts` - Raw to canonical transformation
 - `packages/pricing-engine/src/engine.ts` - Pricing rule matching
 - `packages/api/src/middleware/auth.ts` - Authentication logic
-- `apps/scheduler/src/index.ts` - Job partitioning (uses `getDiamondsCount`)
-- `apps/worker/src/index.ts` - Data ingestion with retry
-- `apps/consolidator/src/index.ts` - Transformation and watermark
+- `packages/database/src/client.ts` - PostgreSQL connection pool
+
+### Schema
+- `sql/bootstrap.sql` - Database schema (run manually in Supabase)
+- `sql/migrations/001_add_indexes.sql` - Performance indexes
+
+### Infrastructure
+- `infrastructure/terraform/` - Azure IaC modules
+- `docker/` - Multi-stage Dockerfiles
+- `.github/workflows/` - CI/CD pipelines
+
+## Configuration Constants
+
+```typescript
+// From packages/shared/src/constants.ts
+RECORDS_PER_WORKER = 5000      // Target records per worker
+WORKER_PAGE_SIZE = 30          // Pagination size for Nivoda API
+CONSOLIDATOR_BATCH_SIZE = 1000 // Diamonds per consolidation batch
+CONSOLIDATOR_CONCURRENCY = 10  // Concurrent processing
+NIVODA_MAX_LIMIT = 50          // Nivoda API max page size
+TOKEN_LIFETIME_MS = 6 hours    // Nivoda token validity
+HEATMAP_MAX_WORKERS = 30       // Max parallel workers
+```
+
+## Common Tasks
+
+### Adding a new API endpoint
+1. Add route in `packages/api/src/routes/`
+2. Add types in `packages/shared/src/types/`
+3. Add database query in `packages/database/src/queries/`
+4. Update Swagger annotations
+
+### Modifying pricing logic
+1. Update rules in `pricing_rules` table (database)
+2. Logic is in `packages/pricing-engine/src/engine.ts`
+3. Rule matching: lower priority number = higher precedence
+
+### Adding a new diamond attribute
+1. Update `Diamond` type in `packages/shared/src/types/diamond.ts`
+2. Update mapper in `packages/nivoda/src/mapper.ts`
+3. Update schema in `sql/bootstrap.sql`
+4. Add migration if needed in `sql/migrations/`
+
+## Testing
+
+```bash
+# Run all tests
+npm run test
+
+# Run specific package
+npm run test -w @diamond/pricing-engine
+
+# Watch mode
+npm run test:watch -w @diamond/nivoda
+
+# Type checking (catches more errors than tests)
+npm run typecheck
+```
+
+Test utilities are in `packages/shared/src/testing/`:
+- `factories.ts` - Test data builders
+- `mocks.ts` - Mock implementations
+
+## Environment Variables
+
+Required variables (see `.env.example`):
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Supabase PostgreSQL connection string |
+| `NIVODA_ENDPOINT` | Nivoda GraphQL API URL |
+| `NIVODA_USERNAME` | Nivoda account email |
+| `NIVODA_PASSWORD` | Nivoda account password |
+| `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage for watermarks |
+| `AZURE_SERVICE_BUS_CONNECTION_STRING` | Azure Service Bus for queues |
+| `HMAC_SECRETS` | JSON object of client secrets |
+| `RESEND_API_KEY` | Resend API key for alerts |
+| `ALERT_EMAIL_TO` | Alert recipient email |
+| `ALERT_EMAIL_FROM` | Alert sender email |
+
+## Debugging Tips
+
+1. **Worker not processing**: Check Service Bus queue in Azure Portal
+2. **Consolidation skipped**: Check `run_metadata` table for failed workers
+3. **Pricing wrong**: Check `pricing_rules` table priority ordering
+4. **API 401**: Verify API key is hashed correctly, check `last_used_at`
+5. **Watermark not advancing**: Check consolidator logs for errors
