@@ -22,7 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        app: [api, scheduler, worker, consolidator]
+        app: [api, scheduler, worker, consolidator, dashboard]
 
     steps:
       - name: Checkout
@@ -94,31 +94,92 @@ jobs:
             echo "tag=${{ steps.sha.outputs.short }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update Container Apps
+      - name: Deploy Container Apps
+        env:
+          RESOURCE_GROUP: diamond-prod-rg
+          ENVIRONMENT: ${{ secrets.AZURE_CONTAINER_APP_ENV_PROD }}
+          ACR_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          # Update API
-          az containerapp update \
-            --name diamond-prod-api \
-            --resource-group diamond-prod-rg \
-            --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-api:${{ steps.tag.outputs.tag }}
+          # Helper function to create or update a container app
+          deploy_app() {
+            local name=$1
+            local image=$2
+            local ingress=$3
+            local target_port=$4
 
-          # Update Worker
-          az containerapp update \
-            --name diamond-prod-worker \
-            --resource-group diamond-prod-rg \
-            --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-worker:${{ steps.tag.outputs.tag }}
+            if az containerapp show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating existing app: $name"
+              az containerapp update \
+                --name "$name" \
+                --resource-group "$RESOURCE_GROUP" \
+                --image "$image"
+            else
+              echo "Creating new app: $name"
+              if [ "$ingress" = "external" ]; then
+                az containerapp create \
+                  --name "$name" \
+                  --resource-group "$RESOURCE_GROUP" \
+                  --environment "$ENVIRONMENT" \
+                  --image "$image" \
+                  --ingress "$ingress" \
+                  --target-port "$target_port" \
+                  --registry-server "$ACR_SERVER" \
+                  --registry-username "${{ secrets.ACR_USERNAME }}" \
+                  --registry-password "${{ secrets.ACR_PASSWORD }}"
+              else
+                az containerapp create \
+                  --name "$name" \
+                  --resource-group "$RESOURCE_GROUP" \
+                  --environment "$ENVIRONMENT" \
+                  --image "$image" \
+                  --registry-server "$ACR_SERVER" \
+                  --registry-username "${{ secrets.ACR_USERNAME }}" \
+                  --registry-password "${{ secrets.ACR_PASSWORD }}"
+              fi
+            fi
+          }
 
-          # Update Consolidator
-          az containerapp update \
-            --name diamond-prod-consolidator \
-            --resource-group diamond-prod-rg \
-            --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-consolidator:${{ steps.tag.outputs.tag }}
+          # Helper function to create or update a container app job
+          deploy_job() {
+            local name=$1
+            local image=$2
 
-          # Update Scheduler Job
-          az containerapp job update \
-            --name diamond-prod-scheduler \
-            --resource-group diamond-prod-rg \
-            --image ${{ secrets.ACR_LOGIN_SERVER }}/diamond-scheduler:${{ steps.tag.outputs.tag }}
+            if az containerapp job show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating existing job: $name"
+              az containerapp job update \
+                --name "$name" \
+                --resource-group "$RESOURCE_GROUP" \
+                --image "$image"
+            else
+              echo "Creating new job: $name"
+              az containerapp job create \
+                --name "$name" \
+                --resource-group "$RESOURCE_GROUP" \
+                --environment "$ENVIRONMENT" \
+                --image "$image" \
+                --trigger-type "Manual" \
+                --replica-timeout 1800 \
+                --registry-server "$ACR_SERVER" \
+                --registry-username "${{ secrets.ACR_USERNAME }}" \
+                --registry-password "${{ secrets.ACR_PASSWORD }}"
+            fi
+          }
+
+          # Deploy API (external ingress on port 3000)
+          deploy_app "diamond-prod-api" "$ACR_SERVER/diamond-api:$IMAGE_TAG" "external" 3000
+
+          # Deploy Worker (no ingress - consumes from queue)
+          deploy_app "diamond-prod-worker" "$ACR_SERVER/diamond-worker:$IMAGE_TAG" "none" 0
+
+          # Deploy Consolidator (no ingress - consumes from queue)
+          deploy_app "diamond-prod-consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG" "none" 0
+
+          # Deploy Scheduler (job, not continuous app)
+          deploy_job "diamond-prod-scheduler" "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+
+          # Deploy Dashboard (external ingress on port 80 - nginx)
+          deploy_app "diamond-prod-dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG" "external" 80
 
       - name: Create deployment tag
         run: |
