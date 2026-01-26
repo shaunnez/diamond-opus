@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Filter, X } from 'lucide-react';
-import { getRuns, type RunsFilter } from '../api/analytics';
+import { getRuns, type RunsFilter, type RunWithStats } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -56,24 +56,24 @@ export function Runs() {
     {
       key: 'runId',
       header: 'Run ID',
-      render: (run: (typeof data)['data'][0]) => (
+      render: (run: RunWithStats) => (
         <span className="font-mono text-sm">{truncateId(run.runId, 12)}</span>
       ),
     },
     {
       key: 'runType',
       header: 'Type',
-      render: (run: (typeof data)['data'][0]) => <RunTypeBadge type={run.runType} />,
+      render: (run: RunWithStats) => <RunTypeBadge type={run.runType} />,
     },
     {
       key: 'status',
       header: 'Status',
-      render: (run: (typeof data)['data'][0]) => <StatusBadge status={run.status} />,
+      render: (run: RunWithStats) => <StatusBadge status={run.status} />,
     },
     {
       key: 'workers',
       header: 'Workers',
-      render: (run: (typeof data)['data'][0]) => (
+      render: (run: RunWithStats) => (
         <div className="w-32">
           <WorkerProgress
             completed={run.completedWorkers}
@@ -86,17 +86,17 @@ export function Runs() {
     {
       key: 'records',
       header: 'Records',
-      render: (run: (typeof data)['data'][0]) => formatNumber(run.totalRecordsProcessed),
+      render: (run: RunWithStats) => formatNumber(run.totalRecordsProcessed),
     },
     {
       key: 'duration',
       header: 'Duration',
-      render: (run: (typeof data)['data'][0]) => formatDuration(run.durationMs),
+      render: (run: RunWithStats) => formatDuration(run.durationMs),
     },
     {
       key: 'startedAt',
       header: 'Started',
-      render: (run: (typeof data)['data'][0]) => formatDateShort(run.startedAt),
+      render: (run: RunWithStats) => formatDateShort(run.startedAt),
     },
   ];
 

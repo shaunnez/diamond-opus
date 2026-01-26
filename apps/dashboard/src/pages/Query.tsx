@@ -305,10 +305,10 @@ export function Query() {
                     <Table
                       columns={resultColumns}
                       data={queryMutation.data.data}
-                      keyExtractor={(item, index) =>
+                      keyExtractor={(item) =>
                         (item as Record<string, unknown>).id
                           ? String((item as Record<string, unknown>).id)
-                          : String(index)
+                          : JSON.stringify(item)
                       }
                       emptyMessage="No results found"
                     />

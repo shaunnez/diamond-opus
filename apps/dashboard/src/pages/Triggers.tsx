@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Play, RefreshCw, Layers, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
+import { Play, RefreshCw, Layers, CheckCircle, Zap } from 'lucide-react';
 import { getRuns } from '../api/analytics';
 import { triggerScheduler, triggerConsolidate, retryWorkers, getFailedWorkers } from '../api/triggers';
 import { Header } from '../components/layout/Header';

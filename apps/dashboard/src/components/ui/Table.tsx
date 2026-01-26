@@ -18,7 +18,7 @@ interface TableProps<T> {
   loading?: boolean;
 }
 
-export function Table<T extends Record<string, unknown>>({
+export function Table<T extends Record<string, any> = Record<string, unknown>>({
   columns,
   data,
   keyExtractor,

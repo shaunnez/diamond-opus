@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Building2, Diamond, DollarSign } from 'lucide-react';
-import { getSupplierStats } from '../api/analytics';
+import { getSupplierStats, type SupplierStats } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import { Card, CardHeader, Table, PageLoader, Alert, Badge } from '../components/ui';
@@ -41,7 +41,7 @@ export function Suppliers() {
     {
       key: 'supplier',
       header: 'Supplier',
-      render: (s: (typeof data)[0]) => (
+      render: (s: SupplierStats) => (
         <div className="flex items-center gap-3">
           <div className="p-2 bg-stone-100 rounded-lg">
             <Building2 className="w-4 h-4 text-stone-600" />
@@ -53,12 +53,12 @@ export function Suppliers() {
     {
       key: 'totalDiamonds',
       header: 'Total',
-      render: (s: (typeof data)[0]) => formatNumber(s.totalDiamonds),
+      render: (s: SupplierStats) => formatNumber(s.totalDiamonds),
     },
     {
       key: 'availability',
       header: 'Availability',
-      render: (s: (typeof data)[0]) => (
+      render: (s: SupplierStats) => (
         <div className="flex items-center gap-2">
           <Badge variant="success">{formatNumber(s.availableDiamonds)}</Badge>
           {s.onHoldDiamonds > 0 && (
@@ -73,12 +73,12 @@ export function Suppliers() {
     {
       key: 'avgPrice',
       header: 'Avg Price',
-      render: (s: (typeof data)[0]) => formatCurrency(s.avgPriceCents),
+      render: (s: SupplierStats) => formatCurrency(s.avgPriceCents),
     },
     {
       key: 'priceRange',
       header: 'Price Range',
-      render: (s: (typeof data)[0]) => (
+      render: (s: SupplierStats) => (
         <span className="text-stone-600">
           {formatCurrency(s.minPriceCents)} - {formatCurrency(s.maxPriceCents)}
         </span>
@@ -87,7 +87,7 @@ export function Suppliers() {
     {
       key: 'lastUpdated',
       header: 'Last Updated',
-      render: (s: (typeof data)[0]) =>
+      render: (s: SupplierStats) =>
         s.lastUpdated ? formatRelativeTime(s.lastUpdated) : '-',
     },
   ];
