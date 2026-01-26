@@ -142,6 +142,7 @@ jobs:
                 --image "$image" \
                 --trigger-type "Manual" \
                 --replica-timeout 1800 \
+                --replica-retry-limit 1 \
                 --registry-server "$ACR_SERVER" \
                 --registry-username "${{ secrets.ACR_USERNAME }}" \
                 --registry-password "${{ secrets.ACR_PASSWORD }}"
