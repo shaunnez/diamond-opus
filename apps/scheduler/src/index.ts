@@ -1,12 +1,15 @@
-import { config } from "dotenv";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+// Only load dotenv in development - production uses container env vars
+if (process.env.NODE_ENV !== 'production') {
+  const { config } = await import('dotenv');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, resolve } = await import('node:path');
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(__dirname, "../../..");
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const rootDir = resolve(__dirname, '../../..');
 
-config({ path: resolve(rootDir, ".env.local") });
-config({ path: resolve(rootDir, ".env") });
+  config({ path: resolve(rootDir, '.env.local') });
+  config({ path: resolve(rootDir, '.env') });
+}
 import {
   DIAMOND_SHAPES,
   HEATMAP_MAX_WORKERS,

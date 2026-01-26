@@ -125,7 +125,8 @@ async function triggerSchedulerJob(
   const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
 
   // Start the Container Apps Job with environment override for run type
-  const result = await client.jobs.start(
+  // beginStart is an LRO (Long Running Operation) that returns a poller
+  const poller = await client.jobs.beginStart(
     config.resourceGroupName,
     config.jobName,
     {
@@ -144,6 +145,9 @@ async function triggerSchedulerJob(
       },
     },
   );
+
+  // Wait for the job execution to start (not complete)
+  const result = await poller.pollUntilDone();
 
   return {
     executionName: result.name || `${config.jobName}-${Date.now()}`,
