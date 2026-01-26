@@ -113,6 +113,7 @@ jobs:
               az containerapp update \
                 --name "$name" \
                 --resource-group "$RESOURCE_GROUP" \
+                --container-name "$name" \
                 --image "$image"
             else
               echo "Creating new app: $name"
