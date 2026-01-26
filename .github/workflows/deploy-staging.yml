@@ -41,7 +41,7 @@ jobs:
         with:
           images: ${{ secrets.ACR_LOGIN_SERVER }}/diamond-${{ matrix.app }}
           tags: |
-            type=sha,prefix=
+            type=sha,format=short,prefix=
             type=raw,value=staging
 
       - name: Build and push
