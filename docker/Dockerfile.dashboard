@@ -1,6 +1,6 @@
 # Build stage
 FROM node:20-alpine AS builder
-ENV NODE_ENV=production
+
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY package*.json ./
 COPY apps/dashboard/package.json ./apps/dashboard/
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy source files
 COPY apps/dashboard ./apps/dashboard
