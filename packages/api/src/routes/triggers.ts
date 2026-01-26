@@ -1,19 +1,19 @@
-import { Router } from 'express';
-import type { Request, Response, NextFunction } from 'express';
-import { ServiceBusClient, ServiceBusSender } from '@azure/service-bus';
+import { Router } from "express";
+import type { Request, Response, NextFunction } from "express";
+import { ServiceBusClient, ServiceBusSender } from "@azure/service-bus";
 import {
   optionalEnv,
   generateTraceId,
   SERVICE_BUS_QUEUES,
   type ConsolidateMessage,
   type WorkItemMessage,
-} from '@diamond/shared';
+} from "@diamond/shared";
 import {
   getRunMetadata,
   getFailedWorkerRuns,
   resetFailedWorker,
-} from '@diamond/database';
-import { validateBody, badRequest, notFound } from '../middleware/index.js';
+} from "@diamond/database";
+import { validateBody, badRequest, notFound } from "../middleware/index.js";
 import {
   triggerSchedulerSchema,
   triggerConsolidateSchema,
@@ -21,7 +21,7 @@ import {
   type TriggerSchedulerBody,
   type TriggerConsolidateBody,
   type RetryWorkersBody,
-} from '../validators/index.js';
+} from "../validators/index.js";
 
 const router = Router();
 
@@ -34,7 +34,10 @@ let workItemsSender: ServiceBusSender | null = null;
 let consolidateSender: ServiceBusSender | null = null;
 
 function getServiceBusClient(): ServiceBusClient | null {
-  const connectionString = optionalEnv('AZURE_SERVICE_BUS_CONNECTION_STRING');
+  const connectionString = optionalEnv(
+    "AZURE_SERVICE_BUS_CONNECTION_STRING",
+    "",
+  );
   if (!connectionString) {
     return null;
   }
@@ -65,22 +68,24 @@ function getConsolidateSender(): ServiceBusSender | null {
 async function sendWorkItem(message: WorkItemMessage): Promise<void> {
   const sender = getWorkItemsSender();
   if (!sender) {
-    throw new Error('Service Bus not configured');
+    throw new Error("Service Bus not configured");
   }
   await sender.sendMessages({
     body: message,
-    contentType: 'application/json',
+    contentType: "application/json",
   });
 }
 
-async function sendConsolidateMessage(message: ConsolidateMessage): Promise<void> {
+async function sendConsolidateMessage(
+  message: ConsolidateMessage,
+): Promise<void> {
   const sender = getConsolidateSender();
   if (!sender) {
-    throw new Error('Service Bus not configured');
+    throw new Error("Service Bus not configured");
   }
   await sender.sendMessages({
     body: message,
-    contentType: 'application/json',
+    contentType: "application/json",
   });
 }
 
@@ -124,7 +129,7 @@ async function sendConsolidateMessage(message: ConsolidateMessage): Promise<void
  *         description: Service Bus not configured
  */
 router.post(
-  '/scheduler',
+  "/scheduler",
   validateBody(triggerSchedulerSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -138,8 +143,9 @@ router.post(
       if (!client) {
         res.status(503).json({
           error: {
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service Bus not configured. Scheduler must be run manually.',
+            code: "SERVICE_UNAVAILABLE",
+            message:
+              "Service Bus not configured. Scheduler must be run manually.",
           },
           manual_command: `npm run dev:scheduler -- --${body.run_type}`,
         });
@@ -152,14 +158,14 @@ router.post(
         data: {
           message: `Scheduler trigger for ${body.run_type} run acknowledged`,
           run_type: body.run_type,
-          status: 'pending',
-          note: 'Run the scheduler manually with: npm run dev:scheduler',
+          status: "pending",
+          note: "Run the scheduler manually with: npm run dev:scheduler",
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -205,7 +211,7 @@ router.post(
  *         description: Service Bus not configured
  */
 router.post(
-  '/consolidate',
+  "/consolidate",
   validateBody(triggerConsolidateSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -215,13 +221,13 @@ router.post(
       // Verify run exists
       const runMetadata = await getRunMetadata(body.run_id);
       if (!runMetadata) {
-        throw notFound('Run not found');
+        throw notFound("Run not found");
       }
 
       // Check for failed workers
       if (runMetadata.failedWorkers > 0 && !body.force) {
         throw badRequest(
-          `Run has ${runMetadata.failedWorkers} failed worker(s). Use force=true to consolidate anyway or retry the failed workers first.`
+          `Run has ${runMetadata.failedWorkers} failed worker(s). Use force=true to consolidate anyway or retry the failed workers first.`,
         );
       }
 
@@ -230,17 +236,17 @@ router.post(
       if (!client) {
         res.status(503).json({
           error: {
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service Bus not configured.',
+            code: "SERVICE_UNAVAILABLE",
+            message: "Service Bus not configured.",
           },
-          manual_command: `npm run consolidator:trigger -- ${body.run_id}${body.force ? ' --force' : ''}`,
+          manual_command: `npm run consolidator:trigger -- ${body.run_id}${body.force ? " --force" : ""}`,
         });
         return;
       }
 
       // Send consolidation message
       const message: ConsolidateMessage & { force?: boolean } = {
-        type: 'CONSOLIDATE',
+        type: "CONSOLIDATE",
         runId: body.run_id,
         traceId,
         force: body.force,
@@ -250,7 +256,7 @@ router.post(
 
       res.json({
         data: {
-          message: 'Consolidation triggered successfully',
+          message: "Consolidation triggered successfully",
           run_id: body.run_id,
           trace_id: traceId,
           force: body.force,
@@ -265,7 +271,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -310,7 +316,7 @@ router.post(
  *         description: Service Bus not configured
  */
 router.post(
-  '/retry-workers',
+  "/retry-workers",
   validateBody(retryWorkersSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -319,13 +325,13 @@ router.post(
       // Verify run exists
       const runMetadata = await getRunMetadata(body.run_id);
       if (!runMetadata) {
-        throw notFound('Run not found');
+        throw notFound("Run not found");
       }
 
       // Get failed workers
       const failedWorkers = await getFailedWorkerRuns(body.run_id);
       if (failedWorkers.length === 0) {
-        throw badRequest('No failed workers found for this run');
+        throw badRequest("No failed workers found for this run");
       }
 
       // Filter by partition if specified
@@ -334,7 +340,9 @@ router.post(
         : failedWorkers;
 
       if (workersToRetry.length === 0) {
-        throw badRequest(`No failed workers found with partition_id: ${body.partition_id}`);
+        throw badRequest(
+          `No failed workers found with partition_id: ${body.partition_id}`,
+        );
       }
 
       // Check Service Bus availability
@@ -342,8 +350,8 @@ router.post(
       if (!client) {
         res.status(503).json({
           error: {
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service Bus not configured.',
+            code: "SERVICE_UNAVAILABLE",
+            message: "Service Bus not configured.",
           },
           manual_command: body.partition_id
             ? `npm run worker:retry -- retry ${body.run_id} ${body.partition_id}`
@@ -360,7 +368,7 @@ router.post(
         if (!worker.workItemPayload) {
           skippedWorkers.push({
             partitionId: worker.partitionId,
-            reason: 'No stored payload for retry',
+            reason: "No stored payload for retry",
           });
           continue;
         }
@@ -382,13 +390,16 @@ router.post(
           run_id: body.run_id,
           retried_partitions: retriedWorkers,
           skipped: skippedWorkers.length > 0 ? skippedWorkers : undefined,
-          remaining_failed: failedWorkers.length - retriedWorkers.length - skippedWorkers.length,
+          remaining_failed:
+            failedWorkers.length -
+            retriedWorkers.length -
+            skippedWorkers.length,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -421,18 +432,18 @@ router.post(
  *         description: Unauthorized
  */
 router.get(
-  '/failed-workers/:runId',
+  "/failed-workers/:runId",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { runId } = req.params;
 
       if (!runId) {
-        throw badRequest('runId is required');
+        throw badRequest("runId is required");
       }
 
       const runMetadata = await getRunMetadata(runId);
       if (!runMetadata) {
-        throw notFound('Run not found');
+        throw notFound("Run not found");
       }
 
       const failedWorkers = await getFailedWorkerRuns(runId);
@@ -455,7 +466,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export default router;
