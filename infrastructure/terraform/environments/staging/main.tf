@@ -95,6 +95,7 @@ module "container_apps" {
   # Connection strings (from modules)
   storage_connection_string    = module.storage.primary_connection_string
   servicebus_connection_string = module.service_bus.connection_string
+  servicebus_namespace         = "diamond-${var.environment}-servicebus"
 
   # Database configuration (from variables)
   database_host     = var.database_host

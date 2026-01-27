@@ -189,6 +189,31 @@ resource "azurerm_container_app" "worker" {
     min_replicas = var.worker_min_replicas
     max_replicas = var.worker_max_replicas
 
+    scale_rule {
+      name             = "servicebus-work-items-scale"
+      custom_rule_type = "azure-servicebus"
+
+      custom_rule_config {
+        metadata = {
+          "namespace"                   = var.servicebus_namespace
+          "queueName"                   = "work-items"
+          "messageCount"                = "5"
+          "activationMessageCount"      = "0"
+        }
+        auth {
+          secret_ref       = "servicebus-connection-string"
+          trigger_parameter = "connection"
+        }
+      }
+    }
+
+    scale_rule {
+      name = "cpu-scale-safety"
+      cpu_rule {
+        percentage = 70
+      }
+    }
+
     container {
       name   = "worker"
       image  = "${var.container_registry_login_server}/diamond-worker:${var.image_tag}"
