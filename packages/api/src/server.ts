@@ -1,12 +1,12 @@
-import express from 'express';
-import cors from 'cors';
-import swaggerUi from 'swagger-ui-express';
-import { optionalEnv, createLogger, generateTraceId } from '@diamond/shared';
-import routes from './routes/index.js';
-import { errorHandler } from './middleware/index.js';
-import { spec } from './swagger/generator.js';
+import express from "express";
+import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import { optionalEnv, createLogger, generateTraceId } from "@diamond/shared";
+import routes from "./routes/index.js";
+import { errorHandler } from "./middleware/index.js";
+import { spec } from "./swagger/generator.js";
 
-const logger = createLogger({ service: 'api' });
+const logger = createLogger({ service: "api" });
 
 // Extend Express Request to include logger and requestId
 declare global {
@@ -29,7 +29,7 @@ export function createApp(): express.Application {
       verify: (req, _res, buf) => {
         (req as express.Request & { rawBody: string }).rawBody = buf.toString();
       },
-    })
+    }),
   );
 
   // Request logging middleware
@@ -44,14 +44,14 @@ export function createApp(): express.Application {
       path: req.path,
     }) as typeof logger;
 
-    req.log.info('Request received', {
+    req.log.info("Request received", {
       query: req.query,
-      userAgent: req.get('user-agent'),
+      userAgent: req.get("user-agent"),
     });
 
-    res.on('finish', () => {
+    res.on("finish", () => {
       const duration = Date.now() - startTime;
-      req.log.info('Request completed', {
+      req.log.info("Request completed", {
         statusCode: res.statusCode,
         durationMs: duration,
       });
@@ -60,7 +60,7 @@ export function createApp(): express.Application {
     next();
   });
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(spec));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(spec));
 
   app.use(routes);
 
@@ -71,11 +71,13 @@ export function createApp(): express.Application {
 
 export function startServer(): void {
   const app = createApp();
-  const port = parseInt(optionalEnv('PORT', '3000'), 10);
+  const port = parseInt(optionalEnv("PORT", "3000"), 10);
 
-  app.listen(port, () => {
-    logger.info('Server started', { port });
-    logger.info('Swagger UI available', { url: `http://localhost:${port}/api-docs` });
+  app.listen(port, "0.0.0.0", () => {
+    logger.info("Server started", { port });
+    logger.info("Swagger UI available", {
+      url: `http://localhost:${port}/api-docs`,
+    });
   });
 }
 

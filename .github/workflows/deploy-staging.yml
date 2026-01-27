@@ -72,7 +72,9 @@ jobs:
 
       - name: Get commit SHA
         id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy Container Apps
         env:

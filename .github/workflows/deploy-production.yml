@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Git ref to deploy (branch, tag, or SHA)'
+        description: "Git ref to deploy (branch, tag, or SHA)"
         required: false
-        default: 'main'
+        default: "main"
       skip_build:
-        description: 'Skip build and use existing images from staging'
+        description: "Skip build and use existing images from staging"
         required: false
         type: boolean
         default: false
@@ -46,7 +46,7 @@ jobs:
         with:
           images: ${{ secrets.ACR_LOGIN_SERVER }}/diamond-${{ matrix.app }}
           tags: |
-            type=sha,prefix=
+            type=sha,format=short,prefix=
             type=raw,value=production
             type=raw,value=latest
 
