@@ -178,6 +178,13 @@ resource "azurerm_container_app" "api" {
   tags = var.tags
 }
 
+# RBAC: Allow API managed identity to trigger scheduler job
+resource "azurerm_role_assignment" "api_scheduler_trigger" {
+  scope              = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}"
+  role_definition_name = "Contributor"
+  principal_id       = azurerm_container_app.api.identity[0].principal_id
+}
+
 # Worker Container App (Service Bus consumer, long-running)
 resource "azurerm_container_app" "worker" {
   name                         = "${var.app_name_prefix}-worker"
