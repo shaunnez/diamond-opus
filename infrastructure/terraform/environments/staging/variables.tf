@@ -25,7 +25,7 @@ variable "enable_container_apps" {
 variable "image_tag" {
   description = "Docker image tag to deploy"
   type        = string
-  default     = "latest"
+  default     = "staging"
 }
 
 # SKU configurations
