@@ -140,7 +140,12 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
   } catch (error) {
     status = "failed";
     errorMessage = error instanceof Error ? error.message : String(error);
-    log.error("Worker failed", error, { recordsProcessed });
+    // Log only error message and type to avoid large payloads
+    log.error("Worker failed", {
+      errorType: error instanceof Error ? error.name : "unknown",
+      errorMessage,
+      recordsProcessed,
+    });
   }
 
   await updateWorkerRun(workerRun.id, status, recordsProcessed, errorMessage);
@@ -204,7 +209,12 @@ async function run(): Promise<void> {
       await handleWorkItem(received.message);
       await received.complete();
     } catch (error) {
-      log.error("Error processing work item", error);
+      // Log only error message to avoid large payloads
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      log.error("Error processing work item", {
+        errorMessage: errorMsg,
+        errorType: error instanceof Error ? error.name : "unknown",
+      });
       await received.abandon();
     }
   }
@@ -214,7 +224,12 @@ async function main(): Promise<void> {
   try {
     await run();
   } catch (error) {
-    baseLogger.error("Worker failed", error);
+    // Log only error message to avoid large payloads
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    baseLogger.error("Worker failed", {
+      errorMessage: errorMsg,
+      errorType: error instanceof Error ? error.name : "unknown",
+    });
     process.exitCode = 1;
   } finally {
     await closeConnections();

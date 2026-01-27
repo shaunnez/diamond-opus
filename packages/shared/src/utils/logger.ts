@@ -72,11 +72,15 @@ class ContextLogger implements Logger {
   private formatError(error?: Error | unknown): Record<string, unknown> {
     if (!error) return {};
     if (error instanceof Error) {
+      // Truncate stack to first 5 frames to avoid exceeding Azure log size limits
+      const stackLines = error.stack?.split('\n') ?? [];
+      const truncatedStack = stackLines.slice(0, 6).join('\n');
+
       return {
         err: {
           type: error.name,
           message: error.message,
-          stack: error.stack,
+          stack: truncatedStack,
         },
       };
     }
@@ -169,6 +173,22 @@ export function createLogger(options: CreateLoggerOptions): Logger {
     timestamp: pino.stdTimeFunctions.isoTime,
     formatters: {
       level: (label) => ({ level: label }),
+    },
+    // Add serializers to prevent Azure log size limit (32KB) from being exceeded
+    serializers: {
+      payload: (value: unknown) => {
+        const str = JSON.stringify(value);
+        // Truncate large payloads to 1KB to stay well under Azure's 32KB limit
+        return str.length > 1024 ? str.slice(0, 1024) + '...[truncated]' : str;
+      },
+      rawPayload: (value: unknown) => {
+        const str = JSON.stringify(value);
+        return str.length > 1024 ? str.slice(0, 1024) + '...[truncated]' : str;
+      },
+      response: (value: unknown) => {
+        const str = JSON.stringify(value);
+        return str.length > 2048 ? str.slice(0, 2048) + '...[truncated]' : str;
+      },
     },
   };
 

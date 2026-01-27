@@ -99,8 +99,12 @@ async function processConsolidation(
           await upsertDiamond(pricedDiamond);
           return { id: rawDiamond.id, success: true };
         } catch (error) {
-          log.error('Error processing raw diamond', error, {
+          // Extract only the error message to avoid logging large payloads
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          log.error('Error processing raw diamond', {
             rawDiamondId: rawDiamond.id,
+            errorType: error instanceof Error ? error.name : 'unknown',
+            errorMessage: errorMsg,
           });
           return { id: rawDiamond.id, success: false };
         }

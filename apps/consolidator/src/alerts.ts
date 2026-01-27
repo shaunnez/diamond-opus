@@ -20,7 +20,9 @@ export async function sendAlert(subject: string, body: string): Promise<void> {
   if (!client) {
     console.warn('Resend not configured, skipping alert email');
     console.warn(`Alert: ${subject}`);
-    console.warn(body);
+    // Truncate body to 2KB to avoid exceeding Azure log size limits
+    const truncatedBody = body.length > 2048 ? body.slice(0, 2048) + '...[truncated]' : body;
+    console.warn(truncatedBody);
     return;
   }
 
