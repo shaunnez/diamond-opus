@@ -88,6 +88,11 @@ variable "servicebus_connection_string" {
   sensitive   = true
 }
 
+variable "servicebus_namespace" {
+  description = "Azure Service Bus namespace name for scale rules"
+  type        = string
+}
+
 # Nivoda API credentials
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
