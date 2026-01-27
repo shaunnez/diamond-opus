@@ -39,7 +39,10 @@ async function getCount(min, max) {
     );
 
     if (response.data.errors) {
-      console.error('GraphQL Error:', JSON.stringify(response.data.errors));
+      const errorStr = JSON.stringify(response.data.errors);
+      // Truncate error to 2KB to avoid exceeding Azure log size limits
+      const truncated = errorStr.length > 2048 ? errorStr.slice(0, 2048) + '...[truncated]' : errorStr;
+      console.error('GraphQL Error:', truncated);
       return 0;
     }
 
