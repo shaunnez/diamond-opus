@@ -30,4 +30,4 @@ EXPOSE 80
 
 # Use envsubst to substitute API_URL at runtime, then start nginx
 # Only substitute API_URL to preserve nginx variables like $host, $http_upgrade, etc.
-CMD ["/bin/sh", "-c", "envsubst '${API_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "envsubst '$$API_URL' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
