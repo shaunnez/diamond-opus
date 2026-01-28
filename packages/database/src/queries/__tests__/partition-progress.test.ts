@@ -3,7 +3,128 @@
  * Demonstrates how the continuation pattern handles duplicates and out-of-order messages.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock in-memory database for testing
+interface MockPartitionProgressRow {
+  run_id: string;
+  partition_id: string;
+  next_offset: number;
+  completed: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+let mockDatabase: Map<string, MockPartitionProgressRow> = new Map();
+
+// Create the mock query function
+const mockQueryFn = vi.fn(async (sql: string, params: unknown[]) => {
+  // INSERT INTO partition_progress ... ON CONFLICT DO NOTHING RETURNING *
+  if (sql.includes('INSERT INTO partition_progress')) {
+    const [runId, partitionId] = params as [string, string];
+    const key = `${runId}:${partitionId}`;
+
+    if (mockDatabase.has(key)) {
+      // Conflict - return empty rows
+      return { rows: [] };
+    }
+
+    const row: MockPartitionProgressRow = {
+      run_id: runId,
+      partition_id: partitionId,
+      next_offset: 0,
+      completed: false,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    mockDatabase.set(key, row);
+    return { rows: [row] };
+  }
+
+  // SELECT * FROM partition_progress WHERE run_id = $1 AND partition_id = $2
+  if (sql.includes('SELECT * FROM partition_progress') && !sql.includes('SELECT completed')) {
+    const [runId, partitionId] = params as [string, string];
+    const key = `${runId}:${partitionId}`;
+    const row = mockDatabase.get(key);
+
+    if (!row) {
+      throw new Error(`Partition progress not found for runId=${runId}, partitionId=${partitionId}`);
+    }
+
+    return { rows: [row] };
+  }
+
+  // UPDATE partition_progress SET completed = TRUE ...
+  if (sql.includes('SET completed = TRUE')) {
+    const [runId, partitionId, expectedOffset] = params as [string, string, number];
+    const key = `${runId}:${partitionId}`;
+    const row = mockDatabase.get(key);
+
+    if (!row || row.next_offset !== expectedOffset || row.completed) {
+      // Condition not met - return empty rows (update failed)
+      return { rows: [] };
+    }
+
+    // Update the row
+    row.completed = true;
+    row.updated_at = new Date();
+    mockDatabase.set(key, row);
+
+    return { rows: [{ updated: true }] };
+  }
+
+  // UPDATE partition_progress SET next_offset = ...
+  if (sql.includes('SET next_offset')) {
+    const [runId, partitionId, newOffset, currentOffset] = params as [string, string, number, number];
+    const key = `${runId}:${partitionId}`;
+    const row = mockDatabase.get(key);
+
+    if (!row || row.next_offset !== currentOffset || row.completed) {
+      // Condition not met - return empty rows (update failed)
+      return { rows: [] };
+    }
+
+    // Update the row
+    row.next_offset = newOffset;
+    row.updated_at = new Date();
+    mockDatabase.set(key, row);
+
+    return { rows: [{ updated: true }] };
+  }
+
+  // SELECT completed FROM partition_progress WHERE ...
+  if (sql.includes('SELECT completed')) {
+    const [runId, partitionId] = params as [string, string];
+    const key = `${runId}:${partitionId}`;
+    const row = mockDatabase.get(key);
+
+    if (!row) {
+      return { rows: [] };
+    }
+
+    return { rows: [{ completed: row.completed }] };
+  }
+
+  throw new Error(`Unhandled SQL: ${sql}`);
+});
+
+// Mock the pg module to prevent real database connections
+vi.mock('pg', () => ({
+  default: {
+    Pool: class MockPool {
+      query = mockQueryFn;
+
+      async connect() {
+        return {
+          query: mockQueryFn,
+          release: vi.fn(),
+        };
+      }
+    },
+  },
+}));
+
 import {
   initializePartitionProgress,
   getPartitionProgress,
@@ -17,8 +138,8 @@ describe('Partition Progress Idempotency', () => {
   const partitionId = 'test-partition-1';
 
   beforeEach(async () => {
-    // Note: In a real test, you would clean up the database or use transactions
-    // For this test harness, we're demonstrating the behavior
+    // Clear mock database between tests
+    mockDatabase.clear();
   });
 
   it('should initialize partition progress with offset 0', async () => {
@@ -129,6 +250,11 @@ describe('Partition Progress Continuation Scenario', () => {
   const runId = 'continuation-run';
   const partitionId = 'partition-A';
 
+  beforeEach(async () => {
+    // Clear mock database between tests
+    mockDatabase.clear();
+  });
+
   it('should handle full continuation flow', async () => {
     // Initialize partition
     await initializePartitionProgress(runId, partitionId);
@@ -155,8 +281,17 @@ describe('Partition Progress Continuation Scenario', () => {
     }
 
     // Last page (partial: only 20 records)
-    const lastPageOffset = (totalPages - 1) * pageSize;
-    const finalOffset = lastPageOffset + 20;
+    const lastPageOffset = (totalPages - 1) * pageSize; // 120
+    const finalOffset = lastPageOffset + 20; // 140
+
+    // Update offset for last partial page
+    const lastPageUpdated = await updatePartitionOffset(
+      runId,
+      partitionId,
+      lastPageOffset,
+      finalOffset
+    );
+    expect(lastPageUpdated).toBe(true);
 
     // Mark as completed
     const marked = await completePartition(runId, partitionId, finalOffset);
