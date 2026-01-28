@@ -13,15 +13,19 @@ servicebus_sku           = "Standard"
 storage_replication_type = "LRS"
 acr_sku                  = "Basic"
 
-# Scaling (conservative for staging)
-api_min_replicas          = 0
-api_max_replicas          = 2
-worker_min_replicas       = 0
-worker_max_replicas       = 3
-consolidator_min_replicas = 0
-consolidator_max_replicas = 1
+# Scaling (matching prod for realistic testing)
+api_min_replicas          = 1
+api_max_replicas          = 5
+worker_min_replicas       = 1
+worker_max_replicas       = 10
+consolidator_min_replicas = 1
+consolidator_max_replicas = 2
 
-# Scheduler runs at 2 AM UTC
+# Worker scaling: 1 message per replica for maximum parallelism
+worker_message_count = 1
+
+# Scheduler disabled in staging (manual trigger only via API/portal)
+enable_scheduler = false
 scheduler_cron_expression = "0 2 * * *"
 
 # Nivoda API Configuration

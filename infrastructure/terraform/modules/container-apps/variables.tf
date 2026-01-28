@@ -238,6 +238,19 @@ variable "scheduler_memory" {
   default     = "0.5Gi"
 }
 
+variable "enable_scheduler" {
+  description = "Whether to create the scheduled cron job for the scheduler"
+  type        = bool
+  default     = true
+}
+
+# Worker scaling configuration
+variable "worker_message_count" {
+  description = "Number of Service Bus messages per worker replica for KEDA scaling (lower = more parallelism)"
+  type        = number
+  default     = 1
+}
+
 # Resource allocation - Dashboard
 variable "dashboard_cpu" {
   description = "CPU allocation for dashboard container"
