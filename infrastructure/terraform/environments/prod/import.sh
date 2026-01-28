@@ -16,15 +16,38 @@ echo "Importing resource group..."
 terraform import 'azurerm_resource_group.main' \
   "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}" || true
 
-# Service Bus
-echo "Importing service bus..."
+# Service Bus Namespace
+echo "Importing service bus namespace..."
 terraform import 'module.service_bus.azurerm_servicebus_namespace.main' \
   "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus" || true
+
+# Service Bus Queues
+echo "Importing service bus queue: work-items..."
+terraform import 'module.service_bus.azurerm_servicebus_queue.work_items' \
+  "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/queues/work-items" || true
+
+echo "Importing service bus queue: work-done..."
+terraform import 'module.service_bus.azurerm_servicebus_queue.work_done' \
+  "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/queues/work-done" || true
+
+echo "Importing service bus queue: consolidate..."
+terraform import 'module.service_bus.azurerm_servicebus_queue.consolidate' \
+  "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/queues/consolidate" || true
+
+# Service Bus Authorization Rule
+echo "Importing service bus authorization rule..."
+terraform import 'module.service_bus.azurerm_servicebus_namespace_authorization_rule.app' \
+  "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/authorizationRules/app-access" || true
 
 # Storage Account
 echo "Importing storage account..."
 terraform import 'module.storage.azurerm_storage_account.main' \
   "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/diamondprodstore" || true
+
+# Storage Container
+echo "Importing storage container: watermarks..."
+terraform import 'module.storage.azurerm_storage_container.watermarks' \
+  "https://diamondprodstore.blob.core.windows.net/watermarks" || true
 
 # Container Registry
 echo "Importing container registry..."
