@@ -72,9 +72,18 @@ jobs:
 
       - name: Get commit SHA
         id: sha
-        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        run: |
+          # Use workflow_run SHA if available (triggered by CI), otherwise use current SHA (manual trigger)
+          if [ -n "$WORKFLOW_RUN_SHA" ]; then
+            SHA="$WORKFLOW_RUN_SHA"
+          else
+            SHA="$GITHUB_SHA"
+          fi
+          echo "short=${SHA::7}" >> $GITHUB_OUTPUT
+          echo "full=${SHA}" >> $GITHUB_OUTPUT
         env:
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          GITHUB_SHA: ${{ github.sha }}
 
       - name: Deploy Container Apps
         env:
