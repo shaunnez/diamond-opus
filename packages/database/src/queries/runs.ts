@@ -141,6 +141,18 @@ export async function updateWorkerRun(
   );
 }
 
+export async function updateWorkerProgress(
+  id: string,
+  recordsProcessed: number
+): Promise<void> {
+  await query(
+    `UPDATE worker_runs
+     SET records_processed = $2
+     WHERE id = $1 AND status = 'running'`,
+    [id, recordsProcessed]
+  );
+}
+
 export async function getWorkerRunsByRunId(runId: string): Promise<WorkerRun[]> {
   const result = await query<WorkerRunRow>(
     `SELECT * FROM worker_runs WHERE run_id = $1 ORDER BY started_at`,
