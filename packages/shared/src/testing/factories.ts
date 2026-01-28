@@ -47,7 +47,6 @@ export function createMockDiamond(overrides: Partial<Diamond> = {}): Diamond {
     cut: 'Excellent',
     polish: 'Excellent',
     symmetry: 'Excellent',
-    fluorescence: 'None',
     labGrown: false,
     treated: false,
     supplierPriceCents: 500000, // $5,000

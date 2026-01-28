@@ -29,7 +29,6 @@ const createMockItem = (overrides: Partial<NivodaItem> = {}): NivodaItem => ({
       polish: 'Excellent',
       symmetry: 'Excellent',
       color: 'D',
-      floInt: 'None',
       labgrown: false,
       treated: false,
     },
@@ -129,22 +128,6 @@ describe('mapNivodaItemToDiamond', () => {
 
     const result = mapNivodaItemToDiamond(item);
     expect(result.labGrown).toBe(true);
-  });
-
-  it('should map fluorescence with color', () => {
-    const item = createMockItem({
-      diamond: {
-        ...createMockItem().diamond,
-        certificate: {
-          ...createMockItem().diamond.certificate,
-          floInt: 'Strong',
-          floCol: 'Blue',
-        },
-      },
-    });
-
-    const result = mapNivodaItemToDiamond(item);
-    expect(result.fluorescence).toBe('Strong Blue');
   });
 
   it('should set status to active', () => {

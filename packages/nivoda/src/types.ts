@@ -27,8 +27,6 @@ export interface NivodaCertificate {
   pavAngle?: number;
   pavHeight?: number;
   pavDepth?: number;
-  floInt?: string;
-  floCol?: string;
   verified?: boolean;
   labgrown?: boolean;
   labgrown_type?: string;

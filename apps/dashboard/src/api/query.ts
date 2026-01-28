@@ -41,7 +41,6 @@ export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[
     { name: 'cut', type: 'string' },
     { name: 'polish', type: 'string' },
     { name: 'symmetry', type: 'string' },
-    { name: 'fluorescence', type: 'string' },
     { name: 'lab_grown', type: 'boolean' },
     { name: 'treated', type: 'boolean' },
     { name: 'supplier_price_cents', type: 'number' },
