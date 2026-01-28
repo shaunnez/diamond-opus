@@ -15,6 +15,7 @@ import {
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
   MAX_SCHEDULER_RECORDS,
+  WORKER_PAGE_SIZE,
   createLogger,
   generateTraceId,
   type WorkItemMessage,
@@ -105,6 +106,9 @@ async function run(): Promise<void> {
       totalRecords: partition.totalRecords,
       offsetStart: 0,
       offsetEnd: partition.totalRecords,
+      // Continuation pattern: start at offset 0 with page size 30
+      offset: 0,
+      limit: WORKER_PAGE_SIZE,
       updatedFrom: watermarkBefore?.toISOString(),
       updatedTo: now.toISOString(),
     })

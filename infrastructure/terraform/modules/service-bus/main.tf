@@ -20,11 +20,16 @@ resource "azurerm_servicebus_queue" "work_items" {
   name         = "work-items"
   namespace_id = azurerm_servicebus_namespace.main.id
 
-  # Workers process items - allow reasonable time for API calls
-  lock_duration                       = "PT5M"
-  max_delivery_count                  = 3
+  # Continuation pattern: each message processes one page quickly (under 60s)
+  # Reduced lock duration from PT5M to PT2M for faster processing
+  lock_duration                       = "PT2M"
+  max_delivery_count                  = 5
   dead_lettering_on_message_expiration = true
   default_message_ttl                 = "P1D"
+
+  # Enable duplicate detection for continuation pattern deduplication
+  requires_duplicate_detection        = true
+  duplicate_detection_history_time_window = "PT10M"
 }
 
 resource "azurerm_servicebus_queue" "work_done" {
