@@ -24,9 +24,9 @@ consolidator_max_replicas = 2
 # Worker scaling: 1 message per replica for maximum parallelism
 worker_message_count = 1
 
-# Scheduler disabled in staging (manual trigger only via API/portal)
-enable_scheduler = false
-scheduler_cron_expression = "0 2 * * *"
+# Scheduler: enabled for manual triggers, but cron set to Feb 31st (never runs)
+enable_scheduler          = true
+scheduler_cron_expression = "0 0 31 2 *"
 
 # Nivoda API Configuration
 nivoda_endpoint  = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
