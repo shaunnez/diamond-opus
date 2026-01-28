@@ -76,7 +76,7 @@ module "container_registry" {
 # Container Apps (only create if enabled)
 module "container_apps" {
   source = "../../modules/container-apps"
-  count  = var.enable_container_apps ? 1 : 0
+  count  = 1
 
   environment_name    = "diamond-${var.environment}-env"
   app_name_prefix     = "diamond-${var.environment}"

@@ -15,12 +15,6 @@ variable "location" {
   default     = "australiaeast"
 }
 
-# Feature flags
-variable "enable_container_apps" {
-  description = "Enable Container Apps deployment"
-  type        = bool
-  default     = false
-}
 
 variable "image_tag" {
   description = "Docker image tag to deploy"
