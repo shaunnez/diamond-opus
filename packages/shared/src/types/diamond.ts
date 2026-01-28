@@ -64,7 +64,6 @@ export interface Diamond {
   cut?: string;
   polish?: string;
   symmetry?: string;
-  fluorescence?: string;
   labGrown: boolean;
   treated: boolean;
   supplierPriceCents: number;
