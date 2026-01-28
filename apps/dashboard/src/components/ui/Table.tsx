@@ -91,11 +91,13 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }: Pag
   const endItem = Math.min(page * limit, total);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-stone-200">
-      <div className="text-sm text-stone-500">
-        Showing <span className="font-medium">{startItem}</span> to{' '}
-        <span className="font-medium">{endItem}</span> of{' '}
-        <span className="font-medium">{total}</span> results
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-stone-200">
+      <div className="text-sm text-stone-500 text-center sm:text-left">
+        <span className="hidden sm:inline">
+          Showing <span className="font-medium">{startItem}</span> to{' '}
+          <span className="font-medium">{endItem}</span> of{' '}
+        </span>
+        <span className="font-medium">{total}</span> <span className="hidden sm:inline">results</span><span className="sm:hidden">total</span>
       </div>
       <div className="flex items-center gap-2">
         <Button
@@ -105,10 +107,10 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }: Pag
           disabled={page <= 1}
           icon={<ChevronLeft className="w-4 h-4" />}
         >
-          Previous
+          <span className="hidden sm:inline">Previous</span>
         </Button>
-        <span className="text-sm text-stone-600">
-          Page {page} of {totalPages}
+        <span className="text-sm text-stone-600 px-2">
+          {page} / {totalPages}
         </span>
         <Button
           variant="secondary"
@@ -117,7 +119,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }: Pag
           disabled={page >= totalPages}
           icon={<ChevronRight className="w-4 h-4" />}
         >
-          Next
+          <span className="hidden sm:inline">Next</span>
         </Button>
       </div>
     </div>

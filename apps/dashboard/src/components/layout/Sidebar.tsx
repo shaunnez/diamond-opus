@@ -8,6 +8,7 @@ import {
   Zap,
   LogOut,
   Diamond,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -20,20 +21,48 @@ const navigation = [
   { name: 'Triggers', href: '/triggers', icon: Zap },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { logout } = useAuth();
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-stone-200 flex flex-col">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-stone-200 flex flex-col z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
       {/* Logo */}
-      <div className="h-16 flex items-center gap-3 px-6 border-b border-stone-200">
-        <div className="p-2 bg-primary-100 rounded-lg">
-          <Diamond className="w-5 h-5 text-primary-600" />
+      <div className="h-16 flex items-center justify-between gap-3 px-6 border-b border-stone-200">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary-100 rounded-lg">
+            <Diamond className="w-5 h-5 text-primary-600" />
+          </div>
+          <div>
+            <h1 className="font-semibold text-stone-900">Diamond Platform</h1>
+            <p className="text-xs text-stone-500">Analytics Dashboard</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-semibold text-stone-900">Diamond Platform</h1>
-          <p className="text-xs text-stone-500">Analytics Dashboard</p>
-        </div>
+        {/* Close button for mobile */}
+        <button
+          onClick={onClose}
+          className="lg:hidden p-2 text-stone-500 hover:text-stone-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -42,6 +71,7 @@ export function Sidebar() {
           <NavLink
             key={item.name}
             to={item.href}
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
@@ -66,6 +96,7 @@ export function Sidebar() {
           Sign Out
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

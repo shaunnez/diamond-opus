@@ -25,9 +25,9 @@ export function Header({ onRefresh, isRefreshing }: HeaderProps) {
   const displayName = isRunDetails ? 'Run Details' : pageName;
 
   return (
-    <header className="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8">
-      <div>
-        <h1 className="text-xl font-semibold text-stone-900">{displayName}</h1>
+    <header className="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="flex-1 min-w-0 pl-12 lg:pl-0">
+        <h1 className="text-lg sm:text-xl font-semibold text-stone-900 truncate">{displayName}</h1>
       </div>
       {onRefresh && (
         <Button
@@ -37,7 +37,7 @@ export function Header({ onRefresh, isRefreshing }: HeaderProps) {
           disabled={isRefreshing}
           icon={<RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />}
         >
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       )}
     </header>
