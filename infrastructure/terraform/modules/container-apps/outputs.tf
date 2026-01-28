@@ -39,8 +39,8 @@ output "consolidator_name" {
 }
 
 output "scheduler_job_name" {
-  description = "Name of the scheduler job"
-  value       = azurerm_container_app_job.scheduler.name
+  description = "Name of the scheduler job (null if scheduler is disabled)"
+  value       = var.enable_scheduler ? azurerm_container_app_job.scheduler[0].name : null
 }
 
 output "dashboard_fqdn" {
