@@ -150,6 +150,12 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
@@ -158,6 +164,12 @@ jobs:
             -no-color
 
       - name: Terraform Apply
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
         run: terraform apply -auto-approve tfplan
 
       - name: Verify Consolidator Scale Rules
