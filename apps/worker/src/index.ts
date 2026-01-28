@@ -24,6 +24,7 @@ import {
 import {
   createWorkerRun,
   updateWorkerRun,
+  updateWorkerProgress,
   incrementCompletedWorkers,
   incrementFailedWorkers,
   upsertRawDiamond,
@@ -45,6 +46,7 @@ const workerId = randomUUID();
 
 async function processWorkItem(
   workItem: WorkItemMessage,
+  workerRunId: string,
   log: Logger
 ): Promise<number> {
   log.info("Processing partition", {
@@ -99,6 +101,9 @@ async function processWorkItem(
       recordsProcessed++;
     }
 
+    // Update progress in database after each page
+    await updateWorkerProgress(workerRunId, recordsProcessed);
+
     log.debug("Page processed", {
       recordsProcessed,
       pageSize: response.items.length,
@@ -135,7 +140,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
   let errorMessage: string | undefined;
 
   try {
-    recordsProcessed = await processWorkItem(workItem, log);
+    recordsProcessed = await processWorkItem(workItem, workerRun.id, log);
     log.info("Work item completed successfully", { recordsProcessed });
   } catch (error) {
     status = "failed";
