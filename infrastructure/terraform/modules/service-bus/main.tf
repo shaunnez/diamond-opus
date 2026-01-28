@@ -22,7 +22,7 @@ resource "azurerm_servicebus_queue" "work_items" {
 
   # Workers process items - allow reasonable time for API calls
   lock_duration                       = "PT5M"
-  max_delivery_count                  = 3
+  max_delivery_count                  = 20000
   dead_lettering_on_message_expiration = true
   default_message_ttl                 = "P1D"
 }
@@ -32,7 +32,7 @@ resource "azurerm_servicebus_queue" "work_done" {
   namespace_id = azurerm_servicebus_namespace.main.id
 
   lock_duration                       = "PT1M"
-  max_delivery_count                  = 3
+  max_delivery_count                  = 20000
   dead_lettering_on_message_expiration = true
   default_message_ttl                 = "P1D"
 }
@@ -43,7 +43,7 @@ resource "azurerm_servicebus_queue" "consolidate" {
 
   # Consolidation can take longer
   lock_duration                       = "PT5M"
-  max_delivery_count                  = 3
+  max_delivery_count                  = 20000
   dead_lettering_on_message_expiration = true
   default_message_ttl                 = "P1D"
 }

@@ -162,7 +162,7 @@ variable "worker_min_replicas" {
 variable "worker_max_replicas" {
   description = "Maximum worker replicas"
   type        = number
-  default     = 3
+  default     = 30
 }
 
 variable "consolidator_min_replicas" {
