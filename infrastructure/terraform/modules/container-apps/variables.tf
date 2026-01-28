@@ -124,7 +124,7 @@ variable "resend_api_key" {
   description = "Resend API key for email alerts"
   type        = string
   sensitive   = true
-  default     = ""
+  default     = "demo"
 }
 
 variable "alert_email_to" {
