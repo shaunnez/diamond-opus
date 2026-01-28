@@ -91,6 +91,15 @@ export function RunDetails() {
     run.status !== 'running' && run.completedWorkers > 0;
   const canRetry = hasFailedWorkers;
 
+  const getWorkerProgress = (worker: WorkerRun): number | null => {
+    if (!worker.workItemPayload || typeof worker.workItemPayload.totalRecords !== 'number') {
+      return null;
+    }
+    const totalRecords = worker.workItemPayload.totalRecords as number;
+    if (totalRecords === 0) return 100;
+    return Math.min(100, (worker.recordsProcessed / totalRecords) * 100);
+  };
+
   const workerColumns = [
     {
       key: 'partitionId',
@@ -105,9 +114,50 @@ export function RunDetails() {
       render: (w: WorkerRun) => <StatusBadge status={w.status} />,
     },
     {
+      key: 'progress',
+      header: 'Progress',
+      render: (w: WorkerRun) => {
+        const progress = getWorkerProgress(w);
+        if (progress === null) return '-';
+
+        const isRunning = w.status === 'running';
+        const isCompleted = w.status === 'completed';
+
+        return (
+          <div className="flex items-center gap-2 min-w-[120px]">
+            <div className="flex-1 h-2 bg-stone-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  isCompleted
+                    ? 'bg-success-500'
+                    : isRunning
+                    ? 'bg-info-500 animate-pulse'
+                    : 'bg-error-500'
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="text-xs text-stone-600 font-medium min-w-[3ch] text-right">
+              {Math.round(progress)}%
+            </span>
+          </div>
+        );
+      },
+    },
+    {
       key: 'recordsProcessed',
       header: 'Records',
-      render: (w: WorkerRun) => formatNumber(w.recordsProcessed),
+      render: (w: WorkerRun) => {
+        const totalRecords = w.workItemPayload?.totalRecords as number | undefined;
+        if (totalRecords) {
+          return (
+            <span className="text-xs">
+              {formatNumber(w.recordsProcessed)} / {formatNumber(totalRecords)}
+            </span>
+          );
+        }
+        return formatNumber(w.recordsProcessed);
+      },
     },
     {
       key: 'duration',
