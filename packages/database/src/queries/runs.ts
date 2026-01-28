@@ -130,14 +130,13 @@ export async function createWorkerRun(
 export async function updateWorkerRun(
   id: string,
   status: WorkerStatus,
-  recordsProcessed: number,
   errorMessage?: string
 ): Promise<void> {
   await query(
     `UPDATE worker_runs
-     SET status = $2, records_processed = $3, error_message = $4, completed_at = NOW()
+     SET status = $2, error_message = $3, completed_at = NOW()
      WHERE id = $1`,
-    [id, status, recordsProcessed, errorMessage]
+    [id, status, errorMessage]
   );
 }
 
@@ -147,7 +146,7 @@ export async function updateWorkerProgress(
 ): Promise<void> {
   await query(
     `UPDATE worker_runs
-     SET records_processed = $2
+     SET records_processed = records_processed + $2
      WHERE id = $1 AND status = 'running'`,
     [id, recordsProcessed]
   );
