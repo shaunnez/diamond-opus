@@ -28,8 +28,9 @@ resource "azurerm_servicebus_queue" "work_items" {
   default_message_ttl                 = "P1D"
 
   # Enable duplicate detection for continuation pattern deduplication
-  requires_duplicate_detection        = true
-  duplicate_detection_history_time_window = "PT10M"
+  # Note: duplicate detection is only supported in Standard and Premium tiers
+  requires_duplicate_detection        = var.sku != "Basic" ? true : false
+  duplicate_detection_history_time_window = var.sku != "Basic" ? "PT10M" : null
 }
 
 resource "azurerm_servicebus_queue" "work_done" {
