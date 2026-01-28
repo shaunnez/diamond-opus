@@ -42,16 +42,23 @@ export async function upsertRawDiamond(
   );
 }
 
+/**
+ * Fetches unconsolidated raw diamonds with row-level locking.
+ * Uses FOR UPDATE SKIP LOCKED to enable safe multi-replica processing:
+ * - Each replica gets a unique set of rows
+ * - Locked rows are skipped by other replicas
+ * - No duplicate processing or race conditions
+ */
 export async function getUnconsolidatedRawDiamonds(
-  limit: number,
-  offset: number = 0
+  limit: number
 ): Promise<RawDiamondRow[]> {
   const result = await query<RawDiamondRow>(
     `SELECT * FROM raw_diamonds_nivoda
      WHERE consolidated = FALSE
      ORDER BY created_at ASC
-     LIMIT $1 OFFSET $2`,
-    [limit, offset]
+     LIMIT $1
+     FOR UPDATE SKIP LOCKED`,
+    [limit]
   );
   return result.rows;
 }

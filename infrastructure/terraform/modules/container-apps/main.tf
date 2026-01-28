@@ -327,6 +327,7 @@ resource "azurerm_container_app" "worker" {
 }
 
 # Consolidator Container App (Service Bus consumer, long-running)
+# Now supports multi-replica deployment with FOR UPDATE SKIP LOCKED
 resource "azurerm_container_app" "consolidator" {
   name                         = "${var.app_name_prefix}-consolidator"
   container_app_environment_id = azurerm_container_app_environment.main.id
@@ -336,6 +337,22 @@ resource "azurerm_container_app" "consolidator" {
   template {
     min_replicas = var.consolidator_min_replicas
     max_replicas = var.consolidator_max_replicas
+
+    # Scale based on consolidate queue depth - enables parallel processing
+    custom_scale_rule {
+      name             = "servicebus-consolidate-scale"
+      custom_rule_type = "azure-servicebus"
+      metadata = {
+        namespace              = var.servicebus_namespace
+        queueName              = "consolidate"
+        messageCount           = "1"
+        activationMessageCount = "0"
+      }
+      authentication {
+        secret_name       = "servicebus-connection-string"
+        trigger_parameter = "connection"
+      }
+    }
 
     container {
       name   = "consolidator"

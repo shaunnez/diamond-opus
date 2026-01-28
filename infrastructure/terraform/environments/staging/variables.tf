@@ -165,9 +165,9 @@ variable "consolidator_min_replicas" {
 }
 
 variable "consolidator_max_replicas" {
-  description = "Maximum consolidator replicas"
+  description = "Maximum consolidator replicas (safe with FOR UPDATE SKIP LOCKED)"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 # Log Analytics configuration
@@ -203,15 +203,15 @@ variable "worker_memory" {
 }
 
 variable "consolidator_cpu" {
-  description = "CPU allocation for consolidator container"
+  description = "CPU allocation for consolidator container (increased for batch operations)"
   type        = number
-  default     = 0.25
+  default     = 0.5
 }
 
 variable "consolidator_memory" {
-  description = "Memory allocation for consolidator container"
+  description = "Memory allocation for consolidator container (increased for batch operations)"
   type        = string
-  default     = "0.5Gi"
+  default     = "1Gi"
 }
 
 variable "scheduler_cpu" {

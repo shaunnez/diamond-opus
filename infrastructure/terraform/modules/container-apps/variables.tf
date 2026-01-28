@@ -197,16 +197,17 @@ variable "worker_max_replicas" {
 }
 
 # Resource allocation - Consolidator
+# Increased for batch operations (100 diamonds per upsert, 5 concurrent batches)
 variable "consolidator_cpu" {
   description = "CPU allocation for consolidator container"
   type        = number
-  default     = 0.25
+  default     = 0.5
 }
 
 variable "consolidator_memory" {
-  description = "Memory allocation for consolidator container"
+  description = "Memory allocation for consolidator container (increased for batch operations)"
   type        = string
-  default     = "0.5Gi"
+  default     = "1Gi"
 }
 
 variable "consolidator_min_replicas" {
@@ -216,9 +217,9 @@ variable "consolidator_min_replicas" {
 }
 
 variable "consolidator_max_replicas" {
-  description = "Maximum replicas for consolidator"
+  description = "Maximum replicas for consolidator (safe with FOR UPDATE SKIP LOCKED)"
   type        = number
-  default     = 1
+  default     = 3
 }
 
 # Resource allocation - Scheduler

@@ -1,7 +1,11 @@
 export const RECORDS_PER_WORKER = 5000;
 export const WORKER_PAGE_SIZE = 30;
-export const CONSOLIDATOR_BATCH_SIZE = 1000;
-export const CONSOLIDATOR_CONCURRENCY = 10;
+/** Number of raw diamonds to fetch per consolidation cycle */
+export const CONSOLIDATOR_BATCH_SIZE = 2000;
+/** Number of diamonds per batch upsert (balances query size vs round-trips) */
+export const CONSOLIDATOR_UPSERT_BATCH_SIZE = 100;
+/** Concurrent batch upserts - keep low to respect Supabase pool limits (30 connections) */
+export const CONSOLIDATOR_CONCURRENCY = 5;
 export const NIVODA_MAX_LIMIT = 50;
 
 export const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 hours
