@@ -143,11 +143,11 @@ export function Dashboard() {
                     <div
                       key={run.runId}
                       onClick={() => navigate(`/runs/${run.runId}`)}
-                      className="flex items-center justify-between p-4 bg-stone-50 rounded-lg hover:bg-stone-100 cursor-pointer transition-colors"
+                      className="flex items-start sm:items-center justify-between p-3 sm:p-4 bg-stone-50 rounded-lg hover:bg-stone-100 cursor-pointer transition-colors gap-3"
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-start sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
                         <div
-                          className={`p-2 rounded-lg ${
+                          className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
                             run.status === 'completed'
                               ? 'bg-success-100 text-success-600'
                               : run.status === 'failed'
@@ -158,33 +158,33 @@ export function Dashboard() {
                           }`}
                         >
                           {run.status === 'completed' ? (
-                            <CheckCircle className="w-4 h-4" />
+                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                           ) : run.status === 'failed' ? (
-                            <XCircle className="w-4 h-4" />
+                            <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                           ) : (
-                            <PlayCircle className="w-4 h-4" />
+                            <PlayCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm text-stone-700">
-                              {truncateId(run.runId)}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span className="font-mono text-xs sm:text-sm text-stone-700 break-all">
+                              {truncateId(run.runId, 8)}
                             </span>
                             <RunTypeBadge type={run.runType} />
                             <StatusBadge status={run.status} />
                           </div>
-                          <p className="text-xs text-stone-500 mt-0.5">
-                            {formatRelativeTime(run.startedAt)} &bull;{' '}
-                            {formatNumber(run.totalRecordsProcessed)} records
+                          <p className="text-xs text-stone-500 mt-1">
+                            {formatRelativeTime(run.startedAt)}
+                            <span className="hidden sm:inline"> &bull; {formatNumber(run.totalRecordsProcessed)} records</span>
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-stone-600">
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs sm:text-sm text-stone-600">
                           {formatDuration(run.durationMs)}
                         </p>
                         <p className="text-xs text-stone-500">
-                          {run.completedWorkers}/{run.expectedWorkers} workers
+                          {run.completedWorkers}/{run.expectedWorkers}
                         </p>
                       </div>
                     </div>

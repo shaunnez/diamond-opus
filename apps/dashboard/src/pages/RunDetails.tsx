@@ -151,21 +151,28 @@ export function RunDetails() {
 
         {/* Run Summary */}
         <Card className="mb-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-xl font-semibold text-stone-900 font-mono">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-stone-900 font-mono break-all">
                   {truncateId(run.runId, 12)}
                 </h2>
                 <RunTypeBadge type={run.runType} />
                 <StatusBadge status={run.status} />
               </div>
-              <p className="text-sm text-stone-500">
+              <p className="text-xs sm:text-sm text-stone-500">
                 Started {formatDate(run.startedAt)}
-                {run.completedAt && ` | Completed ${formatDate(run.completedAt)}`}
+                {run.completedAt && (
+                  <span className="hidden sm:inline"> | Completed {formatDate(run.completedAt)}</span>
+                )}
               </p>
+              {run.completedAt && (
+                <p className="text-xs sm:text-sm text-stone-500 sm:hidden">
+                  Completed {formatDate(run.completedAt)}
+                </p>
+              )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {canRetry && (
                 <Button
                   variant="secondary"
@@ -173,7 +180,8 @@ export function RunDetails() {
                   icon={<RefreshCw className="w-4 h-4" />}
                   onClick={() => setShowRetryModal(true)}
                 >
-                  Retry Failed
+                  <span className="hidden sm:inline">Retry Failed</span>
+                  <span className="sm:hidden">Retry</span>
                 </Button>
               )}
               {canConsolidate && (
@@ -190,35 +198,35 @@ export function RunDetails() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-6 border-t border-stone-200">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-6 pt-6 border-t border-stone-200">
             <div>
-              <p className="text-sm text-stone-500">Duration</p>
-              <p className="text-lg font-semibold text-stone-900">
+              <p className="text-xs sm:text-sm text-stone-500">Duration</p>
+              <p className="text-base sm:text-lg font-semibold text-stone-900">
                 {formatDuration(run.durationMs)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-stone-500">Records Processed</p>
-              <p className="text-lg font-semibold text-stone-900">
+              <p className="text-xs sm:text-sm text-stone-500">Records</p>
+              <p className="text-base sm:text-lg font-semibold text-stone-900">
                 {formatNumber(run.totalRecordsProcessed)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-stone-500">Expected Workers</p>
-              <p className="text-lg font-semibold text-stone-900">
+              <p className="text-xs sm:text-sm text-stone-500">Expected</p>
+              <p className="text-base sm:text-lg font-semibold text-stone-900">
                 {run.expectedWorkers}
               </p>
             </div>
             <div>
-              <p className="text-sm text-stone-500">Completed</p>
-              <p className="text-lg font-semibold text-success-600">
+              <p className="text-xs sm:text-sm text-stone-500">Completed</p>
+              <p className="text-base sm:text-lg font-semibold text-success-600">
                 {run.completedWorkers}
               </p>
             </div>
             <div>
-              <p className="text-sm text-stone-500">Failed</p>
+              <p className="text-xs sm:text-sm text-stone-500">Failed</p>
               <p
-                className={`text-lg font-semibold ${
+                className={`text-base sm:text-lg font-semibold ${
                   run.failedWorkers > 0 ? 'text-error-600' : 'text-stone-900'
                 }`}
               >
@@ -265,14 +273,14 @@ export function RunDetails() {
             title="Worker Status Grid"
             subtitle="Visual overview of all workers"
           />
-          <div className="mt-4 grid grid-cols-10 md:grid-cols-15 lg:grid-cols-20 gap-1">
+          <div className="mt-4 grid grid-cols-8 sm:grid-cols-12 md:grid-cols-15 lg:grid-cols-20 gap-1">
             {workers.map((worker) => (
               <div
                 key={worker.id}
                 title={`${worker.partitionId}: ${worker.status}${
                   worker.errorMessage ? ` - ${worker.errorMessage}` : ''
                 }`}
-                className={`w-6 h-6 rounded flex items-center justify-center cursor-help ${
+                className={`w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center cursor-help ${
                   worker.status === 'completed'
                     ? 'bg-success-100 text-success-600'
                     : worker.status === 'failed'
@@ -281,24 +289,24 @@ export function RunDetails() {
                 }`}
               >
                 {worker.status === 'completed' ? (
-                  <CheckCircle className="w-3 h-3" />
+                  <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 ) : worker.status === 'failed' ? (
-                  <XCircle className="w-3 h-3" />
+                  <XCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 ) : (
-                  <PlayCircle className="w-3 h-3" />
+                  <PlayCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 )}
               </div>
             ))}
           </div>
-          <div className="mt-4 flex items-center gap-4 text-xs text-stone-500">
+          <div className="mt-4 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-stone-500">
             <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-success-100 rounded" /> Completed
+              <div className="w-3 h-3 sm:w-4 sm:h-4 bg-success-100 rounded" /> Completed
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-error-100 rounded" /> Failed
+              <div className="w-3 h-3 sm:w-4 sm:h-4 bg-error-100 rounded" /> Failed
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-info-100 rounded" /> Running
+              <div className="w-3 h-3 sm:w-4 sm:h-4 bg-info-100 rounded" /> Running
             </div>
           </div>
         </Card>

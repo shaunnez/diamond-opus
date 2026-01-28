@@ -14,27 +14,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check if API key is valid on mount
+  // Check if API key exists on mount (trust localStorage, let 401 interceptor handle invalid keys)
   useEffect(() => {
-    async function checkAuth() {
-      if (!isApiKeySet()) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        // Test the API key by calling a simple endpoint
-        await api.get('/analytics/summary');
-        setIsAuthenticated(true);
-      } catch {
-        clearApiKey();
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    checkAuth();
+    const hasKey = isApiKeySet();
+    setIsAuthenticated(hasKey);
+    setIsLoading(false);
   }, []);
 
   const login = useCallback(async (apiKey: string): Promise<boolean> => {

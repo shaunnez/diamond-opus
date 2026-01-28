@@ -119,8 +119,8 @@ export function Runs() {
       <PageContainer>
         {/* Filters */}
         <Card className="mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button
                 variant={showFilters ? 'primary' : 'secondary'}
                 size="sm"
@@ -140,13 +140,13 @@ export function Runs() {
                 </Button>
               )}
             </div>
-            <p className="text-sm text-stone-500">
+            <p className="text-xs sm:text-sm text-stone-500">
               {data?.pagination.total ?? 0} total runs
             </p>
           </div>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-stone-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-4 pt-4 border-t border-stone-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Select
                 label="Run Type"
                 value={filters.run_type || ''}
