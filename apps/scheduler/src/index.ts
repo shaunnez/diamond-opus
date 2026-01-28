@@ -14,6 +14,7 @@ import {
   DIAMOND_SHAPES,
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
+  MAX_SCHEDULER_RECORDS,
   createLogger,
   generateTraceId,
   type WorkItemMessage,
@@ -53,12 +54,20 @@ async function run(): Promise<void> {
 
   // Configure heatmap based on run type
   // Incremental runs may have much less data, so we can use fewer workers
+  // MAX_SCHEDULER_RECORDS env var allows capping total records (useful for staging)
+  const maxTotalRecords = parseInt(process.env.MAX_SCHEDULER_RECORDS || '', 10) || MAX_SCHEDULER_RECORDS;
+
   const heatmapConfig: HeatmapConfig = {
     maxWorkers: runType === "incremental"
       ? Math.min(10, HEATMAP_MAX_WORKERS)
       : HEATMAP_MAX_WORKERS,
     minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
+    maxTotalRecords,
   };
+
+  if (maxTotalRecords > 0) {
+    log.info("Record cap enabled", { maxTotalRecords });
+  }
 
   log.info("Starting heatmap scan", { heatmapConfig });
   const heatmapResult = await scanHeatmap(adapter, baseQuery, heatmapConfig, log);

@@ -45,6 +45,8 @@ export interface HeatmapConfig {
   useTwoPassScan?: boolean;
   /** Coarse step size for first pass when useTwoPassScan=true (default: 5000) */
   coarseStep?: number;
+  /** Maximum total records to process (0 = unlimited). Partitions will be truncated to stay within this limit. */
+  maxTotalRecords?: number;
 }
 
 export interface HeatmapResult {
@@ -100,6 +102,7 @@ export async function scanHeatmap(
   const concurrency = config.concurrency ?? 3;
   const useTwoPassScan = config.useTwoPassScan ?? false;
   const coarseStep = config.coarseStep ?? 5000;
+  const maxTotalRecords = config.maxTotalRecords ?? 0;
 
   const startTime = Date.now();
 
@@ -174,7 +177,7 @@ export async function scanHeatmap(
   log.info('Worker count calculated', { desiredWorkerCount, maxWorkers });
 
   // Phase 3: Partition into balanced worker buckets
-  const partitions = createPartitions(densityMap, desiredWorkerCount, log);
+  const partitions = createPartitions(densityMap, desiredWorkerCount, log, maxTotalRecords);
 
   // workerCount is always the actual partition count (authoritative)
   const workerCount = partitions.length;
@@ -184,6 +187,9 @@ export async function scanHeatmap(
       desired: desiredWorkerCount,
     });
   }
+
+  // Calculate effective total (may be capped)
+  const effectiveTotalRecords = partitions.reduce((sum, p) => sum + p.totalRecords, 0);
 
   // Build final stats
   const stats: ScanStats = {
@@ -198,12 +204,14 @@ export async function scanHeatmap(
     apiCalls: stats.apiCalls,
     rangesScanned: stats.rangesScanned,
     durationMs: stats.scanDurationMs,
+    totalRecords: effectiveTotalRecords,
+    capped: maxTotalRecords > 0 && totalRecords > maxTotalRecords,
   });
 
   return {
     densityMap,
     partitions,
-    totalRecords,
+    totalRecords: effectiveTotalRecords,
     workerCount,
     stats,
   };
@@ -735,30 +743,83 @@ export function calculateWorkerCount(
 /**
  * Partitions density map into balanced worker buckets.
  * Each partition covers a contiguous price range with roughly equal record counts.
+ * If maxTotalRecords is set (> 0), partitions will be truncated to stay within the limit.
  * Exported for testing.
  */
 export function createPartitions(
   densityMap: DensityChunk[],
   desiredWorkerCount: number,
-  logger: Logger = nullLogger
+  logger: Logger = nullLogger,
+  maxTotalRecords: number = 0
 ): WorkerPartition[] {
   if (densityMap.length === 0 || desiredWorkerCount === 0) {
     return [];
   }
 
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
-  const targetPerWorker = Math.ceil(totalRecords / desiredWorkerCount);
 
-  logger.debug('Creating partitions', { targetPerWorker });
+  // Apply maxTotalRecords cap if set
+  const effectiveTotal = maxTotalRecords > 0
+    ? Math.min(totalRecords, maxTotalRecords)
+    : totalRecords;
+
+  if (maxTotalRecords > 0 && totalRecords > maxTotalRecords) {
+    logger.info('Applying maxTotalRecords cap', {
+      originalTotal: totalRecords,
+      cappedTotal: effectiveTotal,
+      maxTotalRecords,
+    });
+  }
+
+  const targetPerWorker = Math.ceil(effectiveTotal / desiredWorkerCount);
+
+  logger.debug('Creating partitions', { targetPerWorker, effectiveTotal });
 
   const partitions: WorkerPartition[] = [];
   let currentWorkerId = 0;
   let currentBatchSum = 0;
   let currentBatchStart = densityMap[0].min;
+  let cumulativeRecords = 0;
 
   for (let i = 0; i < densityMap.length; i++) {
     const chunk = densityMap[i];
+
+    // Check if adding this chunk would exceed the cap
+    if (maxTotalRecords > 0 && cumulativeRecords + chunk.count > maxTotalRecords) {
+      // Calculate how many records we can still take from this chunk
+      const remainingAllowance = maxTotalRecords - cumulativeRecords;
+
+      if (remainingAllowance > 0) {
+        // Add a partial partition with the remaining allowance
+        currentBatchSum += remainingAllowance;
+        cumulativeRecords += remainingAllowance;
+
+        partitions.push({
+          partitionId: `partition-${currentWorkerId}`,
+          minPrice: currentBatchStart,
+          maxPrice: chunk.max,
+          totalRecords: currentBatchSum,
+        });
+
+        logger.debug('Final capped partition created', {
+          partitionId: `partition-${currentWorkerId}`,
+          priceRange: { min: currentBatchStart, max: chunk.max },
+          records: currentBatchSum,
+          capped: true,
+        });
+      }
+
+      // Stop processing - we've hit the cap
+      logger.info('Partitioning stopped at record cap', {
+        totalPartitions: partitions.length,
+        totalRecords: cumulativeRecords,
+        maxTotalRecords,
+      });
+      break;
+    }
+
     currentBatchSum += chunk.count;
+    cumulativeRecords += chunk.count;
 
     // Create partition when we hit target or reach the end
     const isLastChunk = i === densityMap.length - 1;

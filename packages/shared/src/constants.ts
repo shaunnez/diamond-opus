@@ -53,6 +53,8 @@ export const BLOB_CONTAINERS = {
 export const WATERMARK_BLOB_NAME = 'nivoda.json';
 
 // Heatmap scanner configuration
+/** Maximum total records to process (0 = unlimited). Use for staging caps. */
+export const MAX_SCHEDULER_RECORDS = 0;
 export const HEATMAP_MIN_PRICE = 0;
 export const HEATMAP_MAX_PRICE = 250000;
 /** Price threshold below which we use fixed small steps (dense zone) */
