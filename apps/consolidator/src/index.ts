@@ -13,6 +13,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 import {
   CONSOLIDATOR_BATCH_SIZE,
+  CONSOLIDATOR_UPSERT_BATCH_SIZE,
   CONSOLIDATOR_CONCURRENCY,
   createLogger,
   type ConsolidateMessage,
@@ -22,10 +23,11 @@ import {
 import {
   getUnconsolidatedRawDiamonds,
   markAsConsolidated,
-  upsertDiamond,
+  upsertDiamondsBatch,
   completeRun,
   getRunMetadata,
   closePool,
+  type DiamondInput,
 } from '@diamond/database';
 import { mapRawPayloadToDiamond } from '@diamond/nivoda';
 import { PricingEngine } from '@diamond/pricing-engine';
@@ -35,9 +37,9 @@ import { sendAlert } from './alerts.js';
 
 const baseLogger = createLogger({ service: 'consolidator' });
 
-interface ProcessResult {
-  id: string;
-  success: boolean;
+interface BatchResult {
+  processedIds: string[];
+  errorCount: number;
 }
 
 async function processWithConcurrency<T, R>(
@@ -64,11 +66,76 @@ async function processWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * Splits an array into chunks of the specified size.
+ */
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * Process a batch of raw diamonds: map, price, and batch upsert.
+ * Returns the IDs that were successfully processed and error count.
+ */
+async function processBatch(
+  rawDiamonds: { id: string; payload: Record<string, unknown> }[],
+  pricingEngine: PricingEngine,
+  log: Logger
+): Promise<BatchResult> {
+  const processedIds: string[] = [];
+  const diamonds: DiamondInput[] = [];
+  let errorCount = 0;
+
+  // Phase 1: Map and price all diamonds (CPU-bound, fast)
+  for (const rawDiamond of rawDiamonds) {
+    try {
+      const baseDiamond = mapRawPayloadToDiamond(rawDiamond.payload);
+      const pricedDiamond = pricingEngine.applyPricing(baseDiamond);
+      diamonds.push(pricedDiamond);
+      processedIds.push(rawDiamond.id);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      log.error('Error mapping raw diamond', {
+        rawDiamondId: rawDiamond.id,
+        errorType: error instanceof Error ? error.name : 'unknown',
+        errorMessage: errorMsg,
+      });
+      errorCount++;
+    }
+  }
+
+  // Phase 2: Batch upsert to database
+  if (diamonds.length > 0) {
+    try {
+      await upsertDiamondsBatch(diamonds);
+    } catch (error) {
+      // If batch fails, all diamonds in this batch are considered failed
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      log.error('Batch upsert failed', {
+        batchSize: diamonds.length,
+        errorType: error instanceof Error ? error.name : 'unknown',
+        errorMessage: errorMsg,
+      });
+      return { processedIds: [], errorCount: rawDiamonds.length };
+    }
+  }
+
+  return { processedIds, errorCount };
+}
+
 async function processConsolidation(
   message: ConsolidateMessage,
   log: Logger
 ): Promise<void> {
-  log.info('Starting consolidation', { concurrency: CONSOLIDATOR_CONCURRENCY });
+  log.info('Starting consolidation', {
+    concurrency: CONSOLIDATOR_CONCURRENCY,
+    batchSize: CONSOLIDATOR_BATCH_SIZE,
+    upsertBatchSize: CONSOLIDATOR_UPSERT_BATCH_SIZE,
+  });
 
   const pricingEngine = new PricingEngine();
   await pricingEngine.loadRules();
@@ -76,59 +143,48 @@ async function processConsolidation(
 
   let totalProcessed = 0;
   let totalErrors = 0;
-  let offset = 0;
 
   while (true) {
-    const rawDiamonds = await getUnconsolidatedRawDiamonds(
-      CONSOLIDATOR_BATCH_SIZE,
-      offset
-    );
+    // Fetch batch with FOR UPDATE SKIP LOCKED (enables multi-replica processing)
+    const rawDiamonds = await getUnconsolidatedRawDiamonds(CONSOLIDATOR_BATCH_SIZE);
 
     if (rawDiamonds.length === 0) {
       break;
     }
 
-    log.debug('Processing batch', { batchSize: rawDiamonds.length });
+    log.debug('Fetched batch', { batchSize: rawDiamonds.length });
 
+    // Split into smaller chunks for batch upserts
+    const chunks = chunkArray(rawDiamonds, CONSOLIDATOR_UPSERT_BATCH_SIZE);
+
+    // Process chunks concurrently (respects connection pool limits)
     const results = await processWithConcurrency(
-      rawDiamonds,
-      async (rawDiamond): Promise<ProcessResult> => {
-        try {
-          const baseDiamond = mapRawPayloadToDiamond(rawDiamond.payload);
-          const pricedDiamond = pricingEngine.applyPricing(baseDiamond);
-          await upsertDiamond(pricedDiamond);
-          return { id: rawDiamond.id, success: true };
-        } catch (error) {
-          // Extract only the error message to avoid logging large payloads
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          log.error('Error processing raw diamond', {
-            rawDiamondId: rawDiamond.id,
-            errorType: error instanceof Error ? error.name : 'unknown',
-            errorMessage: errorMsg,
-          });
-          return { id: rawDiamond.id, success: false };
-        }
-      },
+      chunks,
+      (chunk) => processBatch(chunk, pricingEngine, log),
       CONSOLIDATOR_CONCURRENCY
     );
 
-    const processedIds = results.filter((r) => r.success).map((r) => r.id);
-    const errorCount = results.filter((r) => !r.success).length;
+    // Aggregate results
+    const allProcessedIds = results.flatMap((r) => r.processedIds);
+    const batchErrors = results.reduce((sum, r) => sum + r.errorCount, 0);
 
-    totalProcessed += processedIds.length;
-    totalErrors += errorCount;
+    totalProcessed += allProcessedIds.length;
+    totalErrors += batchErrors;
 
-    if (processedIds.length > 0) {
-      await markAsConsolidated(processedIds);
+    // Mark successfully processed diamonds as consolidated
+    if (allProcessedIds.length > 0) {
+      await markAsConsolidated(allProcessedIds);
     }
 
     log.info('Batch processed', {
       totalProcessed,
       totalErrors,
-      batchProcessed: processedIds.length,
-      batchErrors: errorCount,
+      batchProcessed: allProcessedIds.length,
+      batchErrors,
+      chunks: chunks.length,
     });
 
+    // If we got fewer than requested, we've processed everything
     if (rawDiamonds.length < CONSOLIDATOR_BATCH_SIZE) {
       break;
     }

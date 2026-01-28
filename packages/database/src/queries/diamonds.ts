@@ -261,6 +261,149 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
   return mapRowToDiamond(result.rows[0]!);
 }
 
+export type DiamondInput = Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'>;
+
+export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<number> {
+  if (diamonds.length === 0) return 0;
+
+  // Build arrays for each column - PostgreSQL UNNEST for efficient batch insert
+  const suppliers: string[] = [];
+  const supplierStoneIds: string[] = [];
+  const offerIds: string[] = [];
+  const shapes: string[] = [];
+  const carats: number[] = [];
+  const colors: string[] = [];
+  const clarities: string[] = [];
+  const cuts: (string | null)[] = [];
+  const polishes: (string | null)[] = [];
+  const symmetries: (string | null)[] = [];
+  const fluorescences: (string | null)[] = [];
+  const labGrowns: boolean[] = [];
+  const treateds: boolean[] = [];
+  const supplierPriceCents: number[] = [];
+  const pricePerCaratCents: number[] = [];
+  const retailPriceCents: (number | null)[] = [];
+  const markupRatios: (number | null)[] = [];
+  const ratings: (number | null)[] = [];
+  const availabilities: string[] = [];
+  const rawAvailabilities: (string | null)[] = [];
+  const holdIds: (string | null)[] = [];
+  const imageUrls: (string | null)[] = [];
+  const videoUrls: (string | null)[] = [];
+  const certificateLabs: (string | null)[] = [];
+  const certificateNumbers: (string | null)[] = [];
+  const certificatePdfUrls: (string | null)[] = [];
+  const measurements: (string | null)[] = [];
+  const attributes: (string | null)[] = [];
+  const supplierNames: (string | null)[] = [];
+  const supplierLegalNames: (string | null)[] = [];
+  const statuses: string[] = [];
+  const sourceUpdatedAts: (Date | null)[] = [];
+
+  for (const d of diamonds) {
+    suppliers.push(d.supplier);
+    supplierStoneIds.push(d.supplierStoneId);
+    offerIds.push(d.offerId);
+    shapes.push(d.shape);
+    carats.push(d.carats);
+    colors.push(d.color);
+    clarities.push(d.clarity);
+    cuts.push(d.cut ?? null);
+    polishes.push(d.polish ?? null);
+    symmetries.push(d.symmetry ?? null);
+    fluorescences.push(d.fluorescence ?? null);
+    labGrowns.push(d.labGrown);
+    treateds.push(d.treated);
+    supplierPriceCents.push(d.supplierPriceCents);
+    pricePerCaratCents.push(d.pricePerCaratCents);
+    retailPriceCents.push(d.retailPriceCents ?? null);
+    markupRatios.push(d.markupRatio ?? null);
+    ratings.push(d.rating ?? null);
+    availabilities.push(d.availability);
+    rawAvailabilities.push(d.rawAvailability ?? null);
+    holdIds.push(d.holdId ?? null);
+    imageUrls.push(d.imageUrl ?? null);
+    videoUrls.push(d.videoUrl ?? null);
+    certificateLabs.push(d.certificateLab ?? null);
+    certificateNumbers.push(d.certificateNumber ?? null);
+    certificatePdfUrls.push(d.certificatePdfUrl ?? null);
+    measurements.push(d.measurements ? JSON.stringify(d.measurements) : null);
+    attributes.push(d.attributes ? JSON.stringify(d.attributes) : null);
+    supplierNames.push(d.supplierName ?? null);
+    supplierLegalNames.push(d.supplierLegalName ?? null);
+    statuses.push(d.status);
+    sourceUpdatedAts.push(d.sourceUpdatedAt ?? null);
+  }
+
+  const result = await query<{ count: string }>(
+    `WITH upserted AS (
+      INSERT INTO diamonds (
+        supplier, supplier_stone_id, offer_id, shape, carats, color, clarity,
+        cut, polish, symmetry, fluorescence, lab_grown, treated,
+        supplier_price_cents, price_per_carat_cents, retail_price_cents,
+        markup_ratio, rating, availability, raw_availability, hold_id,
+        image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
+        measurements, attributes, supplier_name, supplier_legal_name,
+        status, source_updated_at
+      )
+      SELECT * FROM UNNEST(
+        $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[],
+        $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
+        $11::text[], $12::boolean[], $13::boolean[], $14::bigint[], $15::bigint[],
+        $16::bigint[], $17::numeric[], $18::integer[], $19::text[], $20::text[],
+        $21::text[], $22::text[], $23::text[], $24::text[], $25::text[],
+        $26::text[], $27::jsonb[], $28::jsonb[], $29::text[], $30::text[],
+        $31::text[], $32::timestamptz[]
+      )
+      ON CONFLICT (supplier, supplier_stone_id) DO UPDATE SET
+        offer_id = EXCLUDED.offer_id,
+        shape = EXCLUDED.shape,
+        carats = EXCLUDED.carats,
+        color = EXCLUDED.color,
+        clarity = EXCLUDED.clarity,
+        cut = EXCLUDED.cut,
+        polish = EXCLUDED.polish,
+        symmetry = EXCLUDED.symmetry,
+        fluorescence = EXCLUDED.fluorescence,
+        lab_grown = EXCLUDED.lab_grown,
+        treated = EXCLUDED.treated,
+        supplier_price_cents = EXCLUDED.supplier_price_cents,
+        price_per_carat_cents = EXCLUDED.price_per_carat_cents,
+        retail_price_cents = EXCLUDED.retail_price_cents,
+        markup_ratio = EXCLUDED.markup_ratio,
+        rating = EXCLUDED.rating,
+        availability = EXCLUDED.availability,
+        raw_availability = EXCLUDED.raw_availability,
+        hold_id = EXCLUDED.hold_id,
+        image_url = EXCLUDED.image_url,
+        video_url = EXCLUDED.video_url,
+        certificate_lab = EXCLUDED.certificate_lab,
+        certificate_number = EXCLUDED.certificate_number,
+        certificate_pdf_url = EXCLUDED.certificate_pdf_url,
+        measurements = EXCLUDED.measurements,
+        attributes = EXCLUDED.attributes,
+        supplier_name = EXCLUDED.supplier_name,
+        supplier_legal_name = EXCLUDED.supplier_legal_name,
+        status = EXCLUDED.status,
+        source_updated_at = EXCLUDED.source_updated_at,
+        updated_at = NOW()
+      RETURNING 1
+    )
+    SELECT COUNT(*)::text as count FROM upserted`,
+    [
+      suppliers, supplierStoneIds, offerIds, shapes, carats,
+      colors, clarities, cuts, polishes, symmetries,
+      fluorescences, labGrowns, treateds, supplierPriceCents, pricePerCaratCents,
+      retailPriceCents, markupRatios, ratings, availabilities, rawAvailabilities,
+      holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
+      certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,
+      statuses, sourceUpdatedAts,
+    ]
+  );
+
+  return parseInt(result.rows[0]?.count ?? '0', 10);
+}
+
 export async function updateDiamondAvailability(
   id: string,
   availability: Diamond['availability'],
