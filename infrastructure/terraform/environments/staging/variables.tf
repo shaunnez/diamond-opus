@@ -84,14 +84,14 @@ variable "nivoda_username" {
   description = "Nivoda API username"
   type        = string
   sensitive   = true
-  default     = ""
+  default     = "testaccount@sample.com"
 }
 
 variable "nivoda_password" {
   description = "Nivoda API password"
   type        = string
   sensitive   = true
-  default     = ""
+  default     = "staging-nivoda-22"
 }
 
 variable "hmac_secrets" {
