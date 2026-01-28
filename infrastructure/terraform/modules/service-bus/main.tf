@@ -55,5 +55,5 @@ resource "azurerm_servicebus_namespace_authorization_rule" "app" {
 
   listen = true
   send   = true
-  manage = false
+  manage = true  # Required for KEDA to read queue metrics
 }

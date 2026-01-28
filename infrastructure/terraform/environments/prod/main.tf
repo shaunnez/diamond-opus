@@ -116,6 +116,10 @@ module "container_apps" {
 
   # Scheduler configuration
   scheduler_cron_expression = var.scheduler_cron_expression
+  enable_scheduler          = var.enable_scheduler
+
+  # Worker scaling configuration
+  worker_message_count = var.worker_message_count
 
   # Resource allocation - replicas
   api_min_replicas          = var.api_min_replicas

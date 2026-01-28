@@ -195,7 +195,7 @@ resource "azurerm_container_app" "worker" {
       metadata = {
         namespace              = var.servicebus_namespace
         queueName              = "work-items"
-        messageCount           = "5"
+        messageCount           = tostring(var.worker_message_count)
         activationMessageCount = "0"
       }
       authentication {
@@ -467,7 +467,10 @@ resource "azurerm_container_app" "consolidator" {
 }
 
 # Scheduler as a Container Apps Job (runs on-demand or scheduled)
+# Set enable_scheduler = false to disable the cron schedule (manual trigger only)
 resource "azurerm_container_app_job" "scheduler" {
+  count = var.enable_scheduler ? 1 : 0
+
   name                         = "${var.app_name_prefix}-scheduler"
   location                     = var.location
   container_app_environment_id = azurerm_container_app_environment.main.id

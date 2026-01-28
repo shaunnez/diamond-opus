@@ -129,6 +129,19 @@ variable "scheduler_cron_expression" {
   default     = "0 2 * * *"
 }
 
+variable "enable_scheduler" {
+  description = "Whether to create the scheduled cron job for the scheduler"
+  type        = bool
+  default     = true  # Production: scheduled runs enabled
+}
+
+# Worker scaling configuration
+variable "worker_message_count" {
+  description = "Number of Service Bus messages per worker replica for KEDA scaling"
+  type        = number
+  default     = 1
+}
+
 # Scaling configuration (production-ready)
 variable "api_min_replicas" {
   description = "Minimum API replicas"
