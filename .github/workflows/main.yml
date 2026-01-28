@@ -1,4 +1,4 @@
-name: CI Build Test Docker Terraform Deploy Staging
+name: CI Staging Build Test Terraform Deploy
 
 on:
   push:
@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build_and_test
     if: github.event_name != 'pull_request'
+    environment: staging
 
     strategy:
       fail-fast: false
@@ -79,6 +80,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Debug staging secrets present
+        run: |
+          [ -n "${{ secrets.ACR_LOGIN_SERVER }}" ] && echo "ACR_LOGIN_SERVER ok" || (echo "ACR_LOGIN_SERVER missing" && exit 1)
+          [ -n "${{ secrets.ACR_USERNAME }}" ] && echo "ACR_USERNAME ok" || (echo "ACR_USERNAME missing" && exit 1)
+          [ -n "${{ secrets.ACR_PASSWORD }}" ] && echo "ACR_PASSWORD ok" || (echo "ACR_PASSWORD missing" && exit 1)
+          [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && echo "AZURE_CLIENT_ID ok" || (echo "AZURE_CLIENT_ID missing" && exit 1)
+          [ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ] && echo "AZURE_SUBSCRIPTION_ID ok" || (echo "AZURE_SUBSCRIPTION_ID missing" && exit 1)
+
       - name: Login to Azure Container Registry
         uses: docker/login-action@v3
         with:
@@ -94,7 +103,6 @@ jobs:
           tags: |
             type=sha,format=short,prefix=
             type=raw,value=staging
-            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -108,11 +116,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   terraform_staging:
-    name: Terraform Plan Apply Staging
+    name: Terraform Apply Staging
     runs-on: ubuntu-latest
     needs: build_and_test
     if: github.event_name != 'pull_request'
-
     environment: staging
 
     defaults:
@@ -182,7 +189,6 @@ jobs:
       - docker_build_and_push
       - terraform_staging
     if: github.event_name != 'pull_request'
-
     environment: staging
 
     steps:
@@ -194,7 +200,7 @@ jobs:
         with:
           creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
 
-      - name: Deploy Container Apps
+      - name: Deploy Container Apps and Job Images
         env:
           RESOURCE_GROUP: diamond-staging-rg
           ACR_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
@@ -239,7 +245,7 @@ jobs:
         run: |
           echo "=== CONSOLIDATOR DIAGNOSTICS ==="
           az containerapp show \
-            --name diamond-staging-consolidator \
+            --name "diamond-staging-consolidator" \
             --resource-group "diamond-staging-rg" \
             --query "{
               name: name,
