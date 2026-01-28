@@ -366,6 +366,65 @@ export async function getRunDetails(runId: string): Promise<{
 }
 
 // ============================================================================
+// Recent Failed Workers (across all runs)
+// ============================================================================
+
+export interface RecentFailedWorker {
+  id: string;
+  runId: string;
+  partitionId: string;
+  workerId: string;
+  status: 'failed';
+  recordsProcessed: number;
+  errorMessage: string | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  runType: RunType;
+  runStartedAt: Date;
+}
+
+export async function getRecentFailedWorkers(limit = 20): Promise<RecentFailedWorker[]> {
+  const result = await query<{
+    id: string;
+    run_id: string;
+    partition_id: string;
+    worker_id: string;
+    status: string;
+    records_processed: number;
+    error_message: string | null;
+    started_at: Date;
+    completed_at: Date | null;
+    run_type: string;
+    run_started_at: Date;
+  }>(
+    `SELECT
+      wr.id, wr.run_id, wr.partition_id, wr.worker_id, wr.status,
+      wr.records_processed, wr.error_message, wr.started_at, wr.completed_at,
+      rm.run_type, rm.started_at as run_started_at
+     FROM worker_runs wr
+     JOIN run_metadata rm ON wr.run_id = rm.run_id
+     WHERE wr.status = 'failed'
+     ORDER BY wr.completed_at DESC NULLS LAST, wr.started_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    runId: row.run_id,
+    partitionId: row.partition_id,
+    workerId: row.worker_id,
+    status: 'failed' as const,
+    recordsProcessed: row.records_processed,
+    errorMessage: row.error_message,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    runType: row.run_type as RunType,
+    runStartedAt: row.run_started_at,
+  }));
+}
+
+// ============================================================================
 // Supplier Stats
 // ============================================================================
 
