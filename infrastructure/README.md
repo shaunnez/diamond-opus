@@ -126,9 +126,12 @@ Creates Azure Container Registry for Docker images.
 ### container-apps
 Creates Container Apps Environment with:
 - **API** - HTTP ingress, scales 1-5 replicas
-- **Worker** - Service Bus consumer, scales 1-10 replicas
-- **Consolidator** - Service Bus consumer, 1-2 replicas
+- **Worker** - Service Bus consumer, scales 1-10 replicas based on `work-items` queue
+- **Consolidator** - Service Bus consumer, scales 1-3 replicas based on `consolidate` queue
+  - Uses `FOR UPDATE SKIP LOCKED` for safe multi-replica processing
+  - Increased resources (0.5 CPU, 1Gi memory) for batch operations
 - **Scheduler** - Cron job (runs at 2 AM UTC daily)
+- **Dashboard** - HTTP ingress, scales 1-2 replicas
 
 ## Configuration
 
@@ -161,13 +164,41 @@ enable_container_apps = true  # Set to true when ready to deploy containers
 ### Infrastructure Workflow (`.github/workflows/infrastructure.yml`)
 
 - **On PR**: Plans changes for both staging and prod
-- **On push to main**: Auto-deploys staging
+- **On push to main**: Auto-deploys staging (if terraform files changed)
 - **Manual trigger**: Deploy any environment with plan/apply
+- **Image tag preservation**: Automatically gets current image tag from running containers before Terraform apply (prevents image reset)
+
+```bash
+# Manual trigger via CLI
+gh workflow run "Infrastructure" -f environment=staging -f action=apply
+```
+
+### Deploy Staging Workflow (`.github/workflows/deploy-staging.yml`)
+
+- **Triggers**: After CI passes on main, or manual dispatch
+- **Builds**: Docker images with short SHA tag (e.g., `abc1234`)
+- **Deploys**: Updates Container Apps via `az containerapp update`
+
+```bash
+# Manual trigger via CLI
+gh workflow run "Deploy Staging" --ref main
+```
 
 ### CI Workflow (`.github/workflows/ci.yml`)
 
 - **On PR/push**: Build, test, type-check
-- **On push to main**: Build Docker images, push to ACR, deploy to staging
+
+### Deployment Flow
+
+```
+Code changes → deploy-staging.yml → builds images, updates containers
+Terraform changes → infrastructure.yml → applies infra, preserves image tags
+```
+
+**Important**: Infrastructure workflow preserves image tags by:
+1. Querying current deployed image tag from Container Apps
+2. Passing it to Terraform via `-var="image_tag=..."`
+3. This prevents Terraform from resetting images to default tags
 
 ### Required Secrets
 

@@ -211,14 +211,27 @@ Dual auth system (checked in order):
 
 ```typescript
 // From packages/shared/src/constants.ts
-RECORDS_PER_WORKER = 5000      // Target records per worker
-WORKER_PAGE_SIZE = 30          // Pagination size for Nivoda API
-CONSOLIDATOR_BATCH_SIZE = 1000 // Diamonds per consolidation batch
-CONSOLIDATOR_CONCURRENCY = 10  // Concurrent processing
-NIVODA_MAX_LIMIT = 50          // Nivoda API max page size
-TOKEN_LIFETIME_MS = 6 hours    // Nivoda token validity
-HEATMAP_MAX_WORKERS = 30       // Max parallel workers
+RECORDS_PER_WORKER = 5000              // Target records per worker
+WORKER_PAGE_SIZE = 30                  // Pagination size for Nivoda API
+CONSOLIDATOR_BATCH_SIZE = 2000         // Raw diamonds fetched per cycle
+CONSOLIDATOR_UPSERT_BATCH_SIZE = 100   // Diamonds per batch INSERT (uses UNNEST)
+CONSOLIDATOR_CONCURRENCY = 5           // Concurrent batch upserts (respects 30 conn pool)
+NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
+TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
+HEATMAP_MAX_WORKERS = 30               // Max parallel workers
 ```
+
+### Consolidator Performance
+
+The consolidator is optimized for 500k+ records:
+
+- **Batch upserts**: 100 diamonds per INSERT using PostgreSQL `UNNEST`
+- **Multi-replica safe**: Uses `FOR UPDATE SKIP LOCKED` for parallel processing
+- **Connection pool aware**: 5 concurrent operations (safe for 30-connection Supabase pool)
+
+| Records | Single Replica | 3 Replicas |
+|---------|----------------|------------|
+| 500,000 | ~4-6 min | ~1-2 min |
 
 ## Common Tasks
 

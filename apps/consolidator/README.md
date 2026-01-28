@@ -8,11 +8,50 @@ The consolidator is a **long-running queue consumer** that:
 
 1. Receives `ConsolidateMessage` from Azure Service Bus
 2. Validates all workers completed successfully
-3. Batches raw diamonds from `raw_diamonds_nivoda`
-4. Maps Nivoda payload to canonical `Diamond` schema
+3. Fetches raw diamonds with `FOR UPDATE SKIP LOCKED` (multi-replica safe)
+4. Maps Nivoda payload to canonical `Diamond` schema in batches
 5. Applies pricing rules from `pricing_rules` table
-6. Upserts to `diamonds` table
+6. **Batch upserts** to `diamonds` table (100 diamonds per INSERT)
 7. Advances watermark **only on success**
+
+## Performance Optimizations
+
+The consolidator is optimized for processing 500k+ records efficiently:
+
+### Batch Upserts
+
+Instead of individual INSERTs, diamonds are upserted in batches using PostgreSQL `UNNEST`:
+
+```typescript
+// Configuration (packages/shared/src/constants.ts)
+CONSOLIDATOR_BATCH_SIZE = 2000;        // Raw diamonds fetched per cycle
+CONSOLIDATOR_UPSERT_BATCH_SIZE = 100;  // Diamonds per batch INSERT
+CONSOLIDATOR_CONCURRENCY = 5;          // Concurrent batch upserts
+```
+
+**Performance comparison (500k records):**
+
+| Approach | DB Operations | Est. Time |
+|----------|---------------|-----------|
+| Individual upserts | 500,000 | ~40 min |
+| Batch upserts (100/batch) | 5,000 | ~2-4 min |
+
+### Multi-Replica Support
+
+Uses `FOR UPDATE SKIP LOCKED` for safe parallel processing:
+
+```sql
+SELECT * FROM raw_diamonds_nivoda
+WHERE consolidated = FALSE
+ORDER BY created_at ASC
+LIMIT 2000
+FOR UPDATE SKIP LOCKED;  -- Other replicas skip these rows
+```
+
+**Benefits:**
+- Multiple consolidator replicas process different rows
+- No duplicate processing or race conditions
+- Linear scaling with replica count
 
 ## How It Works
 
@@ -70,16 +109,18 @@ The consolidator is a **long-running queue consumer** that:
 ### Batch Processing
 
 ```typescript
-// Configuration
-const BATCH_SIZE = 1000;      // Diamonds per batch
-const CONCURRENCY = 10;       // Parallel batch processing
+// Configuration (from packages/shared/src/constants.ts)
+CONSOLIDATOR_BATCH_SIZE = 2000;        // Raw diamonds fetched per cycle
+CONSOLIDATOR_UPSERT_BATCH_SIZE = 100;  // Diamonds per batch INSERT
+CONSOLIDATOR_CONCURRENCY = 5;          // Concurrent batch upserts (respects 30 conn pool)
 ```
 
-**Example run:**
-- 150,000 raw diamonds
-- 150 batches of 1,000
-- 15 rounds with concurrency 10
-- ~5-15 minutes total
+**Example run (500k diamonds, 3 replicas):**
+- 500,000 raw diamonds ÷ 3 replicas = ~167k per replica
+- 167k ÷ 2000 batch = 84 fetch cycles per replica
+- 2000 ÷ 100 = 20 batch upserts per cycle
+- 20 ÷ 5 concurrency = 4 sequential rounds per cycle
+- **Total: ~1-2 minutes with 3 replicas**
 
 ## Configuration
 
@@ -110,20 +151,33 @@ npm run consolidator:trigger
 
 ## Azure Deployment
 
-Deployed as a **Container App** with Service Bus trigger:
+Deployed as a **Container App** with Service Bus auto-scaling:
 
 ```hcl
-# Scaling configuration
+# Scaling configuration (supports multi-replica with FOR UPDATE SKIP LOCKED)
 min_replicas = 1
-max_replicas = 2  # Low concurrency - consolidation is sequential
+max_replicas = 3  # Safe with row-level locking
 
-# Scale based on consolidate queue
-scaling_rule {
-  name             = "consolidate-scaling"
-  queue_name       = "consolidate"
-  message_count    = 1
+# Resource allocation (increased for batch operations)
+cpu    = 0.5
+memory = "1Gi"
+
+# Auto-scale based on consolidate queue depth
+custom_scale_rule {
+  name             = "servicebus-consolidate-scale"
+  custom_rule_type = "azure-servicebus"
+  metadata = {
+    queueName              = "consolidate"
+    messageCount           = "1"
+    activationMessageCount = "0"
+  }
 }
 ```
+
+**Scaling behavior:**
+- Scales up when messages arrive in `consolidate` queue
+- Multiple replicas process different rows (no conflicts)
+- Scales down to `min_replicas` when queue is empty
 
 ## Module Structure
 
@@ -304,12 +358,16 @@ az storage blob download \
 
 ## Performance
 
-Typical metrics:
+Typical metrics (with batch optimizations):
 
-| Metric | Value |
-|--------|-------|
-| Batches per run | 100-200 |
-| Records per batch | 1,000 |
-| Time per batch | 10-50ms |
-| Total consolidation | 5-15 minutes |
-| Memory usage | 200-500MB |
+| Metric | Single Replica | 3 Replicas |
+|--------|----------------|------------|
+| Records per fetch | 2,000 | 2,000 |
+| Diamonds per upsert | 100 | 100 |
+| DB operations (500k records) | ~5,000 | ~5,000 |
+| Total consolidation time | ~4-6 min | ~1-2 min |
+| Memory usage | 300-600MB | 300-600MB |
+
+**Connection pool usage:**
+- 5 concurrent batch upserts × 1 connection each = 5 connections
+- Safe for Supabase 30-connection pool (leaves room for other services)

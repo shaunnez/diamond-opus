@@ -317,6 +317,61 @@ GitHub Actions workflows:
 - **ci.yml**: Build, test, type-check on PR/push
 - **deploy-staging.yml**: Auto-deploy to staging on push to main
 - **deploy-production.yml**: Manual production deployment
+- **infrastructure.yml**: Terraform infrastructure changes
+
+### Deployment Flow
+
+```
+Push to main
+    │
+    ▼
+CI (build, test, typecheck)
+    │
+    ▼
+Deploy Staging (if CI passes)
+    │
+    ├──▶ Build Docker images with SHA tag
+    │
+    └──▶ Update Container Apps via Azure CLI
+
+Infrastructure changes (terraform/**)
+    │
+    ▼
+Infrastructure workflow
+    │
+    ├──▶ Get current image tag from running containers
+    │
+    └──▶ Terraform plan/apply (preserves image tags)
+```
+
+### Manual Deployment
+
+```bash
+# Option 1: Trigger GitHub Actions
+gh workflow run "Deploy Staging" --ref main
+gh workflow run "Infrastructure" -f environment=staging -f action=apply
+
+# Option 2: Manual CLI deployment
+IMAGE_TAG=$(git rev-parse --short HEAD)
+RG="diamond-staging-rg"
+ACR="<your-acr>.azurecr.io"
+
+# Build and push
+for app in api scheduler worker consolidator dashboard; do
+  docker build -t $ACR/diamond-${app}:${IMAGE_TAG} -f docker/Dockerfile.${app} .
+  docker push $ACR/diamond-${app}:${IMAGE_TAG}
+done
+
+# Deploy containers
+az containerapp update --name diamond-staging-api --resource-group $RG --image $ACR/diamond-api:$IMAGE_TAG
+az containerapp update --name diamond-staging-worker --resource-group $RG --image $ACR/diamond-worker:$IMAGE_TAG
+az containerapp update --name diamond-staging-consolidator --resource-group $RG --image $ACR/diamond-consolidator:$IMAGE_TAG
+
+# Apply Terraform (for infrastructure changes)
+cd infrastructure/terraform/environments/staging
+terraform plan -var="image_tag=$IMAGE_TAG"
+terraform apply -var="image_tag=$IMAGE_TAG"
+```
 
 ## Troubleshooting
 
