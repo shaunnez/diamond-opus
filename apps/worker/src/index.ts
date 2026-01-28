@@ -252,7 +252,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
       log.info("Partition completed, no more pages");
 
       // Update worker run status to completed
-      await updateWorkerRun(workerRun.id, "completed", recordsProcessed, undefined);
+      await updateWorkerRun(workerRun.id, "completed");
 
       // Send WORK_DONE message only once per partition
       const workDoneMessage: WorkDoneMessage = {
@@ -303,7 +303,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     });
 
     // Update worker run status to failed only on first failure
-    await updateWorkerRun(workerRun.id, "failed", recordsProcessed, errorMessage);
+    await updateWorkerRun(workerRun.id, "failed", errorMessage);
 
     // Increment failed workers only once per partition
     // Check if this partition was already marked as failed
