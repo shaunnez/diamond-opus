@@ -122,15 +122,15 @@ variable "alert_email_from" {
 
 # Scheduler
 variable "scheduler_cron_expression" {
-  description = "Cron expression for scheduler"
+  description = "Cron expression for scheduler (use '0 0 31 2 *' to effectively disable)"
   type        = string
-  default     = "0 2 * * *"
+  default     = "0 0 31 2 *"  # Feb 31st = never runs, but job exists for manual triggers
 }
 
 variable "enable_scheduler" {
-  description = "Whether to create the scheduled cron job for the scheduler"
+  description = "Whether to create the scheduler job resource"
   type        = bool
-  default     = false  # Staging: manual trigger only
+  default     = true
 }
 
 # Worker scaling configuration
