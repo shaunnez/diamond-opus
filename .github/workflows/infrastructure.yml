@@ -158,6 +158,49 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Diagnose Terraform State vs Azure (Pre-Plan)
+        env:
+          TF_ENV: ${{ github.event.inputs.environment || 'staging' }}
+        run: |
+          echo "=== TERRAFORM STATE DIAGNOSTICS ==="
+
+          # Determine resource group
+          if [ "$TF_ENV" = "prod" ]; then
+            RG="diamond-prod-rg"
+            APP_PREFIX="diamond-prod"
+          else
+            RG="diamond-staging-rg"
+            APP_PREFIX="diamond-staging"
+          fi
+
+          echo ""
+          echo "### Terraform State - Consolidator Scale Rules ###"
+          terraform state show 'module.container_apps.azurerm_container_app.consolidator' 2>/dev/null | grep -A 20 "custom_scale_rule" || echo "No scale rules in Terraform state or resource not found"
+
+          echo ""
+          echo "### Azure Reality - Consolidator Scale Rules ###"
+          az containerapp show \
+            --name "${APP_PREFIX}-consolidator" \
+            --resource-group "$RG" \
+            --query "properties.template.scale" \
+            -o json 2>/dev/null || echo "Consolidator not found in Azure"
+
+          echo ""
+          echo "### Checking for State Drift ###"
+          # If Terraform has scale rules but Azure doesn't, we need to taint
+          TF_HAS_SCALE=$(terraform state show 'module.container_apps.azurerm_container_app.consolidator' 2>/dev/null | grep -c "custom_scale_rule" || echo "0")
+          AZURE_SCALE=$(az containerapp show --name "${APP_PREFIX}-consolidator" --resource-group "$RG" --query "properties.template.scale.rules" -o tsv 2>/dev/null || echo "")
+
+          echo "Terraform has scale rules: $TF_HAS_SCALE lines"
+          echo "Azure scale rules: ${AZURE_SCALE:-none}"
+
+          if [ "$TF_HAS_SCALE" -gt "0" ] && [ -z "$AZURE_SCALE" ]; then
+            echo ""
+            echo "⚠️  STATE DRIFT DETECTED: Terraform thinks scale rules exist but Azure doesn't have them"
+            echo "Will taint the consolidator resource to force recreation..."
+            terraform taint 'module.container_apps.azurerm_container_app.consolidator' || echo "Taint failed - resource may not exist"
+          fi
+
       - name: Terraform Plan
         id: plan
         run: terraform plan -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" -var="image_tag=${{ steps.current_image.outputs.tag }}" -out=tfplan -no-color
@@ -165,3 +208,41 @@ jobs:
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply' || github.event_name == 'push'
         run: terraform apply -auto-approve tfplan
+
+      - name: Verify Consolidator Scale Rules (Post-Apply)
+        if: github.event.inputs.action == 'apply' || github.event_name == 'push'
+        env:
+          TF_ENV: ${{ github.event.inputs.environment || 'staging' }}
+        run: |
+          echo "=== POST-APPLY VERIFICATION ==="
+
+          if [ "$TF_ENV" = "prod" ]; then
+            RG="diamond-prod-rg"
+            APP_PREFIX="diamond-prod"
+          else
+            RG="diamond-staging-rg"
+            APP_PREFIX="diamond-staging"
+          fi
+
+          echo "### Consolidator Configuration After Apply ###"
+          az containerapp show \
+            --name "${APP_PREFIX}-consolidator" \
+            --resource-group "$RG" \
+            --query "{
+              name: name,
+              minReplicas: properties.template.scale.minReplicas,
+              maxReplicas: properties.template.scale.maxReplicas,
+              scaleRules: properties.template.scale.rules,
+              cpu: properties.template.containers[0].resources.cpu,
+              memory: properties.template.containers[0].resources.memory
+            }" \
+            -o json
+
+          # Verify scale rule exists
+          SCALE_RULES=$(az containerapp show --name "${APP_PREFIX}-consolidator" --resource-group "$RG" --query "properties.template.scale.rules" -o json)
+          if echo "$SCALE_RULES" | grep -q "servicebus"; then
+            echo "✅ Service Bus scale rule is configured correctly"
+          else
+            echo "❌ WARNING: Service Bus scale rule NOT found after apply!"
+            echo "Scale rules found: $SCALE_RULES"
+          fi

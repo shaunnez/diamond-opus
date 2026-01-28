@@ -137,3 +137,55 @@ jobs:
 
           # Deploy Dashboard (container name 'dashboard' as defined in Terraform)
           deploy_app "diamond-staging-dashboard" "dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG"
+
+      - name: Diagnose Consolidator Scale Rules
+        env:
+          RESOURCE_GROUP: diamond-staging-rg
+        run: |
+          echo "=== CONSOLIDATOR DIAGNOSTICS ==="
+          echo ""
+          echo "### Current Container App Configuration ###"
+          az containerapp show \
+            --name diamond-staging-consolidator \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "{
+              name: name,
+              minReplicas: properties.template.scale.minReplicas,
+              maxReplicas: properties.template.scale.maxReplicas,
+              scaleRules: properties.template.scale.rules,
+              cpu: properties.template.containers[0].resources.cpu,
+              memory: properties.template.containers[0].resources.memory,
+              image: properties.template.containers[0].image
+            }" \
+            -o json || echo "Failed to get consolidator details"
+
+          echo ""
+          echo "### Worker Scale Rules (for comparison) ###"
+          az containerapp show \
+            --name diamond-staging-worker \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.template.scale" \
+            -o json || echo "Failed to get worker details"
+
+          echo ""
+          echo "### Expected Consolidator Scale Rule ###"
+          echo "Should have: custom_scale_rule with azure-servicebus on 'consolidate' queue"
+
+      - name: Trigger Infrastructure Workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            console.log('Triggering infrastructure workflow to ensure Terraform state is in sync...');
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'infrastructure.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'staging',
+                action: 'apply'
+              }
+            });
+            console.log('Infrastructure workflow triggered successfully');
+
