@@ -138,3 +138,22 @@ export async function getConsolidationProgress(runId: string): Promise<Consolida
   const response = await api.get<{ data: ConsolidationProgress }>(`/analytics/consolidation/${runId}`);
   return response.data.data;
 }
+
+export interface RecentFailedWorker {
+  id: string;
+  runId: string;
+  partitionId: string;
+  workerId: string;
+  status: 'failed';
+  recordsProcessed: number;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  runType: 'full' | 'incremental';
+  runStartedAt: string;
+}
+
+export async function getRecentFailedWorkers(limit = 20): Promise<RecentFailedWorker[]> {
+  const response = await api.get<{ data: RecentFailedWorker[] }>(`/analytics/failed-workers?limit=${limit}`);
+  return response.data.data;
+}

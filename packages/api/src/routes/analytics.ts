@@ -4,6 +4,7 @@ import {
   getDashboardSummary,
   getRunsWithStats,
   getRunDetails,
+  getRecentFailedWorkers,
   getSupplierStats,
   getConsolidationProgress,
   getOverallConsolidationStats,
@@ -182,6 +183,43 @@ router.get(
     }
   }
 );
+
+// ============================================================================
+// Failed Workers
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/analytics/failed-workers:
+ *   get:
+ *     summary: Get recent failed workers across all runs
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *     responses:
+ *       200:
+ *         description: List of recent failed workers
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/failed-workers', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 100);
+    const workers = await getRecentFailedWorkers(limit);
+    res.json({ data: workers });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ============================================================================
 // Suppliers

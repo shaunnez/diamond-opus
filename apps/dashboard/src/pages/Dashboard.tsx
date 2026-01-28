@@ -8,8 +8,9 @@ import {
   XCircle,
   PlayCircle,
   ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
-import { getDashboardSummary, getRuns, type RunWithStats } from '../api/analytics';
+import { getDashboardSummary, getRuns, getRecentFailedWorkers, type RunWithStats, type RecentFailedWorker } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -53,9 +54,19 @@ export function Dashboard() {
     refetchInterval: 30000,
   });
 
+  const {
+    data: failedWorkers,
+    refetch: refetchFailed,
+  } = useQuery({
+    queryKey: ['recent-failed-workers'],
+    queryFn: () => getRecentFailedWorkers(10),
+    refetchInterval: 30000,
+  });
+
   const handleRefresh = () => {
     refetchSummary();
     refetchRuns();
+    refetchFailed();
   };
 
   if (summaryLoading) {
@@ -111,6 +122,60 @@ export function Dashboard() {
             icon={<CheckCircle className="w-5 h-5" />}
           />
         </div>
+
+        {/* Failed Workers Alert */}
+        {failedWorkers && failedWorkers.length > 0 && (
+          <div className="mb-8 bg-error-50 border border-error-200 rounded-xl p-4 sm:p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertTriangle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-error-800">
+                  {failedWorkers.length} Failed Worker{failedWorkers.length !== 1 ? 's' : ''}
+                </h3>
+                <p className="text-xs text-error-600 mt-0.5">
+                  Recent worker failures that may need attention. Click a run to retry or force-consolidate.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {failedWorkers.slice(0, 5).map((fw: RecentFailedWorker) => (
+                <div
+                  key={fw.id}
+                  onClick={() => navigate(`/runs/${fw.runId}`)}
+                  className="flex items-start sm:items-center justify-between p-3 bg-white rounded-lg border border-error-100 hover:border-error-300 cursor-pointer transition-colors gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <XCircle className="w-3.5 h-3.5 text-error-500 flex-shrink-0" />
+                      <span className="font-mono text-xs text-stone-700">
+                        {truncateId(fw.runId, 8)}
+                      </span>
+                      <span className="text-xs px-1.5 py-0.5 bg-stone-100 text-stone-600 rounded">
+                        {fw.partitionId}
+                      </span>
+                    </div>
+                    {fw.errorMessage && (
+                      <p className="text-xs text-error-600 mt-1 truncate max-w-md">
+                        {fw.errorMessage}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-stone-500 flex-shrink-0">
+                    {formatRelativeTime(fw.completedAt || fw.startedAt)}
+                  </span>
+                </div>
+              ))}
+              {failedWorkers.length > 5 && (
+                <button
+                  onClick={() => navigate('/runs?status=failed')}
+                  className="w-full text-center text-xs text-error-600 hover:text-error-800 py-2 transition-colors"
+                >
+                  View all {failedWorkers.length} failures →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Runs */}
