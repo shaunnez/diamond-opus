@@ -38,14 +38,29 @@ env:
   TF_VERSION: '1.6.0'
 
 jobs:
-  # Plan for both environments on PR
+  # Plan for staging on PR
   plan-staging:
     name: Plan Staging
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    environment: staging
     defaults:
       run:
         working-directory: infrastructure/terraform/environments/staging
+
+    env:
+      # Terraform variables from GitHub Secrets
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_database_host: ${{ secrets.TF_VAR_DATABASE_HOST }}
+      TF_VAR_database_username: ${{ secrets.TF_VAR_DATABASE_USERNAME }}
+      TF_VAR_database_password: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+      TF_VAR_nivoda_endpoint: ${{ secrets.TF_VAR_NIVODA_ENDPOINT }}
+      TF_VAR_nivoda_username: ${{ secrets.TF_VAR_NIVODA_USERNAME }}
+      TF_VAR_nivoda_password: ${{ secrets.TF_VAR_NIVODA_PASSWORD }}
+      TF_VAR_hmac_secrets: ${{ secrets.TF_VAR_HMAC_SECRETS }}
+      TF_VAR_resend_api_key: ${{ secrets.TF_VAR_RESEND_API_KEY }}
+      TF_VAR_alert_email_to: ${{ secrets.TF_VAR_ALERT_EMAIL_TO }}
+      TF_VAR_alert_email_from: ${{ secrets.TF_VAR_ALERT_EMAIL_FROM }}
 
     steps:
       - name: Checkout
@@ -66,16 +81,32 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" -no-color
+        run: terraform plan -no-color
         continue-on-error: true
 
+  # Plan for production on PR
   plan-prod:
     name: Plan Production
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    environment: production
     defaults:
       run:
         working-directory: infrastructure/terraform/environments/prod
+
+    env:
+      # Terraform variables from GitHub Secrets
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_database_host: ${{ secrets.TF_VAR_DATABASE_HOST }}
+      TF_VAR_database_username: ${{ secrets.TF_VAR_DATABASE_USERNAME }}
+      TF_VAR_database_password: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+      TF_VAR_nivoda_endpoint: ${{ secrets.TF_VAR_NIVODA_ENDPOINT }}
+      TF_VAR_nivoda_username: ${{ secrets.TF_VAR_NIVODA_USERNAME }}
+      TF_VAR_nivoda_password: ${{ secrets.TF_VAR_NIVODA_PASSWORD }}
+      TF_VAR_hmac_secrets: ${{ secrets.TF_VAR_HMAC_SECRETS }}
+      TF_VAR_resend_api_key: ${{ secrets.TF_VAR_RESEND_API_KEY }}
+      TF_VAR_alert_email_to: ${{ secrets.TF_VAR_ALERT_EMAIL_TO }}
+      TF_VAR_alert_email_from: ${{ secrets.TF_VAR_ALERT_EMAIL_FROM }}
 
     steps:
       - name: Checkout
@@ -90,7 +121,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" -no-color
+        run: terraform plan -no-color
         continue-on-error: true
 
   # Deploy on manual trigger or push to main
@@ -102,6 +133,18 @@ jobs:
 
     env:
       TF_ENV: ${{ github.event.inputs.environment || 'staging' }}
+      # Terraform variables from GitHub Secrets (environment-specific)
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_database_host: ${{ secrets.TF_VAR_DATABASE_HOST }}
+      TF_VAR_database_username: ${{ secrets.TF_VAR_DATABASE_USERNAME }}
+      TF_VAR_database_password: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+      TF_VAR_nivoda_endpoint: ${{ secrets.TF_VAR_NIVODA_ENDPOINT }}
+      TF_VAR_nivoda_username: ${{ secrets.TF_VAR_NIVODA_USERNAME }}
+      TF_VAR_nivoda_password: ${{ secrets.TF_VAR_NIVODA_PASSWORD }}
+      TF_VAR_hmac_secrets: ${{ secrets.TF_VAR_HMAC_SECRETS }}
+      TF_VAR_resend_api_key: ${{ secrets.TF_VAR_RESEND_API_KEY }}
+      TF_VAR_alert_email_to: ${{ secrets.TF_VAR_ALERT_EMAIL_TO }}
+      TF_VAR_alert_email_from: ${{ secrets.TF_VAR_ALERT_EMAIL_FROM }}
 
     defaults:
       run:
@@ -159,8 +202,6 @@ jobs:
         run: terraform init
 
       - name: Diagnose Terraform State vs Azure (Pre-Plan)
-        env:
-          TF_ENV: ${{ github.event.inputs.environment || 'staging' }}
         run: |
           echo "=== TERRAFORM STATE DIAGNOSTICS ==="
 
@@ -196,14 +237,16 @@ jobs:
 
           if [ "$TF_HAS_SCALE" -gt "0" ] && [ -z "$AZURE_SCALE" ]; then
             echo ""
-            echo "⚠️  STATE DRIFT DETECTED: Terraform thinks scale rules exist but Azure doesn't have them"
+            echo "STATE DRIFT DETECTED: Terraform thinks scale rules exist but Azure doesn't have them"
             echo "Will taint the consolidator resource to force recreation..."
             terraform taint 'module.container_apps.azurerm_container_app.consolidator' || echo "Taint failed - resource may not exist"
           fi
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" -var="image_tag=${{ steps.current_image.outputs.tag }}" -out=tfplan -no-color
+        env:
+          TF_VAR_image_tag: ${{ steps.current_image.outputs.tag }}
+        run: terraform plan -out=tfplan -no-color
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply' || github.event_name == 'push'
@@ -211,8 +254,6 @@ jobs:
 
       - name: Verify Consolidator Scale Rules (Post-Apply)
         if: github.event.inputs.action == 'apply' || github.event_name == 'push'
-        env:
-          TF_ENV: ${{ github.event.inputs.environment || 'staging' }}
         run: |
           echo "=== POST-APPLY VERIFICATION ==="
 
@@ -241,8 +282,8 @@ jobs:
           # Verify scale rule exists
           SCALE_RULES=$(az containerapp show --name "${APP_PREFIX}-consolidator" --resource-group "$RG" --query "properties.template.scale.rules" -o json)
           if echo "$SCALE_RULES" | grep -q "servicebus"; then
-            echo "✅ Service Bus scale rule is configured correctly"
+            echo "Service Bus scale rule is configured correctly"
           else
-            echo "❌ WARNING: Service Bus scale rule NOT found after apply!"
+            echo "WARNING: Service Bus scale rule NOT found after apply!"
             echo "Scale rules found: $SCALE_RULES"
           fi

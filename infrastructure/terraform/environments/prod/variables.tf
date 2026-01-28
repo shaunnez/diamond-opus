@@ -45,7 +45,6 @@ variable "acr_sku" {
 variable "database_host" {
   description = "PostgreSQL host (e.g., db.supabase.co)"
   type        = string
-  default     = "aws-1-ap-southeast-1.pooler.supabase.com"
 }
 
 variable "database_port" {
@@ -64,62 +63,51 @@ variable "database_username" {
   description = "PostgreSQL username"
   type        = string
   sensitive   = true
-  default     = "postgres.yazrhmjedaaplwbsaqob"
 }
 
 variable "database_password" {
   description = "PostgreSQL password"
   type        = string
   sensitive   = true
-  default     = "superstrongpassword123!"
 }
 
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
   type        = string
-  default     = "https://integrations.nivoda.net/api/diamonds"
 }
-
 
 variable "nivoda_username" {
   description = "Nivoda API username"
   type        = string
   sensitive   = true
-  default     = "testaccount@sample.com"
 }
 
 variable "nivoda_password" {
   description = "Nivoda API password"
   type        = string
   sensitive   = true
-  default     = "staging-nivoda-22"
 }
-
 
 variable "hmac_secrets" {
   description = "JSON object of HMAC secrets"
   type        = string
   sensitive   = true
-  default     = "{}"
 }
 
 variable "resend_api_key" {
   description = "Resend API key for alerts"
   type        = string
   sensitive   = true
-  default     = "demo"
 }
 
 variable "alert_email_to" {
   description = "Email address for alerts"
   type        = string
-  default     = ""
 }
 
 variable "alert_email_from" {
   description = "Email address for sending alerts"
   type        = string
-  default     = ""
 }
 
 # Scheduler

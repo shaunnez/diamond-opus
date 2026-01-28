@@ -50,7 +50,6 @@ variable "container_registry_password" {
 variable "database_host" {
   description = "PostgreSQL host (e.g., db.supabase.co)"
   type        = string
-  default     = "aws-1-ap-southeast-1.pooler.supabase.com"
 }
 
 variable "database_port" {
@@ -69,14 +68,12 @@ variable "database_username" {
   description = "PostgreSQL username"
   type        = string
   sensitive   = true
-  default     = "postgres.yazrhmjedaaplwbsaqob"
 }
 
 variable "database_password" {
   description = "PostgreSQL password"
   type        = string
   sensitive   = true
-  default     = "superstrongpassword123!"
 }
 
 variable "storage_connection_string" {
@@ -119,7 +116,6 @@ variable "hmac_secrets" {
   description = "JSON object of HMAC secrets for API authentication"
   type        = string
   sensitive   = true
-  default     = "{}"
 }
 
 # Alerting
@@ -127,19 +123,16 @@ variable "resend_api_key" {
   description = "Resend API key for email alerts"
   type        = string
   sensitive   = true
-  default     = "demo"
 }
 
 variable "alert_email_to" {
   description = "Email address for alerts"
   type        = string
-  default     = ""
 }
 
 variable "alert_email_from" {
   description = "Email address for sending alerts"
   type        = string
-  default     = ""
 }
 
 # Scheduler configuration

@@ -37,9 +37,13 @@ swagger.json
 *.tfplan
 tfplan
 .terraform.lock.hcl
-terraform.tfvars.local
 *.auto.tfvars
-**/environments/**/terraform.tfvars
+
+# Terraform sensitive local files (DO NOT COMMIT)
+# The main terraform.tfvars files contain non-sensitive config and are committed.
+# Sensitive values go in terraform.tfvars.local which is gitignored.
+terraform.tfvars.local
+**/terraform.tfvars.local
 
 # Environment files for specific environments
 .env.staging

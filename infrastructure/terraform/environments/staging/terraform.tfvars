@@ -1,5 +1,5 @@
-# Production Environment Configuration
-# =====================================
+# Staging Environment Configuration
+# ==================================
 # Non-sensitive values that can be committed to version control.
 # Sensitive values must be provided via environment variables (TF_VAR_*) or a local tfvars file.
 #
@@ -13,20 +13,20 @@
 
 # Azure Configuration
 subscription_id = "2dade7a0-6731-4d26-ba6d-02228cccbe2d"
-environment     = "prod"
+environment     = "staging"
 location        = "australiaeast"
 
-# SKU configurations (production-grade)
+# SKU configurations (cost-optimized for staging)
 servicebus_sku           = "Standard"
-storage_replication_type = "GRS"  # Geo-redundant for production
-acr_sku                  = "Standard"
+storage_replication_type = "LRS"  # Local redundancy for staging
+acr_sku                  = "Basic"
 
-# Scaling (production capacity)
-api_min_replicas          = 1
-api_max_replicas          = 5
-worker_min_replicas       = 1
-worker_max_replicas       = 10
-consolidator_min_replicas = 1
+# Scaling (cost-optimized - can scale to zero)
+api_min_replicas          = 0
+api_max_replicas          = 2
+worker_min_replicas       = 0
+worker_max_replicas       = 3
+consolidator_min_replicas = 0
 consolidator_max_replicas = 2
 
 # Resource allocation
@@ -43,8 +43,8 @@ scheduler_memory     = "0.5Gi"
 scheduler_cron_expression = "0 2 * * *"
 scheduler_parallelism     = 1
 
-# Log Analytics
-log_analytics_retention_days = 30
+# Log Analytics (shorter retention for cost savings)
+log_analytics_retention_days = 7
 
 # =====================================
 # The following MUST be provided via environment variables or terraform.tfvars.local:
@@ -52,7 +52,7 @@ log_analytics_retention_days = 30
 # TF_VAR_database_host        - Supabase pooler host
 # TF_VAR_database_username    - Supabase database username
 # TF_VAR_database_password    - Supabase database password
-# TF_VAR_nivoda_endpoint      - Nivoda API endpoint
+# TF_VAR_nivoda_endpoint      - Nivoda API endpoint (staging)
 # TF_VAR_nivoda_username      - Nivoda API username
 # TF_VAR_nivoda_password      - Nivoda API password
 # TF_VAR_hmac_secrets         - JSON object of HMAC secrets

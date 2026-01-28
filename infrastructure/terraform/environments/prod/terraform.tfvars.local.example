@@ -1,0 +1,26 @@
+# Production Sensitive Variables (LOCAL ONLY - DO NOT COMMIT)
+# ============================================================
+# Copy this file to terraform.tfvars.local and fill in your values.
+# This file is gitignored and should never be committed.
+#
+# Usage:
+#   terraform plan -var-file="terraform.tfvars" -var-file="terraform.tfvars.local"
+#   terraform apply -var-file="terraform.tfvars" -var-file="terraform.tfvars.local"
+
+# Database (Supabase)
+database_host     = "aws-1-ap-southeast-1.pooler.supabase.com"
+database_username = "postgres.your-project-ref"
+database_password = "your-supabase-password"
+
+# Nivoda API (Production)
+nivoda_endpoint  = "https://integrations.nivoda.net/api/diamonds"
+nivoda_username  = "your-nivoda-email@example.com"
+nivoda_password  = "your-nivoda-password"
+
+# API Authentication
+hmac_secrets = "{\"client1\":\"secret1\",\"client2\":\"secret2\"}"
+
+# Alerting (Resend)
+resend_api_key   = "re_xxxxxxxxxxxx"
+alert_email_to   = "alerts@yourdomain.com"
+alert_email_from = "noreply@yourdomain.com"
