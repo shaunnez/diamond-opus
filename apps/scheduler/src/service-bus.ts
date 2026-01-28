@@ -27,9 +27,20 @@ function getWorkItemsSender(): ServiceBusSender {
 
 export async function sendWorkItem(message: WorkItemMessage): Promise<void> {
   const sender = getWorkItemsSender();
+
+  // Create stable messageId for deduplication: runId:partitionId:offset
+  const messageId = `${message.runId}:${message.partitionId}:${message.offset}`;
+
   await sender.sendMessages({
     body: message,
     contentType: 'application/json',
+    messageId,
+    applicationProperties: {
+      runId: message.runId,
+      partitionId: message.partitionId,
+      offset: message.offset,
+      limit: message.limit,
+    },
   });
 }
 
@@ -38,9 +49,19 @@ export async function sendWorkItems(messages: WorkItemMessage[]): Promise<void> 
   const batch = await sender.createMessageBatch();
 
   for (const message of messages) {
+    // Create stable messageId for deduplication: runId:partitionId:offset
+    const messageId = `${message.runId}:${message.partitionId}:${message.offset}`;
+
     const added = batch.tryAddMessage({
       body: message,
       contentType: 'application/json',
+      messageId,
+      applicationProperties: {
+        runId: message.runId,
+        partitionId: message.partitionId,
+        offset: message.offset,
+        limit: message.limit,
+      },
     });
 
     if (!added) {
@@ -49,6 +70,13 @@ export async function sendWorkItems(messages: WorkItemMessage[]): Promise<void> 
       newBatch.tryAddMessage({
         body: message,
         contentType: 'application/json',
+        messageId,
+        applicationProperties: {
+          runId: message.runId,
+          partitionId: message.partitionId,
+          offset: message.offset,
+          limit: message.limit,
+        },
       });
     }
   }

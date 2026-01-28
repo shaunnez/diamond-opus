@@ -147,6 +147,8 @@ export function createMockWorkItemMessage(
     totalRecords: 1000,
     offsetStart: 0,
     offsetEnd: 1000,
+    offset: 0,
+    limit: 30,
     ...overrides,
   };
 }

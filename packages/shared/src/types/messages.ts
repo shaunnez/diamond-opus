@@ -14,6 +14,10 @@ export interface WorkItemMessage {
   offsetStart: number;
   /** Offset end within the filtered result set (typically equals totalRecords) */
   offsetEnd: number;
+  /** Current page offset for continuation pattern (page to fetch) */
+  offset: number;
+  /** Page size for this work item (typically 30) */
+  limit: number;
   updatedFrom?: string;
   updatedTo?: string;
 }

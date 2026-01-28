@@ -80,3 +80,50 @@ export async function getUnconsolidatedCount(): Promise<number> {
   );
   return parseInt(result.rows[0]?.count ?? '0', 10);
 }
+
+export interface BulkRawDiamond {
+  supplierStoneId: string;
+  offerId: string;
+  payload: Record<string, unknown>;
+  sourceUpdatedAt?: Date;
+}
+
+/**
+ * Bulk upsert raw diamonds for improved performance during worker processing.
+ * Uses a single query with UNNEST to insert multiple records efficiently.
+ */
+export async function bulkUpsertRawDiamonds(
+  runId: string,
+  diamonds: BulkRawDiamond[]
+): Promise<void> {
+  if (diamonds.length === 0) return;
+
+  const supplierStoneIds = diamonds.map(d => d.supplierStoneId);
+  const offerIds = diamonds.map(d => d.offerId);
+  const payloads = diamonds.map(d => JSON.stringify(d.payload));
+  const payloadHashes = payloads.map(p => sha256(p));
+  const sourceUpdatedAts = diamonds.map(d => d.sourceUpdatedAt ?? null);
+
+  await query(
+    `INSERT INTO raw_diamonds_nivoda (
+      run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at
+    )
+    SELECT
+      $1,
+      UNNEST($2::TEXT[]),
+      UNNEST($3::TEXT[]),
+      UNNEST($4::JSONB[]),
+      UNNEST($5::TEXT[]),
+      UNNEST($6::TIMESTAMPTZ[])
+    ON CONFLICT (supplier_stone_id) DO UPDATE SET
+      run_id = EXCLUDED.run_id,
+      offer_id = EXCLUDED.offer_id,
+      payload = EXCLUDED.payload,
+      payload_hash = EXCLUDED.payload_hash,
+      source_updated_at = EXCLUDED.source_updated_at,
+      consolidated = FALSE,
+      consolidated_at = NULL,
+      updated_at = NOW()`,
+    [runId, supplierStoneIds, offerIds, payloads, payloadHashes, sourceUpdatedAts]
+  );
+}

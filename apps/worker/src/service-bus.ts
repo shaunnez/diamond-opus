@@ -14,6 +14,7 @@ import {
 
 let serviceBusClient: ServiceBusClient | null = null;
 let workItemsReceiver: ServiceBusReceiver | null = null;
+let workItemsSender: ServiceBusSender | null = null;
 let workDoneSender: ServiceBusSender | null = null;
 let consolidateSender: ServiceBusSender | null = null;
 
@@ -32,6 +33,14 @@ export function getWorkItemsReceiver(): ServiceBusReceiver {
     workItemsReceiver = client.createReceiver(SERVICE_BUS_QUEUES.WORK_ITEMS);
   }
   return workItemsReceiver;
+}
+
+function getWorkItemsSender(): ServiceBusSender {
+  if (!workItemsSender) {
+    const client = getServiceBusClient();
+    workItemsSender = client.createSender(SERVICE_BUS_QUEUES.WORK_ITEMS);
+  }
+  return workItemsSender;
 }
 
 function getWorkDoneSender(): ServiceBusSender {
@@ -92,10 +101,37 @@ export async function sendConsolidate(message: ConsolidateMessage): Promise<void
   });
 }
 
+/**
+ * Send a work item message for continuation pattern.
+ * Sets messageId for deduplication and application properties for tracing.
+ */
+export async function sendWorkItem(message: WorkItemMessage): Promise<void> {
+  const sender = getWorkItemsSender();
+
+  // Create stable messageId for deduplication: runId:partitionId:offset
+  const messageId = `${message.runId}:${message.partitionId}:${message.offset}`;
+
+  await sender.sendMessages({
+    body: message,
+    contentType: 'application/json',
+    messageId,
+    applicationProperties: {
+      runId: message.runId,
+      partitionId: message.partitionId,
+      offset: message.offset,
+      limit: message.limit,
+    },
+  });
+}
+
 export async function closeConnections(): Promise<void> {
   if (workItemsReceiver) {
     await workItemsReceiver.close();
     workItemsReceiver = null;
+  }
+  if (workItemsSender) {
+    await workItemsSender.close();
+    workItemsSender = null;
   }
   if (workDoneSender) {
     await workDoneSender.close();
