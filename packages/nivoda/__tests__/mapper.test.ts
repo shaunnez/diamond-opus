@@ -112,7 +112,7 @@ describe('mapNivodaItemToDiamond', () => {
     expect(result.symmetry).toBeUndefined();
     expect(result.imageUrl).toBeUndefined();
     expect(result.videoUrl).toBeUndefined();
-    expect(result.feedName).toBeUndefined();
+    expect(result.supplierName).toBeUndefined();
   });
 
   it('should map lab-grown diamonds correctly', () => {

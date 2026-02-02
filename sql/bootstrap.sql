@@ -84,9 +84,9 @@ CREATE TABLE diamonds (
   measurements JSONB,
   attributes JSONB,
 
-  -- Feed Details
-  feed_name TEXT,
-  feed_legal_name TEXT,
+  -- Supplier Details (vendor info from Nivoda)
+  supplier_name TEXT,
+  supplier_legal_name TEXT,
 
   -- Lifecycle
   status TEXT DEFAULT 'active',

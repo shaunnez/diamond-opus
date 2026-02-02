@@ -82,8 +82,8 @@ export interface Diamond {
   certificatePdfUrl?: string;
   measurements?: DiamondMeasurements;
   attributes?: DiamondAttributes;
-  feedName?: string;
-  feedLegalName?: string;
+  supplierName?: string;
+  supplierLegalName?: string;
   status: DiamondStatus;
   sourceUpdatedAt?: Date;
   createdAt: Date;

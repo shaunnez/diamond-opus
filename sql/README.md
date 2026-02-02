@@ -144,9 +144,9 @@ CREATE TABLE diamonds (
   measurements JSONB,    -- length, width, depth, angles
   attributes JSONB,      -- eyeClean, tint, comments
 
-  -- Feed Details
-  feed_name TEXT,
-  feed_legal_name TEXT,
+  -- Supplier Details
+  supplier_name TEXT,
+  supplier_legal_name TEXT,
 
   -- Lifecycle
   status TEXT DEFAULT 'active',        -- active|deleted

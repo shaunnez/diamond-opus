@@ -31,8 +31,8 @@ interface DiamondRow {
   certificate_pdf_url: string | null;
   measurements: Record<string, unknown> | null;
   attributes: Record<string, unknown> | null;
-  feed_name: string | null;
-  feed_legal_name: string | null;
+  supplier_name: string | null;
+  supplier_legal_name: string | null;
   status: string;
   source_updated_at: Date | null;
   created_at: Date;
@@ -71,8 +71,8 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     certificatePdfUrl: row.certificate_pdf_url ?? undefined,
     measurements: row.measurements ?? undefined,
     attributes: row.attributes ?? undefined,
-    feedName: row.feed_name ?? undefined,
-    feedLegalName: row.feed_legal_name ?? undefined,
+    supplierName: row.supplier_name ?? undefined,
+    supplierLegalName: row.supplier_legal_name ?? undefined,
     status: row.status as Diamond['status'],
     sourceUpdatedAt: row.source_updated_at ?? undefined,
     createdAt: row.created_at,
@@ -183,7 +183,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       feed_price_cents, price_per_carat_cents, retail_price_cents,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
-      measurements, attributes, feed_name, feed_legal_name,
+      measurements, attributes, supplier_name, supplier_legal_name,
       status, source_updated_at
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
@@ -216,8 +216,8 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       certificate_pdf_url = EXCLUDED.certificate_pdf_url,
       measurements = EXCLUDED.measurements,
       attributes = EXCLUDED.attributes,
-      feed_name = EXCLUDED.feed_name,
-      feed_legal_name = EXCLUDED.feed_legal_name,
+      supplier_name = EXCLUDED.supplier_name,
+      supplier_legal_name = EXCLUDED.supplier_legal_name,
       status = EXCLUDED.status,
       source_updated_at = EXCLUDED.source_updated_at,
       updated_at = NOW()
@@ -251,8 +251,8 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.certificatePdfUrl,
       diamond.measurements ? JSON.stringify(diamond.measurements) : null,
       diamond.attributes ? JSON.stringify(diamond.attributes) : null,
-      diamond.feedName,
-      diamond.feedLegalName,
+      diamond.supplierName,
+      diamond.supplierLegalName,
       diamond.status,
       diamond.sourceUpdatedAt,
     ]
@@ -295,8 +295,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const certificatePdfUrls: (string | null)[] = [];
   const measurements: (string | null)[] = [];
   const attributes: (string | null)[] = [];
-  const feedNames: (string | null)[] = [];
-  const feedLegalNames: (string | null)[] = [];
+  const supplierNames: (string | null)[] = [];
+  const supplierLegalNames: (string | null)[] = [];
   const statuses: string[] = [];
   const sourceUpdatedAts: (Date | null)[] = [];
 
@@ -329,8 +329,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     certificatePdfUrls.push(d.certificatePdfUrl ?? null);
     measurements.push(d.measurements ? JSON.stringify(d.measurements) : null);
     attributes.push(d.attributes ? JSON.stringify(d.attributes) : null);
-    feedNames.push(d.feedName ?? null);
-    feedLegalNames.push(d.feedLegalName ?? null);
+    supplierNames.push(d.supplierName ?? null);
+    supplierLegalNames.push(d.supplierLegalName ?? null);
     statuses.push(d.status);
     sourceUpdatedAts.push(d.sourceUpdatedAt ?? null);
   }
@@ -343,7 +343,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         feed_price_cents, price_per_carat_cents, retail_price_cents,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
-        measurements, attributes, feed_name, feed_legal_name,
+        measurements, attributes, supplier_name, supplier_legal_name,
         status, source_updated_at
       )
       SELECT * FROM UNNEST(
@@ -382,8 +382,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         certificate_pdf_url = EXCLUDED.certificate_pdf_url,
         measurements = EXCLUDED.measurements,
         attributes = EXCLUDED.attributes,
-        feed_name = EXCLUDED.feed_name,
-        feed_legal_name = EXCLUDED.feed_legal_name,
+        supplier_name = EXCLUDED.supplier_name,
+        supplier_legal_name = EXCLUDED.supplier_legal_name,
         status = EXCLUDED.status,
         source_updated_at = EXCLUDED.source_updated_at,
         updated_at = NOW()
@@ -396,7 +396,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       fluorescences, labGrowns, treateds, feedPriceCents, pricePerCaratCents,
       retailPriceCents, markupRatios, ratings, availabilities, rawAvailabilities,
       holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
-      certificatePdfUrls, measurements, attributes, feedNames, feedLegalNames,
+      certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,
       statuses, sourceUpdatedAts,
     ]
   );

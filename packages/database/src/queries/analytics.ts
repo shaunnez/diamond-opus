@@ -572,7 +572,7 @@ const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
     'feed_price_cents', 'price_per_carat_cents', 'retail_price_cents',
     'markup_ratio', 'rating', 'availability', 'raw_availability',
     'image_url', 'video_url', 'certificate_lab', 'certificate_number',
-    'feed_name', 'status', 'source_updated_at', 'created_at', 'updated_at',
+    'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',
   ],
   run_metadata: [
     'run_id', 'run_type', 'expected_workers', 'completed_workers', 'failed_workers',

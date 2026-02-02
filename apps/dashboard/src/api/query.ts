@@ -55,7 +55,7 @@ export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[
     { name: 'video_url', type: 'string' },
     { name: 'certificate_lab', type: 'string' },
     { name: 'certificate_number', type: 'string' },
-    { name: 'feed_name', type: 'string' },
+    { name: 'supplier_name', type: 'string' },
     { name: 'status', type: 'string' },
     { name: 'source_updated_at', type: 'datetime' },
     { name: 'created_at', type: 'datetime' },

@@ -1,12 +1,11 @@
 -- Migration: Rename supplier columns to feed
 -- This renames the data source identifier from "supplier" to "feed"
--- Note: supplier_stone_id is NOT renamed as it refers to Nivoda's diamond identifier
+-- Note: supplier_stone_id, supplier_name, supplier_legal_name are NOT renamed
+-- as they refer to actual supplier/vendor info from Nivoda
 
 -- Diamonds table
 ALTER TABLE diamonds RENAME COLUMN supplier TO feed;
 ALTER TABLE diamonds RENAME COLUMN supplier_price_cents TO feed_price_cents;
-ALTER TABLE diamonds RENAME COLUMN supplier_name TO feed_name;
-ALTER TABLE diamonds RENAME COLUMN supplier_legal_name TO feed_legal_name;
 
 -- Update the unique constraint
 ALTER TABLE diamonds DROP CONSTRAINT IF EXISTS diamonds_supplier_supplier_stone_id_key;
