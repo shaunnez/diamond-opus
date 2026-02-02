@@ -13,7 +13,6 @@ interface DiamondRow {
   cut: string | null;
   polish: string | null;
   symmetry: string | null;
-  fluorescence: string | null;
   lab_grown: boolean;
   treated: boolean;
   supplier_price_cents: string;
@@ -53,7 +52,6 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     cut: row.cut ?? undefined,
     polish: row.polish ?? undefined,
     symmetry: row.symmetry ?? undefined,
-    fluorescence: row.fluorescence ?? undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
     supplierPriceCents: parseInt(row.supplier_price_cents, 10),
@@ -175,19 +173,19 @@ export async function getDiamondById(id: string): Promise<Diamond | null> {
   return row ? mapRowToDiamond(row) : null;
 }
 
-export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'>): Promise<Diamond> {
+export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'fluorescence'>): Promise<Diamond> {
   const result = await query<DiamondRow>(
     `INSERT INTO diamonds (
       supplier, supplier_stone_id, offer_id, shape, carats, color, clarity,
-      cut, polish, symmetry, fluorescence, lab_grown, treated,
+      cut, polish, symmetry, lab_grown, treated,
       supplier_price_cents, price_per_carat_cents, retail_price_cents,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
       measurements, attributes, supplier_name, supplier_legal_name,
       status, source_updated_at
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-      $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+      $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
     )
     ON CONFLICT (supplier, supplier_stone_id) DO UPDATE SET
       offer_id = EXCLUDED.offer_id,
@@ -198,7 +196,6 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       cut = EXCLUDED.cut,
       polish = EXCLUDED.polish,
       symmetry = EXCLUDED.symmetry,
-      fluorescence = EXCLUDED.fluorescence,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
       supplier_price_cents = EXCLUDED.supplier_price_cents,
@@ -233,7 +230,6 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.cut,
       diamond.polish,
       diamond.symmetry,
-      diamond.fluorescence,
       diamond.labGrown,
       diamond.treated,
       diamond.supplierPriceCents,
@@ -261,7 +257,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
   return mapRowToDiamond(result.rows[0]!);
 }
 
-export type DiamondInput = Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'>;
+export type DiamondInput = Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'fluorescence'>;
 
 export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<number> {
   if (diamonds.length === 0) return 0;
@@ -277,7 +273,6 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const cuts: (string | null)[] = [];
   const polishes: (string | null)[] = [];
   const symmetries: (string | null)[] = [];
-  const fluorescences: (string | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
   const supplierPriceCents: number[] = [];
@@ -311,7 +306,6 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     cuts.push(d.cut ?? null);
     polishes.push(d.polish ?? null);
     symmetries.push(d.symmetry ?? null);
-    fluorescences.push(d.fluorescence ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
     supplierPriceCents.push(d.supplierPriceCents);
@@ -339,7 +333,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     `WITH upserted AS (
       INSERT INTO diamonds (
         supplier, supplier_stone_id, offer_id, shape, carats, color, clarity,
-        cut, polish, symmetry, fluorescence, lab_grown, treated,
+        cut, polish, symmetry, lab_grown, treated,
         supplier_price_cents, price_per_carat_cents, retail_price_cents,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
@@ -349,11 +343,11 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       SELECT * FROM UNNEST(
         $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[],
         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
-        $11::text[], $12::boolean[], $13::boolean[], $14::bigint[], $15::bigint[],
-        $16::bigint[], $17::numeric[], $18::integer[], $19::text[], $20::text[],
-        $21::text[], $22::text[], $23::text[], $24::text[], $25::text[],
-        $26::text[], $27::jsonb[], $28::jsonb[], $29::text[], $30::text[],
-        $31::text[], $32::timestamptz[]
+        $11::boolean[], $12::boolean[], $13::bigint[], $14::bigint[],
+        $15::bigint[], $16::numeric[], $17::integer[], $18::text[], $19::text[],
+        $20::text[], $21::text[], $22::text[], $23::text[], $24::text[],
+        $25::text[], $26::jsonb[], $27::jsonb[], $28::text[], $29::text[],
+        $30::text[], $31::timestamptz[]
       )
       ON CONFLICT (supplier, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
@@ -364,7 +358,6 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         cut = EXCLUDED.cut,
         polish = EXCLUDED.polish,
         symmetry = EXCLUDED.symmetry,
-        fluorescence = EXCLUDED.fluorescence,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
         supplier_price_cents = EXCLUDED.supplier_price_cents,
@@ -393,7 +386,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     [
       suppliers, supplierStoneIds, offerIds, shapes, carats,
       colors, clarities, cuts, polishes, symmetries,
-      fluorescences, labGrowns, treateds, supplierPriceCents, pricePerCaratCents,
+      labGrowns, treateds, supplierPriceCents, pricePerCaratCents,
       retailPriceCents, markupRatios, ratings, availabilities, rawAvailabilities,
       holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
       certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,

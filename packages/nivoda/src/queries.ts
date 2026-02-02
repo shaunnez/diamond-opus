@@ -92,8 +92,6 @@ export const DIAMONDS_BY_QUERY = gql`
               pavAngle
               pavHeight
               pavDepth
-              floInt
-              floCol
               verified
               labgrown
               labgrown_type

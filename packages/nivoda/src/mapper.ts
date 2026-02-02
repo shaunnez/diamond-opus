@@ -140,11 +140,6 @@ function mapAttributes(
   return hasValue ? attributes : undefined;
 }
 
-function mapFluorescence(floInt?: string, floCol?: string): string | undefined {
-  if (!floInt) return undefined;
-  return floCol ? `${floInt} ${floCol}` : floInt;
-}
-
 export function mapNivodaItemToDiamond(
   item: NivodaItem,
 ): Omit<
@@ -155,6 +150,7 @@ export function mapNivodaItemToDiamond(
   | "retailPriceCents"
   | "markupRatio"
   | "rating"
+  | "fluorescence"
 > {
   const { diamond } = item;
   const { certificate } = diamond;
@@ -174,7 +170,6 @@ export function mapNivodaItemToDiamond(
     cut: certificate.cut ?? undefined,
     polish: certificate.polish ?? undefined,
     symmetry: certificate.symmetry ?? undefined,
-    fluorescence: mapFluorescence(certificate.floInt, certificate.floCol),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
     supplierPriceCents,
@@ -207,6 +202,7 @@ export function mapRawPayloadToDiamond(
   | "retailPriceCents"
   | "markupRatio"
   | "rating"
+  | "fluorescence"
 > {
   return mapNivodaItemToDiamond(payload as unknown as NivodaItem);
 }
