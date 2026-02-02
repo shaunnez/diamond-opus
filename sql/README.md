@@ -101,8 +101,8 @@ CREATE TABLE diamonds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Identity
-  supplier TEXT NOT NULL DEFAULT 'nivoda',
-  supplier_stone_id TEXT NOT NULL,    -- Unique per supplier
+  feed TEXT NOT NULL DEFAULT 'nivoda',
+  supplier_stone_id TEXT NOT NULL,    -- Unique per feed (Nivoda diamond.id)
   offer_id TEXT NOT NULL,             -- For ordering operations
 
   -- Core Attributes
@@ -120,9 +120,9 @@ CREATE TABLE diamonds (
   treated BOOLEAN DEFAULT FALSE,
 
   -- Pricing (ALL IN CENTS)
-  supplier_price_cents BIGINT NOT NULL,
+  feed_price_cents BIGINT NOT NULL,
   price_per_carat_cents BIGINT NOT NULL,
-  retail_price_cents BIGINT,           -- supplier * markup
+  retail_price_cents BIGINT,           -- feed * markup
   markup_ratio DECIMAL(5,4),           -- e.g., 1.1500
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 
@@ -144,9 +144,9 @@ CREATE TABLE diamonds (
   measurements JSONB,    -- length, width, depth, angles
   attributes JSONB,      -- eyeClean, tint, comments
 
-  -- Supplier Details
-  supplier_name TEXT,
-  supplier_legal_name TEXT,
+  -- Feed Details
+  feed_name TEXT,
+  feed_legal_name TEXT,
 
   -- Lifecycle
   status TEXT DEFAULT 'active',        -- active|deleted
@@ -155,14 +155,14 @@ CREATE TABLE diamonds (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
 
-  UNIQUE(supplier, supplier_stone_id)
+  UNIQUE(feed, supplier_stone_id)
 );
 ```
 
 **Key points:**
 - All prices in **cents** (BIGINT) to avoid float precision issues
 - Soft deletes via `status = 'deleted'` and `deleted_at`
-- Composite unique on `(supplier, supplier_stone_id)`
+- Composite unique on `(feed, supplier_stone_id)`
 
 ### pricing_rules
 
@@ -178,7 +178,7 @@ CREATE TABLE pricing_rules (
   carat_max DECIMAL(6,2),
   shapes TEXT[],                          -- Array of shapes
   lab_grown BOOLEAN,
-  supplier TEXT,
+  feed TEXT,
 
   -- Outputs
   markup_ratio DECIMAL(5,4) NOT NULL,     -- e.g., 1.1500 = 15%
@@ -255,8 +255,8 @@ Track diamond operations.
 CREATE TABLE hold_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   diamond_id UUID REFERENCES diamonds(id),
-  supplier TEXT NOT NULL,
-  supplier_hold_id TEXT,
+  feed TEXT NOT NULL,
+  feed_hold_id TEXT,
   offer_id TEXT NOT NULL,
   status TEXT NOT NULL,
   denied BOOLEAN DEFAULT FALSE,
@@ -267,8 +267,8 @@ CREATE TABLE hold_history (
 CREATE TABLE purchase_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   diamond_id UUID REFERENCES diamonds(id),
-  supplier TEXT NOT NULL,
-  supplier_order_id TEXT,
+  feed TEXT NOT NULL,
+  feed_order_id TEXT,
   offer_id TEXT NOT NULL,
   idempotency_key TEXT NOT NULL UNIQUE,  -- Prevents duplicate orders
   status TEXT NOT NULL,
@@ -289,7 +289,7 @@ CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity)
   WHERE status = 'active';
 
 -- Price filtering
-CREATE INDEX idx_diamonds_price ON diamonds(supplier_price_cents)
+CREATE INDEX idx_diamonds_price ON diamonds(feed_price_cents)
   WHERE status = 'active';
 
 -- Common filters
@@ -338,8 +338,8 @@ SELECT * FROM diamonds
 WHERE status = 'active'
   AND shape = 'ROUND'
   AND carats BETWEEN 1.0 AND 2.0
-  AND supplier_price_cents BETWEEN 100000 AND 500000
-ORDER BY supplier_price_cents ASC
+  AND feed_price_cents BETWEEN 100000 AND 500000
+ORDER BY feed_price_cents ASC
 LIMIT 50;
 ```
 
@@ -365,7 +365,7 @@ SELECT
   d.shape,
   d.carats,
   d.lab_grown,
-  d.supplier_price_cents,
+  d.feed_price_cents,
   d.retail_price_cents,
   d.markup_ratio,
   d.rating

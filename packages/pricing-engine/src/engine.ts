@@ -19,7 +19,7 @@ export class PricingEngine {
 
   private matchesRule(
     rule: PricingRule,
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
   ): boolean {
     if (rule.caratMin !== undefined && diamond.carats < rule.caratMin) {
       return false;
@@ -39,7 +39,7 @@ export class PricingEngine {
       return false;
     }
 
-    if (rule.supplier !== undefined && rule.supplier !== diamond.supplier) {
+    if (rule.feed !== undefined && rule.feed !== diamond.feed) {
       return false;
     }
 
@@ -47,7 +47,7 @@ export class PricingEngine {
   }
 
   findMatchingRule(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
   ): PricingRule | undefined {
     if (!this.rulesLoaded) {
       throw new Error('Pricing rules not loaded. Call loadRules() first.');
@@ -63,18 +63,18 @@ export class PricingEngine {
   }
 
   calculatePricing(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier' | 'supplierPriceCents'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPriceCents'>
   ): PricingResult {
     const matchedRule = this.findMatchingRule(diamond);
 
     const markupRatio = matchedRule?.markupRatio ?? DEFAULT_MARKUP_RATIO;
     const rating = matchedRule?.rating;
 
-    const retailPriceCents = Math.round(diamond.supplierPriceCents * markupRatio);
-    const pricePerCaratCents = Math.round(diamond.supplierPriceCents / diamond.carats);
+    const retailPriceCents = Math.round(diamond.feedPriceCents * markupRatio);
+    const pricePerCaratCents = Math.round(diamond.feedPriceCents / diamond.carats);
 
     return {
-      supplierPriceCents: diamond.supplierPriceCents,
+      feedPriceCents: diamond.feedPriceCents,
       retailPriceCents,
       pricePerCaratCents,
       markupRatio,

@@ -159,12 +159,12 @@ export function mapNivodaItemToDiamond(
   const { diamond } = item;
   const { certificate } = diamond;
 
-  const supplierPriceCents = Math.round(item.price * 100);
+  const feedPriceCents = Math.round(item.price * 100);
   const carats = certificate.carats;
-  const pricePerCaratCents = Math.round(supplierPriceCents / carats);
+  const pricePerCaratCents = Math.round(feedPriceCents / carats);
 
   return {
-    supplier: "nivoda",
+    feed: "nivoda",
     supplierStoneId: diamond.id,
     offerId: item.id,
     shape: certificate.shape,
@@ -177,7 +177,7 @@ export function mapNivodaItemToDiamond(
     fluorescence: mapFluorescence(certificate.floInt, certificate.floCol),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
-    supplierPriceCents,
+    feedPriceCents,
     pricePerCaratCents,
     availability: mapAvailability(diamond.availability),
     rawAvailability: diamond.availability,
@@ -189,8 +189,8 @@ export function mapNivodaItemToDiamond(
     certificatePdfUrl: certificate.pdfUrl ?? undefined,
     measurements: mapMeasurements(certificate),
     attributes: mapAttributes(diamond),
-    supplierName: diamond.supplier?.name,
-    supplierLegalName: diamond.supplier?.legal_name,
+    feedName: diamond.supplier?.name,
+    feedLegalName: diamond.supplier?.legal_name,
     status: "active",
     sourceUpdatedAt: undefined,
     deletedAt: undefined,

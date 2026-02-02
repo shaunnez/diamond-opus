@@ -31,7 +31,7 @@ describe('Diamond Database Queries', () => {
       const mockRows = [
         {
           id: 'diamond-1',
-          supplier: 'nivoda',
+          feed: 'nivoda',
           supplier_stone_id: 'stone-1',
           offer_id: 'offer-1',
           shape: 'ROUND',
@@ -44,7 +44,7 @@ describe('Diamond Database Queries', () => {
           fluorescence: 'None',
           lab_grown: false,
           treated: false,
-          supplier_price_cents: '500000',
+          feed_price_cents: '500000',
           price_per_carat_cents: '500000',
           retail_price_cents: '575000',
           markup_ratio: '1.15',
@@ -59,8 +59,8 @@ describe('Diamond Database Queries', () => {
           certificate_pdf_url: null,
           measurements: null,
           attributes: null,
-          supplier_name: 'Test Supplier',
-          supplier_legal_name: null,
+          feed_name: 'Test Supplier',
+          feed_legal_name: null,
           status: 'active',
           source_updated_at: new Date(),
           created_at: new Date(),
@@ -79,7 +79,7 @@ describe('Diamond Database Queries', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe('diamond-1');
       expect(result.data[0].carats).toBe(1.0);
-      expect(result.data[0].supplierPriceCents).toBe(500000);
+      expect(result.data[0].feedPriceCents).toBe(500000);
       expect(result.pagination.total).toBe(1);
       expect(result.pagination.page).toBe(1);
       expect(result.pagination.limit).toBe(50);
@@ -141,7 +141,7 @@ describe('Diamond Database Queries', () => {
     it('should return diamond when found', async () => {
       const mockRow = {
         id: 'diamond-1',
-        supplier: 'nivoda',
+        feed: 'nivoda',
         supplier_stone_id: 'stone-1',
         offer_id: 'offer-1',
         shape: 'ROUND',
@@ -154,7 +154,7 @@ describe('Diamond Database Queries', () => {
         fluorescence: 'None',
         lab_grown: false,
         treated: false,
-        supplier_price_cents: '750000',
+        feed_price_cents: '750000',
         price_per_carat_cents: '500000',
         retail_price_cents: null,
         markup_ratio: null,
@@ -169,8 +169,8 @@ describe('Diamond Database Queries', () => {
         certificate_pdf_url: null,
         measurements: null,
         attributes: null,
-        supplier_name: null,
-        supplier_legal_name: null,
+        feed_name: null,
+        feed_legal_name: null,
         status: 'active',
         source_updated_at: null,
         created_at: new Date(),
@@ -185,7 +185,7 @@ describe('Diamond Database Queries', () => {
       expect(result).not.toBeNull();
       expect(result!.id).toBe('diamond-1');
       expect(result!.carats).toBe(1.5);
-      expect(result!.supplierPriceCents).toBe(750000);
+      expect(result!.feedPriceCents).toBe(750000);
     });
 
     it('should return null when not found', async () => {

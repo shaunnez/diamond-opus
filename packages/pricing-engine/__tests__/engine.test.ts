@@ -13,13 +13,13 @@ const createMockRule = (overrides: Partial<PricingRule> = {}): PricingRule => ({
 });
 
 const createMockDiamond = (
-  overrides: Partial<Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier' | 'supplierPriceCents'>> = {}
-): Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier' | 'supplierPriceCents'> => ({
+  overrides: Partial<Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPriceCents'>> = {}
+): Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPriceCents'> => ({
   carats: 1.0,
   shape: 'ROUND',
   labGrown: false,
-  supplier: 'nivoda',
-  supplierPriceCents: 100000,
+  feed: 'nivoda',
+  feedPriceCents: 100000,
   ...overrides,
 });
 
@@ -80,13 +80,13 @@ describe('PricingEngine', () => {
       expect(engine.findMatchingRule(labDiamond)?.id).toBe('lab');
     });
 
-    it('should match rule by supplier', () => {
+    it('should match rule by feed', () => {
       engine.setRules([
-        createMockRule({ id: 'nivoda', supplier: 'nivoda', priority: 10 }),
-        createMockRule({ id: 'other', supplier: 'other-supplier', priority: 20 }),
+        createMockRule({ id: 'nivoda', feed: 'nivoda', priority: 10 }),
+        createMockRule({ id: 'other', feed: 'other-feed', priority: 20 }),
       ]);
 
-      const nivodaDiamond = createMockDiamond({ supplier: 'nivoda' });
+      const nivodaDiamond = createMockDiamond({ feed: 'nivoda' });
       expect(engine.findMatchingRule(nivodaDiamond)?.id).toBe('nivoda');
     });
 
@@ -118,7 +118,7 @@ describe('PricingEngine', () => {
     it('should calculate retail price with markup', () => {
       engine.setRules([createMockRule({ markupRatio: 1.25 })]);
 
-      const diamond = createMockDiamond({ supplierPriceCents: 100000 });
+      const diamond = createMockDiamond({ feedPriceCents: 100000 });
       const pricing = engine.calculatePricing(diamond);
 
       expect(pricing.retailPriceCents).toBe(125000);
@@ -128,7 +128,7 @@ describe('PricingEngine', () => {
     it('should calculate price per carat', () => {
       engine.setRules([createMockRule()]);
 
-      const diamond = createMockDiamond({ supplierPriceCents: 150000, carats: 1.5 });
+      const diamond = createMockDiamond({ feedPriceCents: 150000, carats: 1.5 });
       const pricing = engine.calculatePricing(diamond);
 
       expect(pricing.pricePerCaratCents).toBe(100000);
@@ -155,7 +155,7 @@ describe('PricingEngine', () => {
     it('should use default markup when no rule matches', () => {
       engine.setRules([createMockRule({ shapes: ['EMERALD'] })]);
 
-      const diamond = createMockDiamond({ shape: 'ROUND', supplierPriceCents: 100000 });
+      const diamond = createMockDiamond({ shape: 'ROUND', feedPriceCents: 100000 });
       const pricing = engine.calculatePricing(diamond);
 
       expect(pricing.markupRatio).toBe(1.15);
@@ -169,7 +169,7 @@ describe('PricingEngine', () => {
       engine.setRules([createMockRule({ markupRatio: 1.3, rating: 7 })]);
 
       const baseDiamond = {
-        supplier: 'nivoda',
+        feed: 'nivoda',
         supplierStoneId: 'test-123',
         offerId: 'offer-456',
         shape: 'ROUND',
@@ -178,7 +178,7 @@ describe('PricingEngine', () => {
         clarity: 'VS1',
         labGrown: false,
         treated: false,
-        supplierPriceCents: 100000,
+        feedPriceCents: 100000,
         pricePerCaratCents: 100000,
         availability: 'available' as const,
         status: 'active' as const,

@@ -37,7 +37,7 @@ export function createMockDiamond(overrides: Partial<Diamond> = {}): Diamond {
   const id = overrides.id ?? generateTestId('diamond');
   return {
     id,
-    supplier: 'nivoda',
+    feed: 'nivoda',
     supplierStoneId: `stone-${id}`,
     offerId: `offer-${id}`,
     shape: 'ROUND',
@@ -50,7 +50,7 @@ export function createMockDiamond(overrides: Partial<Diamond> = {}): Diamond {
     fluorescence: 'None',
     labGrown: false,
     treated: false,
-    supplierPriceCents: 500000, // $5,000
+    feedPriceCents: 500000, // $5,000
     pricePerCaratCents: 500000,
     retailPriceCents: 575000, // 15% markup
     markupRatio: 1.15,
@@ -73,7 +73,7 @@ export function createMockDiamonds(
   return Array.from({ length: count }, (_, i) =>
     createMockDiamond({
       carats: 0.5 + i * 0.1,
-      supplierPriceCents: 100000 + i * 50000,
+      feedPriceCents: 100000 + i * 50000,
       ...overrides,
     })
   );

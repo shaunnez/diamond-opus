@@ -16,7 +16,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Runs', href: '/runs', icon: PlayCircle },
   { name: 'Consolidation', href: '/consolidation', icon: Layers },
-  { name: 'Suppliers', href: '/suppliers', icon: Database },
+  { name: 'Feeds', href: '/feeds', icon: Database },
   { name: 'Query', href: '/query', icon: Search },
   { name: 'Triggers', href: '/triggers', icon: Zap },
 ];

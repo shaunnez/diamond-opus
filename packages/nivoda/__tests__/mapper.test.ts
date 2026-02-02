@@ -48,7 +48,7 @@ describe('mapNivodaItemToDiamond', () => {
     const item = createMockItem();
     const result = mapNivodaItemToDiamond(item);
 
-    expect(result.supplier).toBe('nivoda');
+    expect(result.feed).toBe('nivoda');
     expect(result.supplierStoneId).toBe('diamond-456');
     expect(result.offerId).toBe('offer-123');
     expect(result.shape).toBe('ROUND');
@@ -61,7 +61,7 @@ describe('mapNivodaItemToDiamond', () => {
     const item = createMockItem();
     const result = mapNivodaItemToDiamond(item);
 
-    expect(result.supplierPriceCents).toBe(150050);
+    expect(result.feedPriceCents).toBe(150050);
     expect(result.pricePerCaratCents).toBe(Math.round(150050 / 1.5));
   });
 
@@ -112,7 +112,7 @@ describe('mapNivodaItemToDiamond', () => {
     expect(result.symmetry).toBeUndefined();
     expect(result.imageUrl).toBeUndefined();
     expect(result.videoUrl).toBeUndefined();
-    expect(result.supplierName).toBeUndefined();
+    expect(result.feedName).toBeUndefined();
   });
 
   it('should map lab-grown diamonds correctly', () => {

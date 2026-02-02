@@ -4,8 +4,8 @@ import { query } from '../client.js';
 interface HoldHistoryRow {
   id: string;
   diamond_id: string;
-  supplier: string;
-  supplier_hold_id: string | null;
+  feed: string;
+  feed_hold_id: string | null;
   offer_id: string;
   status: string;
   denied: boolean;
@@ -16,8 +16,8 @@ interface HoldHistoryRow {
 interface PurchaseHistoryRow {
   id: string;
   diamond_id: string;
-  supplier: string;
-  supplier_order_id: string | null;
+  feed: string;
+  feed_order_id: string | null;
   offer_id: string;
   idempotency_key: string;
   status: string;
@@ -31,8 +31,8 @@ function mapRowToHoldHistory(row: HoldHistoryRow): HoldHistory {
   return {
     id: row.id,
     diamondId: row.diamond_id,
-    supplier: row.supplier,
-    supplierHoldId: row.supplier_hold_id ?? undefined,
+    feed: row.feed,
+    feedHoldId: row.feed_hold_id ?? undefined,
     offerId: row.offer_id,
     status: row.status as HoldHistory['status'],
     denied: row.denied,
@@ -45,8 +45,8 @@ function mapRowToPurchaseHistory(row: PurchaseHistoryRow): PurchaseHistory {
   return {
     id: row.id,
     diamondId: row.diamond_id,
-    supplier: row.supplier,
-    supplierOrderId: row.supplier_order_id ?? undefined,
+    feed: row.feed,
+    feedOrderId: row.feed_order_id ?? undefined,
     offerId: row.offer_id,
     idempotencyKey: row.idempotency_key,
     status: row.status as PurchaseHistory['status'],
@@ -59,18 +59,18 @@ function mapRowToPurchaseHistory(row: PurchaseHistoryRow): PurchaseHistory {
 
 export async function createHoldHistory(
   diamondId: string,
-  supplier: string,
+  feed: string,
   offerId: string,
-  supplierHoldId?: string,
+  feedHoldId?: string,
   denied?: boolean,
   holdUntil?: Date
 ): Promise<HoldHistory> {
   const status = denied ? 'expired' : 'active';
   const result = await query<HoldHistoryRow>(
-    `INSERT INTO hold_history (diamond_id, supplier, supplier_hold_id, offer_id, status, denied, hold_until)
+    `INSERT INTO hold_history (diamond_id, feed, feed_hold_id, offer_id, status, denied, hold_until)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [diamondId, supplier, supplierHoldId, offerId, status, denied ?? false, holdUntil]
+    [diamondId, feed, feedHoldId, offerId, status, denied ?? false, holdUntil]
   );
   return mapRowToHoldHistory(result.rows[0]!);
 }
@@ -85,20 +85,20 @@ export async function getHoldHistoryByDiamondId(diamondId: string): Promise<Hold
 
 export async function createPurchaseHistory(
   diamondId: string,
-  supplier: string,
+  feed: string,
   offerId: string,
   idempotencyKey: string,
   status: PurchaseHistory['status'] = 'pending',
-  supplierOrderId?: string,
+  feedOrderId?: string,
   reference?: string,
   comments?: string
 ): Promise<PurchaseHistory> {
   const result = await query<PurchaseHistoryRow>(
     `INSERT INTO purchase_history (
-      diamond_id, supplier, supplier_order_id, offer_id, idempotency_key, status, reference, comments
+      diamond_id, feed, feed_order_id, offer_id, idempotency_key, status, reference, comments
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *`,
-    [diamondId, supplier, supplierOrderId, offerId, idempotencyKey, status, reference, comments]
+    [diamondId, feed, feedOrderId, offerId, idempotencyKey, status, reference, comments]
   );
   return mapRowToPurchaseHistory(result.rows[0]!);
 }
@@ -115,12 +115,12 @@ export async function getPurchaseByIdempotencyKey(idempotencyKey: string): Promi
 export async function updatePurchaseStatus(
   id: string,
   status: PurchaseHistory['status'],
-  supplierOrderId?: string
+  feedOrderId?: string
 ): Promise<void> {
   await query(
     `UPDATE purchase_history
-     SET status = $2, supplier_order_id = COALESCE($3, supplier_order_id), updated_at = NOW()
+     SET status = $2, feed_order_id = COALESCE($3, feed_order_id), updated_at = NOW()
      WHERE id = $1`,
-    [id, status, supplierOrderId]
+    [id, status, feedOrderId]
   );
 }

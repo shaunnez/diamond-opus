@@ -3,7 +3,7 @@ import { query } from '../client.js';
 
 interface DiamondRow {
   id: string;
-  supplier: string;
+  feed: string;
   supplier_stone_id: string;
   offer_id: string;
   shape: string;
@@ -16,7 +16,7 @@ interface DiamondRow {
   fluorescence: string | null;
   lab_grown: boolean;
   treated: boolean;
-  supplier_price_cents: string;
+  feed_price_cents: string;
   price_per_carat_cents: string;
   retail_price_cents: string | null;
   markup_ratio: string | null;
@@ -31,8 +31,8 @@ interface DiamondRow {
   certificate_pdf_url: string | null;
   measurements: Record<string, unknown> | null;
   attributes: Record<string, unknown> | null;
-  supplier_name: string | null;
-  supplier_legal_name: string | null;
+  feed_name: string | null;
+  feed_legal_name: string | null;
   status: string;
   source_updated_at: Date | null;
   created_at: Date;
@@ -43,7 +43,7 @@ interface DiamondRow {
 function mapRowToDiamond(row: DiamondRow): Diamond {
   return {
     id: row.id,
-    supplier: row.supplier,
+    feed: row.feed,
     supplierStoneId: row.supplier_stone_id,
     offerId: row.offer_id,
     shape: row.shape,
@@ -56,7 +56,7 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     fluorescence: row.fluorescence ?? undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
-    supplierPriceCents: parseInt(row.supplier_price_cents, 10),
+    feedPriceCents: parseInt(row.feed_price_cents, 10),
     pricePerCaratCents: parseInt(row.price_per_carat_cents, 10),
     retailPriceCents: row.retail_price_cents ? parseInt(row.retail_price_cents, 10) : undefined,
     markupRatio: row.markup_ratio ? parseFloat(row.markup_ratio) : undefined,
@@ -71,8 +71,8 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     certificatePdfUrl: row.certificate_pdf_url ?? undefined,
     measurements: row.measurements ?? undefined,
     attributes: row.attributes ?? undefined,
-    supplierName: row.supplier_name ?? undefined,
-    supplierLegalName: row.supplier_legal_name ?? undefined,
+    feedName: row.feed_name ?? undefined,
+    feedLegalName: row.feed_legal_name ?? undefined,
     status: row.status as Diamond['status'],
     sourceUpdatedAt: row.source_updated_at ?? undefined,
     createdAt: row.created_at,
@@ -124,12 +124,12 @@ export async function searchDiamonds(
   }
 
   if (params.priceMin !== undefined) {
-    conditions.push(`supplier_price_cents >= $${paramIndex++}`);
+    conditions.push(`feed_price_cents >= $${paramIndex++}`);
     values.push(params.priceMin);
   }
 
   if (params.priceMax !== undefined) {
-    conditions.push(`supplier_price_cents <= $${paramIndex++}`);
+    conditions.push(`feed_price_cents <= $${paramIndex++}`);
     values.push(params.priceMax);
   }
 
@@ -140,7 +140,7 @@ export async function searchDiamonds(
 
   const sortBy = params.sortBy ?? 'created_at';
   const sortOrder = params.sortOrder ?? 'desc';
-  const allowedSortColumns = ['created_at', 'supplier_price_cents', 'carats', 'color', 'clarity'];
+  const allowedSortColumns = ['created_at', 'feed_price_cents', 'carats', 'color', 'clarity'];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
@@ -178,18 +178,18 @@ export async function getDiamondById(id: string): Promise<Diamond | null> {
 export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'>): Promise<Diamond> {
   const result = await query<DiamondRow>(
     `INSERT INTO diamonds (
-      supplier, supplier_stone_id, offer_id, shape, carats, color, clarity,
+      feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
       cut, polish, symmetry, fluorescence, lab_grown, treated,
-      supplier_price_cents, price_per_carat_cents, retail_price_cents,
+      feed_price_cents, price_per_carat_cents, retail_price_cents,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
-      measurements, attributes, supplier_name, supplier_legal_name,
+      measurements, attributes, feed_name, feed_legal_name,
       status, source_updated_at
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
       $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
     )
-    ON CONFLICT (supplier, supplier_stone_id) DO UPDATE SET
+    ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
       offer_id = EXCLUDED.offer_id,
       shape = EXCLUDED.shape,
       carats = EXCLUDED.carats,
@@ -201,7 +201,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       fluorescence = EXCLUDED.fluorescence,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
-      supplier_price_cents = EXCLUDED.supplier_price_cents,
+      feed_price_cents = EXCLUDED.feed_price_cents,
       price_per_carat_cents = EXCLUDED.price_per_carat_cents,
       retail_price_cents = EXCLUDED.retail_price_cents,
       markup_ratio = EXCLUDED.markup_ratio,
@@ -216,14 +216,14 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       certificate_pdf_url = EXCLUDED.certificate_pdf_url,
       measurements = EXCLUDED.measurements,
       attributes = EXCLUDED.attributes,
-      supplier_name = EXCLUDED.supplier_name,
-      supplier_legal_name = EXCLUDED.supplier_legal_name,
+      feed_name = EXCLUDED.feed_name,
+      feed_legal_name = EXCLUDED.feed_legal_name,
       status = EXCLUDED.status,
       source_updated_at = EXCLUDED.source_updated_at,
       updated_at = NOW()
     RETURNING *`,
     [
-      diamond.supplier,
+      diamond.feed,
       diamond.supplierStoneId,
       diamond.offerId,
       diamond.shape,
@@ -236,7 +236,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.fluorescence,
       diamond.labGrown,
       diamond.treated,
-      diamond.supplierPriceCents,
+      diamond.feedPriceCents,
       diamond.pricePerCaratCents,
       diamond.retailPriceCents,
       diamond.markupRatio,
@@ -251,8 +251,8 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.certificatePdfUrl,
       diamond.measurements ? JSON.stringify(diamond.measurements) : null,
       diamond.attributes ? JSON.stringify(diamond.attributes) : null,
-      diamond.supplierName,
-      diamond.supplierLegalName,
+      diamond.feedName,
+      diamond.feedLegalName,
       diamond.status,
       diamond.sourceUpdatedAt,
     ]
@@ -267,7 +267,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   if (diamonds.length === 0) return 0;
 
   // Build arrays for each column - PostgreSQL UNNEST for efficient batch insert
-  const suppliers: string[] = [];
+  const feeds: string[] = [];
   const supplierStoneIds: string[] = [];
   const offerIds: string[] = [];
   const shapes: string[] = [];
@@ -280,7 +280,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const fluorescences: (string | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
-  const supplierPriceCents: number[] = [];
+  const feedPriceCents: number[] = [];
   const pricePerCaratCents: number[] = [];
   const retailPriceCents: (number | null)[] = [];
   const markupRatios: (number | null)[] = [];
@@ -295,13 +295,13 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const certificatePdfUrls: (string | null)[] = [];
   const measurements: (string | null)[] = [];
   const attributes: (string | null)[] = [];
-  const supplierNames: (string | null)[] = [];
-  const supplierLegalNames: (string | null)[] = [];
+  const feedNames: (string | null)[] = [];
+  const feedLegalNames: (string | null)[] = [];
   const statuses: string[] = [];
   const sourceUpdatedAts: (Date | null)[] = [];
 
   for (const d of diamonds) {
-    suppliers.push(d.supplier);
+    feeds.push(d.feed);
     supplierStoneIds.push(d.supplierStoneId);
     offerIds.push(d.offerId);
     shapes.push(d.shape);
@@ -314,7 +314,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     fluorescences.push(d.fluorescence ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
-    supplierPriceCents.push(d.supplierPriceCents);
+    feedPriceCents.push(d.feedPriceCents);
     pricePerCaratCents.push(d.pricePerCaratCents);
     retailPriceCents.push(d.retailPriceCents ?? null);
     markupRatios.push(d.markupRatio ?? null);
@@ -329,8 +329,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     certificatePdfUrls.push(d.certificatePdfUrl ?? null);
     measurements.push(d.measurements ? JSON.stringify(d.measurements) : null);
     attributes.push(d.attributes ? JSON.stringify(d.attributes) : null);
-    supplierNames.push(d.supplierName ?? null);
-    supplierLegalNames.push(d.supplierLegalName ?? null);
+    feedNames.push(d.feedName ?? null);
+    feedLegalNames.push(d.feedLegalName ?? null);
     statuses.push(d.status);
     sourceUpdatedAts.push(d.sourceUpdatedAt ?? null);
   }
@@ -338,12 +338,12 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const result = await query<{ count: string }>(
     `WITH upserted AS (
       INSERT INTO diamonds (
-        supplier, supplier_stone_id, offer_id, shape, carats, color, clarity,
+        feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
         cut, polish, symmetry, fluorescence, lab_grown, treated,
-        supplier_price_cents, price_per_carat_cents, retail_price_cents,
+        feed_price_cents, price_per_carat_cents, retail_price_cents,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
-        measurements, attributes, supplier_name, supplier_legal_name,
+        measurements, attributes, feed_name, feed_legal_name,
         status, source_updated_at
       )
       SELECT * FROM UNNEST(
@@ -355,7 +355,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         $26::text[], $27::jsonb[], $28::jsonb[], $29::text[], $30::text[],
         $31::text[], $32::timestamptz[]
       )
-      ON CONFLICT (supplier, supplier_stone_id) DO UPDATE SET
+      ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
         shape = EXCLUDED.shape,
         carats = EXCLUDED.carats,
@@ -367,7 +367,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         fluorescence = EXCLUDED.fluorescence,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
-        supplier_price_cents = EXCLUDED.supplier_price_cents,
+        feed_price_cents = EXCLUDED.feed_price_cents,
         price_per_carat_cents = EXCLUDED.price_per_carat_cents,
         retail_price_cents = EXCLUDED.retail_price_cents,
         markup_ratio = EXCLUDED.markup_ratio,
@@ -382,8 +382,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         certificate_pdf_url = EXCLUDED.certificate_pdf_url,
         measurements = EXCLUDED.measurements,
         attributes = EXCLUDED.attributes,
-        supplier_name = EXCLUDED.supplier_name,
-        supplier_legal_name = EXCLUDED.supplier_legal_name,
+        feed_name = EXCLUDED.feed_name,
+        feed_legal_name = EXCLUDED.feed_legal_name,
         status = EXCLUDED.status,
         source_updated_at = EXCLUDED.source_updated_at,
         updated_at = NOW()
@@ -391,12 +391,12 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     )
     SELECT COUNT(*)::text as count FROM upserted`,
     [
-      suppliers, supplierStoneIds, offerIds, shapes, carats,
+      feeds, supplierStoneIds, offerIds, shapes, carats,
       colors, clarities, cuts, polishes, symmetries,
-      fluorescences, labGrowns, treateds, supplierPriceCents, pricePerCaratCents,
+      fluorescences, labGrowns, treateds, feedPriceCents, pricePerCaratCents,
       retailPriceCents, markupRatios, ratings, availabilities, rawAvailabilities,
       holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
-      certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,
+      certificatePdfUrls, measurements, attributes, feedNames, feedLegalNames,
       statuses, sourceUpdatedAts,
     ]
   );

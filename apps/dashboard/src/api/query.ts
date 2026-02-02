@@ -31,7 +31,7 @@ export interface QueryResult {
 export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[]> = {
   diamonds: [
     { name: 'id', type: 'uuid' },
-    { name: 'supplier', type: 'string' },
+    { name: 'feed', type: 'string' },
     { name: 'supplier_stone_id', type: 'string' },
     { name: 'offer_id', type: 'string' },
     { name: 'shape', type: 'string' },
@@ -44,7 +44,7 @@ export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[
     { name: 'fluorescence', type: 'string' },
     { name: 'lab_grown', type: 'boolean' },
     { name: 'treated', type: 'boolean' },
-    { name: 'supplier_price_cents', type: 'number' },
+    { name: 'feed_price_cents', type: 'number' },
     { name: 'price_per_carat_cents', type: 'number' },
     { name: 'retail_price_cents', type: 'number' },
     { name: 'markup_ratio', type: 'number' },
@@ -55,7 +55,7 @@ export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[
     { name: 'video_url', type: 'string' },
     { name: 'certificate_lab', type: 'string' },
     { name: 'certificate_number', type: 'string' },
-    { name: 'supplier_name', type: 'string' },
+    { name: 'feed_name', type: 'string' },
     { name: 'status', type: 'string' },
     { name: 'source_updated_at', type: 'datetime' },
     { name: 'created_at', type: 'datetime' },
