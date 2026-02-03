@@ -15,7 +15,7 @@ ALTER TABLE diamonds ADD COLUMN retail_price_new DECIMAL(12,2);
 
 -- Migrate data (divide by 100 to convert cents to dollars)
 UPDATE diamonds SET
-  price_model_price = feed_price_cents / 100.0,
+  price_model_price = supplier_price_cents / 100.0,
   price_per_carat = price_per_carat_cents / 100.0,
   retail_price_new = retail_price_cents / 100.0;
 
@@ -24,7 +24,7 @@ ALTER TABLE diamonds ALTER COLUMN price_model_price SET NOT NULL;
 ALTER TABLE diamonds ALTER COLUMN price_per_carat SET NOT NULL;
 
 -- Drop old columns
-ALTER TABLE diamonds DROP COLUMN feed_price_cents;
+ALTER TABLE diamonds DROP COLUMN supplier_price_cents;
 ALTER TABLE diamonds DROP COLUMN price_per_carat_cents;
 ALTER TABLE diamonds DROP COLUMN retail_price_cents;
 
