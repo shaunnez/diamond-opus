@@ -14,9 +14,9 @@ export interface PricingRule {
 }
 
 export interface PricingResult {
-  feedPriceCents: number;
-  retailPriceCents: number;
-  pricePerCaratCents: number;
+  priceModelPrice: number;
+  retailPrice: number;
+  pricePerCarat: number;
   markupRatio: number;
   rating?: number;
   matchedRuleId?: string;

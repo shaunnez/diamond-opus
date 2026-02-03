@@ -36,9 +36,9 @@ export interface FeedStats {
   availableDiamonds: number;
   onHoldDiamonds: number;
   soldDiamonds: number;
-  avgPriceCents: number;
-  minPriceCents: number;
-  maxPriceCents: number;
+  avgPrice: number;
+  minPrice: number;
+  maxPrice: number;
   lastUpdated: Date | null;
 }
 
@@ -435,9 +435,9 @@ export async function getFeedStats(): Promise<FeedStats[]> {
     available_diamonds: string;
     on_hold_diamonds: string;
     sold_diamonds: string;
-    avg_price_cents: string;
-    min_price_cents: string;
-    max_price_cents: string;
+    avg_price: string;
+    min_price: string;
+    max_price: string;
     last_updated: Date | null;
   }>(
     `SELECT
@@ -446,9 +446,9 @@ export async function getFeedStats(): Promise<FeedStats[]> {
       COUNT(*) FILTER (WHERE availability = 'available') as available_diamonds,
       COUNT(*) FILTER (WHERE availability = 'on_hold') as on_hold_diamonds,
       COUNT(*) FILTER (WHERE availability = 'sold') as sold_diamonds,
-      COALESCE(AVG(feed_price_cents), 0) as avg_price_cents,
-      COALESCE(MIN(feed_price_cents), 0) as min_price_cents,
-      COALESCE(MAX(feed_price_cents), 0) as max_price_cents,
+      COALESCE(AVG(price_model_price), 0) as avg_price,
+      COALESCE(MIN(price_model_price), 0) as min_price,
+      COALESCE(MAX(price_model_price), 0) as max_price,
       MAX(updated_at) as last_updated
      FROM diamonds
      WHERE status = 'active'
@@ -462,9 +462,9 @@ export async function getFeedStats(): Promise<FeedStats[]> {
     availableDiamonds: parseInt(row.available_diamonds, 10),
     onHoldDiamonds: parseInt(row.on_hold_diamonds, 10),
     soldDiamonds: parseInt(row.sold_diamonds, 10),
-    avgPriceCents: Math.round(parseFloat(row.avg_price_cents)),
-    minPriceCents: parseInt(row.min_price_cents, 10),
-    maxPriceCents: parseInt(row.max_price_cents, 10),
+    avgPrice: parseFloat(row.avg_price),
+    minPrice: parseFloat(row.min_price),
+    maxPrice: parseFloat(row.max_price),
     lastUpdated: row.last_updated,
   }));
 }
@@ -569,7 +569,7 @@ const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
   diamonds: [
     'id', 'feed', 'supplier_stone_id', 'offer_id', 'shape', 'carats', 'color', 'clarity',
     'cut', 'polish', 'symmetry', 'fluorescence', 'lab_grown', 'treated',
-    'feed_price_cents', 'price_per_carat_cents', 'retail_price_cents',
+    'price_model_price', 'price_per_carat', 'retail_price',
     'markup_ratio', 'rating', 'availability', 'raw_availability',
     'image_url', 'video_url', 'certificate_lab', 'certificate_number',
     'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',

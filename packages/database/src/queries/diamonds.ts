@@ -16,9 +16,9 @@ interface DiamondRow {
   fluorescence: string | null;
   lab_grown: boolean;
   treated: boolean;
-  feed_price_cents: string;
-  price_per_carat_cents: string;
-  retail_price_cents: string | null;
+  price_model_price: string;
+  price_per_carat: string;
+  retail_price: string | null;
   markup_ratio: string | null;
   rating: number | null;
   availability: string;
@@ -56,9 +56,9 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     fluorescence: row.fluorescence ?? undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
-    feedPriceCents: parseInt(row.feed_price_cents, 10),
-    pricePerCaratCents: parseInt(row.price_per_carat_cents, 10),
-    retailPriceCents: row.retail_price_cents ? parseInt(row.retail_price_cents, 10) : undefined,
+    priceModelPrice: parseFloat(row.price_model_price),
+    pricePerCarat: parseFloat(row.price_per_carat),
+    retailPrice: row.retail_price ? parseFloat(row.retail_price) : undefined,
     markupRatio: row.markup_ratio ? parseFloat(row.markup_ratio) : undefined,
     rating: row.rating ?? undefined,
     availability: row.availability as Diamond['availability'],
@@ -124,12 +124,12 @@ export async function searchDiamonds(
   }
 
   if (params.priceMin !== undefined) {
-    conditions.push(`feed_price_cents >= $${paramIndex++}`);
+    conditions.push(`price_model_price >= $${paramIndex++}`);
     values.push(params.priceMin);
   }
 
   if (params.priceMax !== undefined) {
-    conditions.push(`feed_price_cents <= $${paramIndex++}`);
+    conditions.push(`price_model_price <= $${paramIndex++}`);
     values.push(params.priceMax);
   }
 
@@ -140,7 +140,7 @@ export async function searchDiamonds(
 
   const sortBy = params.sortBy ?? 'created_at';
   const sortOrder = params.sortOrder ?? 'desc';
-  const allowedSortColumns = ['created_at', 'feed_price_cents', 'carats', 'color', 'clarity'];
+  const allowedSortColumns = ['created_at', 'price_model_price', 'carats', 'color', 'clarity'];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
@@ -180,7 +180,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
     `INSERT INTO diamonds (
       feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
       cut, polish, symmetry, fluorescence, lab_grown, treated,
-      feed_price_cents, price_per_carat_cents, retail_price_cents,
+      price_model_price, price_per_carat, retail_price,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
       measurements, attributes, supplier_name, supplier_legal_name,
@@ -201,9 +201,9 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       fluorescence = EXCLUDED.fluorescence,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
-      feed_price_cents = EXCLUDED.feed_price_cents,
-      price_per_carat_cents = EXCLUDED.price_per_carat_cents,
-      retail_price_cents = EXCLUDED.retail_price_cents,
+      price_model_price = EXCLUDED.price_model_price,
+      price_per_carat = EXCLUDED.price_per_carat,
+      retail_price = EXCLUDED.retail_price,
       markup_ratio = EXCLUDED.markup_ratio,
       rating = EXCLUDED.rating,
       availability = EXCLUDED.availability,
@@ -236,9 +236,9 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.fluorescence,
       diamond.labGrown,
       diamond.treated,
-      diamond.feedPriceCents,
-      diamond.pricePerCaratCents,
-      diamond.retailPriceCents,
+      diamond.priceModelPrice,
+      diamond.pricePerCarat,
+      diamond.retailPrice,
       diamond.markupRatio,
       diamond.rating,
       diamond.availability,
@@ -280,9 +280,9 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const fluorescences: (string | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
-  const feedPriceCents: number[] = [];
-  const pricePerCaratCents: number[] = [];
-  const retailPriceCents: (number | null)[] = [];
+  const priceModelPrice: number[] = [];
+  const pricePerCarat: number[] = [];
+  const retailPrice: (number | null)[] = [];
   const markupRatios: (number | null)[] = [];
   const ratings: (number | null)[] = [];
   const availabilities: string[] = [];
@@ -314,9 +314,9 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     fluorescences.push(d.fluorescence ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
-    feedPriceCents.push(d.feedPriceCents);
-    pricePerCaratCents.push(d.pricePerCaratCents);
-    retailPriceCents.push(d.retailPriceCents ?? null);
+    priceModelPrice.push(d.priceModelPrice);
+    pricePerCarat.push(d.pricePerCarat);
+    retailPrice.push(d.retailPrice ?? null);
     markupRatios.push(d.markupRatio ?? null);
     ratings.push(d.rating ?? null);
     availabilities.push(d.availability);
@@ -340,7 +340,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       INSERT INTO diamonds (
         feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
         cut, polish, symmetry, fluorescence, lab_grown, treated,
-        feed_price_cents, price_per_carat_cents, retail_price_cents,
+        price_model_price, price_per_carat, retail_price,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
         measurements, attributes, supplier_name, supplier_legal_name,
@@ -367,9 +367,9 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         fluorescence = EXCLUDED.fluorescence,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
-        feed_price_cents = EXCLUDED.feed_price_cents,
-        price_per_carat_cents = EXCLUDED.price_per_carat_cents,
-        retail_price_cents = EXCLUDED.retail_price_cents,
+        price_model_price = EXCLUDED.price_model_price,
+        price_per_carat = EXCLUDED.price_per_carat,
+        retail_price = EXCLUDED.retail_price,
         markup_ratio = EXCLUDED.markup_ratio,
         rating = EXCLUDED.rating,
         availability = EXCLUDED.availability,
@@ -393,8 +393,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     [
       feeds, supplierStoneIds, offerIds, shapes, carats,
       colors, clarities, cuts, polishes, symmetries,
-      fluorescences, labGrowns, treateds, feedPriceCents, pricePerCaratCents,
-      retailPriceCents, markupRatios, ratings, availabilities, rawAvailabilities,
+      fluorescences, labGrowns, treateds, priceModelPrice, pricePerCarat,
+      retailPrice, markupRatios, ratings, availabilities, rawAvailabilities,
       holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
       certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,
       statuses, sourceUpdatedAts,

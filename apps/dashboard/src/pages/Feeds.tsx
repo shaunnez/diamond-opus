@@ -73,14 +73,14 @@ export function Feeds() {
     {
       key: 'avgPrice',
       header: 'Avg Price',
-      render: (s: FeedStats) => formatCurrency(s.avgPriceCents),
+      render: (s: FeedStats) => formatCurrency(s.avgPrice),
     },
     {
       key: 'priceRange',
       header: 'Price Range',
       render: (s: FeedStats) => (
         <span className="text-stone-600">
-          {formatCurrency(s.minPriceCents)} - {formatCurrency(s.maxPriceCents)}
+          {formatCurrency(s.minPrice)} - {formatCurrency(s.maxPrice)}
         </span>
       ),
     },

@@ -59,10 +59,10 @@ CREATE TABLE diamonds (
   lab_grown BOOLEAN DEFAULT FALSE,
   treated BOOLEAN DEFAULT FALSE,
 
-  -- Pricing (cents to avoid float issues)
-  feed_price_cents BIGINT NOT NULL,
-  price_per_carat_cents BIGINT NOT NULL,
-  retail_price_cents BIGINT,
+  -- Pricing (dollars as decimals)
+  price_model_price DECIMAL(12,2) NOT NULL,
+  price_per_carat DECIMAL(12,2) NOT NULL,
+  retail_price DECIMAL(12,2),
   markup_ratio DECIMAL(5,4),
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 
@@ -99,7 +99,7 @@ CREATE TABLE diamonds (
 );
 
 CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity) WHERE status = 'active';
-CREATE INDEX idx_diamonds_price ON diamonds(feed_price_cents) WHERE status = 'active';
+CREATE INDEX idx_diamonds_price ON diamonds(price_model_price) WHERE status = 'active';
 CREATE INDEX idx_diamonds_availability ON diamonds(availability) WHERE status = 'active';
 CREATE INDEX idx_diamonds_offer ON diamonds(offer_id);
 CREATE INDEX idx_diamonds_lab_grown ON diamonds(lab_grown) WHERE status = 'active';

@@ -119,10 +119,10 @@ CREATE TABLE diamonds (
   lab_grown BOOLEAN DEFAULT FALSE,
   treated BOOLEAN DEFAULT FALSE,
 
-  -- Pricing (ALL IN CENTS)
-  feed_price_cents BIGINT NOT NULL,
-  price_per_carat_cents BIGINT NOT NULL,
-  retail_price_cents BIGINT,           -- feed * markup
+  -- Pricing (dollars as decimals)
+  price_model_price DECIMAL(12,2) NOT NULL,
+  price_per_carat DECIMAL(12,2) NOT NULL,
+  retail_price DECIMAL(12,2),          -- price_model_price * markup
   markup_ratio DECIMAL(5,4),           -- e.g., 1.1500
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 
@@ -160,7 +160,7 @@ CREATE TABLE diamonds (
 ```
 
 **Key points:**
-- All prices in **cents** (BIGINT) to avoid float precision issues
+- All prices in **dollars** as DECIMAL(12,2)
 - Soft deletes via `status = 'deleted'` and `deleted_at`
 - Composite unique on `(feed, supplier_stone_id)`
 
@@ -289,7 +289,7 @@ CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity)
   WHERE status = 'active';
 
 -- Price filtering
-CREATE INDEX idx_diamonds_price ON diamonds(feed_price_cents)
+CREATE INDEX idx_diamonds_price ON diamonds(price_model_price)
   WHERE status = 'active';
 
 -- Common filters
@@ -338,8 +338,8 @@ SELECT * FROM diamonds
 WHERE status = 'active'
   AND shape = 'ROUND'
   AND carats BETWEEN 1.0 AND 2.0
-  AND feed_price_cents BETWEEN 100000 AND 500000
-ORDER BY feed_price_cents ASC
+  AND price_model_price BETWEEN 1000 AND 5000
+ORDER BY price_model_price ASC
 LIMIT 50;
 ```
 
@@ -365,8 +365,8 @@ SELECT
   d.shape,
   d.carats,
   d.lab_grown,
-  d.feed_price_cents,
-  d.retail_price_cents,
+  d.price_model_price,
+  d.retail_price,
   d.markup_ratio,
   d.rating
 FROM diamonds d
@@ -379,7 +379,7 @@ LIMIT 10;
 
 1. **Supabase PostgreSQL**: No local Postgres setup
 2. **UTC timestamps**: All `TIMESTAMPTZ` in UTC
-3. **Cents for money**: Avoids float precision issues
+3. **Dollars for money**: DECIMAL(12,2) provides sufficient precision
 4. **Soft deletes**: Never hard delete diamonds
 5. **UUID primary keys**: No sequential IDs exposed
 

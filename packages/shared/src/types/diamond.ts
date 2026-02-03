@@ -67,9 +67,9 @@ export interface Diamond {
   fluorescence?: string;
   labGrown: boolean;
   treated: boolean;
-  feedPriceCents: number;
-  pricePerCaratCents: number;
-  retailPriceCents?: number;
+  priceModelPrice: number;
+  pricePerCarat: number;
+  retailPrice?: number;
   markupRatio?: number;
   rating?: number;
   availability: DiamondAvailability;

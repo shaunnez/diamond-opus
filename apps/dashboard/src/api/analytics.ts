@@ -57,9 +57,9 @@ export interface FeedStats {
   availableDiamonds: number;
   onHoldDiamonds: number;
   soldDiamonds: number;
-  avgPriceCents: number;
-  minPriceCents: number;
-  maxPriceCents: number;
+  avgPrice: number;
+  minPrice: number;
+  maxPrice: number;
   lastUpdated: string | null;
 }
 
