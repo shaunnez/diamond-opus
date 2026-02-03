@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Play, RefreshCw, Layers, CheckCircle, Zap } from 'lucide-react';
+import { Play, RefreshCw, Layers, CheckCircle, Zap, Terminal, Copy } from 'lucide-react';
 import { getRuns } from '../api/analytics';
-import { triggerScheduler, triggerConsolidate, retryWorkers, getFailedWorkers } from '../api/triggers';
+import { triggerScheduler, triggerConsolidate, retryWorkers, getFailedWorkers, SchedulerTriggerError } from '../api/triggers';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -149,6 +149,45 @@ export function Triggers() {
                   than an incremental run. Only use this if you need to rebuild the
                   entire dataset.
                 </Alert>
+              )}
+
+              {schedulerMutation.error && (
+                <div className="space-y-3">
+                  <Alert variant="error" title="Failed to trigger scheduler">
+                    {schedulerMutation.error instanceof SchedulerTriggerError
+                      ? schedulerMutation.error.message
+                      : schedulerMutation.error instanceof Error
+                      ? schedulerMutation.error.message
+                      : 'An unknown error occurred'}
+                  </Alert>
+                  {schedulerMutation.error instanceof SchedulerTriggerError && (
+                    <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Terminal className="w-4 h-4 text-stone-500" />
+                        <span className="text-sm font-medium text-stone-700">
+                          Run manually instead:
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
+                          {schedulerMutation.error.manualCommand}
+                        </code>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(schedulerMutation.error instanceof SchedulerTriggerError ? schedulerMutation.error.manualCommand : '')}
+                          className="p-2 text-stone-500 hover:text-stone-700 transition-colors"
+                          title="Copy to clipboard"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {schedulerMutation.error.help && (
+                        <p className="mt-2 text-sm text-stone-500">
+                          {schedulerMutation.error.help}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </Card>

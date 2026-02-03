@@ -175,6 +175,22 @@ export async function getDiamondById(id: string): Promise<Diamond | null> {
   return row ? mapRowToDiamond(row) : null;
 }
 
+export async function getDiamondByOfferId(offerId: string): Promise<Diamond | null> {
+  const result = await query<DiamondRow>(
+    "SELECT * FROM diamonds WHERE offer_id = $1 AND status = 'active'",
+    [offerId]
+  );
+  const row = result.rows[0];
+  return row ? mapRowToDiamond(row) : null;
+}
+
+export async function getDiamondsOnHold(): Promise<Diamond[]> {
+  const result = await query<DiamondRow>(
+    "SELECT * FROM diamonds WHERE availability = 'on_hold' AND status = 'active' ORDER BY updated_at DESC"
+  );
+  return result.rows.map(mapRowToDiamond);
+}
+
 export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'>): Promise<Diamond> {
   const result = await query<DiamondRow>(
     `INSERT INTO diamonds (

@@ -217,17 +217,55 @@ router.post(
       }
 
       // Trigger the Azure Container Apps Job
-      const result = await triggerSchedulerJob(body.run_type);
+      try {
+        const result = await triggerSchedulerJob(body.run_type);
 
-      res.json({
-        data: {
-          message: `Scheduler job triggered successfully for ${body.run_type} run`,
-          run_type: body.run_type,
-          status: "started",
-          execution_name: result.executionName,
-          job_name: jobConfig.jobName,
-        },
-      });
+        res.json({
+          data: {
+            message: `Scheduler job triggered successfully for ${body.run_type} run`,
+            run_type: body.run_type,
+            status: "started",
+            execution_name: result.executionName,
+            job_name: jobConfig.jobName,
+          },
+        });
+      } catch (azureError) {
+        // Handle Azure-specific errors with more helpful messages
+        const errorMessage = azureError instanceof Error ? azureError.message : String(azureError);
+
+        // Check for common Azure permission errors
+        if (errorMessage.includes("AuthorizationFailed") ||
+            errorMessage.includes("does not have authorization") ||
+            errorMessage.includes("403")) {
+          res.status(403).json({
+            error: {
+              code: "AZURE_PERMISSION_DENIED",
+              message: "Azure permission denied. The API's managed identity needs 'Contributor' or 'Container Apps Jobs Contributor' role on the Container Apps Job.",
+              details: errorMessage,
+            },
+            manual_command: `npm run dev:scheduler -- --${body.run_type}`,
+            help: "For local development, run the scheduler manually using the command above.",
+          });
+          return;
+        }
+
+        if (errorMessage.includes("CredentialUnavailableError") ||
+            errorMessage.includes("DefaultAzureCredential")) {
+          res.status(503).json({
+            error: {
+              code: "AZURE_CREDENTIALS_UNAVAILABLE",
+              message: "Azure credentials not available. Ensure the API is running with a managed identity or has Azure CLI credentials.",
+              details: errorMessage,
+            },
+            manual_command: `npm run dev:scheduler -- --${body.run_type}`,
+            help: "For local development, run the scheduler manually using the command above.",
+          });
+          return;
+        }
+
+        // Re-throw other errors to be handled by the global error handler
+        throw azureError;
+      }
     } catch (error) {
       next(error);
     }

@@ -22,10 +22,9 @@ import {
   type RunType,
 } from "@diamond/shared";
 import { createRunMetadata, closePool } from "@diamond/database";
-import { NivodaAdapter, type NivodaQuery } from "@diamond/nivoda";
+import { NivodaAdapter, scanHeatmap, type NivodaQuery, type HeatmapConfig } from "@diamond/nivoda";
 import { getWatermark } from "./watermark.js";
 import { sendWorkItems, closeConnections } from "./service-bus.js";
-import { scanHeatmap, type HeatmapConfig } from "./heatmap.js";
 
 const logger = createLogger({ service: "scheduler" });
 

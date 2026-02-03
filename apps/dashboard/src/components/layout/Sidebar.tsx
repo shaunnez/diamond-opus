@@ -9,6 +9,9 @@ import {
   LogOut,
   Diamond,
   X,
+  BarChart3,
+  DollarSign,
+  ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -19,6 +22,9 @@ const navigation = [
   { name: 'Feeds', href: '/feeds', icon: Database },
   { name: 'Query', href: '/query', icon: Search },
   { name: 'Triggers', href: '/triggers', icon: Zap },
+  { name: 'Heatmap', href: '/heatmap', icon: BarChart3 },
+  { name: 'Nivoda', href: '/nivoda', icon: ShoppingCart },
+  { name: 'Price Models', href: '/pricing-rules', icon: DollarSign },
 ];
 
 interface SidebarProps {

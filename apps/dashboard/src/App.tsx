@@ -7,6 +7,9 @@ import { Consolidation } from './pages/Consolidation';
 import { Feeds } from './pages/Feeds';
 import { Query } from './pages/Query';
 import { Triggers } from './pages/Triggers';
+import { Heatmap } from './pages/Heatmap';
+import { PricingRules } from './pages/PricingRules';
+import { Nivoda } from './pages/Nivoda';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 
@@ -39,6 +42,9 @@ function ProtectedRoutes() {
         <Route path="/feeds" element={<Feeds />} />
         <Route path="/query" element={<Query />} />
         <Route path="/triggers" element={<Triggers />} />
+        <Route path="/heatmap" element={<Heatmap />} />
+        <Route path="/pricing-rules" element={<PricingRules />} />
+        <Route path="/nivoda" element={<Nivoda />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

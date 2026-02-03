@@ -44,14 +44,40 @@ export interface FailedWorkersResponse {
   workers: FailedWorker[];
 }
 
+export interface SchedulerErrorResponse {
+  error: {
+    code: string;
+    message: string;
+    details?: string;
+  };
+  manual_command: string;
+  help?: string;
+}
+
+export class SchedulerTriggerError extends Error {
+  code: string;
+  details?: string;
+  manualCommand: string;
+  help?: string;
+
+  constructor(response: SchedulerErrorResponse) {
+    super(response.error.message);
+    this.name = 'SchedulerTriggerError';
+    this.code = response.error.code;
+    this.details = response.error.details;
+    this.manualCommand = response.manual_command;
+    this.help = response.help;
+  }
+}
+
 // Trigger a new scheduler run
 export async function triggerScheduler(runType: 'full' | 'incremental'): Promise<TriggerSchedulerResponse> {
-  const response = await api.post<{ data: TriggerSchedulerResponse } | { error: unknown; manual_command: string }>(
+  const response = await api.post<{ data: TriggerSchedulerResponse } | SchedulerErrorResponse>(
     '/triggers/scheduler',
     { run_type: runType }
   );
   if ('error' in response.data) {
-    throw new Error((response.data.error as { message: string }).message);
+    throw new SchedulerTriggerError(response.data as SchedulerErrorResponse);
   }
   return response.data.data;
 }
