@@ -666,6 +666,6 @@ resource "azurerm_role_assignment" "api_scheduler_job_operator" {
   count = var.enable_scheduler ? 1 : 0
 
   scope              = azurerm_container_app_job.scheduler[0].id
-  role_definition_name = "Container App Job Operator"
+  role_definition_name = "Container Apps Job Operator"
   principal_id       = azurerm_container_app.api.identity[0].principal_id
 }
