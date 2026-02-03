@@ -19,7 +19,7 @@ export class PricingEngine {
 
   private matchesRule(
     rule: PricingRule,
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
   ): boolean {
     if (rule.caratMin !== undefined && diamond.carats < rule.caratMin) {
       return false;
@@ -39,7 +39,7 @@ export class PricingEngine {
       return false;
     }
 
-    if (rule.supplier !== undefined && rule.supplier !== diamond.supplier) {
+    if (rule.feed !== undefined && rule.feed !== diamond.feed) {
       return false;
     }
 
@@ -47,7 +47,7 @@ export class PricingEngine {
   }
 
   findMatchingRule(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
   ): PricingRule | undefined {
     if (!this.rulesLoaded) {
       throw new Error('Pricing rules not loaded. Call loadRules() first.');
@@ -63,20 +63,20 @@ export class PricingEngine {
   }
 
   calculatePricing(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'supplier' | 'supplierPriceCents'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'priceModelPrice'>
   ): PricingResult {
     const matchedRule = this.findMatchingRule(diamond);
 
     const markupRatio = matchedRule?.markupRatio ?? DEFAULT_MARKUP_RATIO;
     const rating = matchedRule?.rating;
 
-    const retailPriceCents = Math.round(diamond.supplierPriceCents * markupRatio);
-    const pricePerCaratCents = Math.round(diamond.supplierPriceCents / diamond.carats);
+    const retailPrice = Math.round(diamond.priceModelPrice * markupRatio * 100) / 100;
+    const pricePerCarat = Math.round((diamond.priceModelPrice / diamond.carats) * 100) / 100;
 
     return {
-      supplierPriceCents: diamond.supplierPriceCents,
-      retailPriceCents,
-      pricePerCaratCents,
+      priceModelPrice: diamond.priceModelPrice,
+      retailPrice,
+      pricePerCarat,
       markupRatio,
       rating,
       matchedRuleId: matchedRule?.id,
@@ -84,16 +84,16 @@ export class PricingEngine {
   }
 
   applyPricing(
-    diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'retailPriceCents' | 'markupRatio' | 'rating'>
+    diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'retailPrice' | 'markupRatio' | 'rating'>
   ): Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'> {
     const pricing = this.calculatePricing(diamond);
 
     return {
       ...diamond,
-      retailPriceCents: pricing.retailPriceCents,
+      retailPrice: pricing.retailPrice,
       markupRatio: pricing.markupRatio,
       rating: pricing.rating,
-      pricePerCaratCents: pricing.pricePerCaratCents,
+      pricePerCarat: pricing.pricePerCarat,
     };
   }
 }

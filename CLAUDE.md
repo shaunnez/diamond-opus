@@ -145,7 +145,7 @@ Nivoda Response:
 ### Database
 
 - **No local Postgres** - Supabase only via `DATABASE_URL`
-- All prices stored in **cents** (BIGINT) to avoid float precision issues
+- All prices stored in **dollars** as DECIMAL(12,2)
 - Soft deletes: `status = 'deleted'` and `deleted_at` timestamp
 - Connection pool: min 2, max 15 connections
 

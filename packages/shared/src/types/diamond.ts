@@ -54,7 +54,7 @@ export interface DiamondAttributes {
 
 export interface Diamond {
   id: string;
-  supplier: string;
+  feed: string;
   supplierStoneId: string;
   offerId: string;
   shape: string;
@@ -67,9 +67,9 @@ export interface Diamond {
   fluorescence?: string;
   labGrown: boolean;
   treated: boolean;
-  supplierPriceCents: number;
-  pricePerCaratCents: number;
-  retailPriceCents?: number;
+  priceModelPrice: number;
+  pricePerCarat: number;
+  retailPrice?: number;
   markupRatio?: number;
   rating?: number;
   availability: DiamondAvailability;

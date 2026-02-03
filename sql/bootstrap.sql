@@ -41,7 +41,7 @@ CREATE TABLE diamonds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Identity
-  supplier TEXT NOT NULL DEFAULT 'nivoda',
+  feed TEXT NOT NULL DEFAULT 'nivoda',
   supplier_stone_id TEXT NOT NULL,
   offer_id TEXT NOT NULL,
 
@@ -59,10 +59,10 @@ CREATE TABLE diamonds (
   lab_grown BOOLEAN DEFAULT FALSE,
   treated BOOLEAN DEFAULT FALSE,
 
-  -- Pricing (cents to avoid float issues)
-  supplier_price_cents BIGINT NOT NULL,
-  price_per_carat_cents BIGINT NOT NULL,
-  retail_price_cents BIGINT,
+  -- Pricing (dollars as decimals)
+  price_model_price DECIMAL(12,2) NOT NULL,
+  price_per_carat DECIMAL(12,2) NOT NULL,
+  retail_price DECIMAL(12,2),
   markup_ratio DECIMAL(5,4),
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 
@@ -84,7 +84,7 @@ CREATE TABLE diamonds (
   measurements JSONB,
   attributes JSONB,
 
-  -- Supplier Details
+  -- Supplier Details (vendor info from Nivoda)
   supplier_name TEXT,
   supplier_legal_name TEXT,
 
@@ -95,11 +95,11 @@ CREATE TABLE diamonds (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
 
-  UNIQUE(supplier, supplier_stone_id)
+  UNIQUE(feed, supplier_stone_id)
 );
 
 CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity) WHERE status = 'active';
-CREATE INDEX idx_diamonds_price ON diamonds(supplier_price_cents) WHERE status = 'active';
+CREATE INDEX idx_diamonds_price ON diamonds(price_model_price) WHERE status = 'active';
 CREATE INDEX idx_diamonds_availability ON diamonds(availability) WHERE status = 'active';
 CREATE INDEX idx_diamonds_offer ON diamonds(offer_id);
 CREATE INDEX idx_diamonds_lab_grown ON diamonds(lab_grown) WHERE status = 'active';
@@ -118,7 +118,7 @@ CREATE TABLE pricing_rules (
   carat_max DECIMAL(6,2),
   shapes TEXT[],
   lab_grown BOOLEAN,
-  supplier TEXT,
+  feed TEXT,
 
   -- Outputs
   markup_ratio DECIMAL(5,4) NOT NULL,
@@ -173,8 +173,8 @@ CREATE INDEX idx_worker_runs_run_started ON worker_runs(run_id, started_at);
 CREATE TABLE hold_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   diamond_id UUID REFERENCES diamonds(id),
-  supplier TEXT NOT NULL,
-  supplier_hold_id TEXT,
+  feed TEXT NOT NULL,
+  feed_hold_id TEXT,
   offer_id TEXT NOT NULL,
   status TEXT NOT NULL,
   denied BOOLEAN DEFAULT FALSE,
@@ -188,8 +188,8 @@ CREATE INDEX idx_hold_history_diamond_id ON hold_history(diamond_id, created_at 
 CREATE TABLE purchase_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   diamond_id UUID REFERENCES diamonds(id),
-  supplier TEXT NOT NULL,
-  supplier_order_id TEXT,
+  feed TEXT NOT NULL,
+  feed_order_id TEXT,
   offer_id TEXT NOT NULL,
   idempotency_key TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL,

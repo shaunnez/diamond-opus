@@ -98,8 +98,8 @@ export function Dashboard() {
             icon={<Diamond className="w-5 h-5" />}
           />
           <StatCard
-            title="Suppliers"
-            value={formatNumber(summary?.totalSuppliers ?? 0)}
+            title="Feeds"
+            value={formatNumber(summary?.totalFeeds ?? 0)}
             icon={<Building2 className="w-5 h-5" />}
           />
           <StatCard

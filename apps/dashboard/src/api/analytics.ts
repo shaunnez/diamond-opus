@@ -3,7 +3,7 @@ import { api } from './client';
 // Types
 export interface DashboardSummary {
   totalActiveDiamonds: number;
-  totalSuppliers: number;
+  totalFeeds: number;
   lastSuccessfulRun: RunMetadata | null;
   currentWatermark: string | null;
   recentRunsCount: {
@@ -51,15 +51,15 @@ export interface WorkerRun {
   completedAt?: string;
 }
 
-export interface SupplierStats {
-  supplier: string;
+export interface FeedStats {
+  feed: string;
   totalDiamonds: number;
   availableDiamonds: number;
   onHoldDiamonds: number;
   soldDiamonds: number;
-  avgPriceCents: number;
-  minPriceCents: number;
-  maxPriceCents: number;
+  avgPrice: number;
+  minPrice: number;
+  maxPrice: number;
   lastUpdated: string | null;
 }
 
@@ -124,8 +124,8 @@ export async function getRunDetails(runId: string): Promise<{ run: RunWithStats;
   return response.data.data;
 }
 
-export async function getSupplierStats(): Promise<SupplierStats[]> {
-  const response = await api.get<{ data: SupplierStats[] }>('/analytics/suppliers');
+export async function getFeedStats(): Promise<FeedStats[]> {
+  const response = await api.get<{ data: FeedStats[] }>('/analytics/feeds');
   return response.data.data;
 }
 

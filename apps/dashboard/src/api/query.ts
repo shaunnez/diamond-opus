@@ -31,7 +31,7 @@ export interface QueryResult {
 export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[]> = {
   diamonds: [
     { name: 'id', type: 'uuid' },
-    { name: 'supplier', type: 'string' },
+    { name: 'feed', type: 'string' },
     { name: 'supplier_stone_id', type: 'string' },
     { name: 'offer_id', type: 'string' },
     { name: 'shape', type: 'string' },
@@ -44,9 +44,9 @@ export const TABLE_COLUMNS: Record<AllowedTable, { name: string; type: string }[
     { name: 'fluorescence', type: 'string' },
     { name: 'lab_grown', type: 'boolean' },
     { name: 'treated', type: 'boolean' },
-    { name: 'supplier_price_cents', type: 'number' },
-    { name: 'price_per_carat_cents', type: 'number' },
-    { name: 'retail_price_cents', type: 'number' },
+    { name: 'price_model_price', type: 'number' },
+    { name: 'price_per_carat', type: 'number' },
+    { name: 'retail_price', type: 'number' },
     { name: 'markup_ratio', type: 'number' },
     { name: 'rating', type: 'number' },
     { name: 'availability', type: 'string' },

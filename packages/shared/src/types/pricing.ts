@@ -5,7 +5,7 @@ export interface PricingRule {
   caratMax?: number;
   shapes?: string[];
   labGrown?: boolean;
-  supplier?: string;
+  feed?: string;
   markupRatio: number;
   rating?: number;
   active: boolean;
@@ -14,9 +14,9 @@ export interface PricingRule {
 }
 
 export interface PricingResult {
-  supplierPriceCents: number;
-  retailPriceCents: number;
-  pricePerCaratCents: number;
+  priceModelPrice: number;
+  retailPrice: number;
+  pricePerCarat: number;
   markupRatio: number;
   rating?: number;
   matchedRuleId?: string;

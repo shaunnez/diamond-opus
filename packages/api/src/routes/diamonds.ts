@@ -95,7 +95,7 @@ function toArray(value: string | string[] | undefined): string[] | undefined {
  *         name: sort_by
  *         schema:
  *           type: string
- *           enum: [created_at, supplier_price_cents, carats, color, clarity]
+ *           enum: [created_at, feed_price_cents, carats, color, clarity]
  *       - in: query
  *         name: sort_order
  *         schema:
@@ -273,7 +273,7 @@ router.post(
 
       await createHoldHistory(
         diamond.id,
-        diamond.supplier,
+        diamond.feed,
         diamond.offerId,
         holdResponse.id,
         holdResponse.denied,
@@ -364,7 +364,7 @@ router.post(
       if (existingPurchase) {
         res.json({
           data: {
-            id: existingPurchase.supplierOrderId,
+            id: existingPurchase.feedOrderId,
             status: existingPurchase.status,
           },
         });
@@ -382,7 +382,7 @@ router.post(
 
       const purchaseRecord = await createPurchaseHistory(
         diamond.id,
-        diamond.supplier,
+        diamond.feed,
         diamond.offerId,
         idempotencyKey,
         'pending',

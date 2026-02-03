@@ -8,7 +8,7 @@ interface PricingRuleRow {
   carat_max: string | null;
   shapes: string[] | null;
   lab_grown: boolean | null;
-  supplier: string | null;
+  feed: string | null;
   markup_ratio: string;
   rating: number | null;
   active: boolean;
@@ -24,7 +24,7 @@ function mapRowToPricingRule(row: PricingRuleRow): PricingRule {
     caratMax: row.carat_max ? parseFloat(row.carat_max) : undefined,
     shapes: row.shapes ?? undefined,
     labGrown: row.lab_grown ?? undefined,
-    supplier: row.supplier ?? undefined,
+    feed: row.feed ?? undefined,
     markupRatio: parseFloat(row.markup_ratio),
     rating: row.rating ?? undefined,
     active: row.active,
@@ -45,7 +45,7 @@ export async function createPricingRule(
 ): Promise<PricingRule> {
   const result = await query<PricingRuleRow>(
     `INSERT INTO pricing_rules (
-      priority, carat_min, carat_max, shapes, lab_grown, supplier, markup_ratio, rating
+      priority, carat_min, carat_max, shapes, lab_grown, feed, markup_ratio, rating
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *`,
     [
@@ -54,7 +54,7 @@ export async function createPricingRule(
       rule.caratMax,
       rule.shapes,
       rule.labGrown,
-      rule.supplier,
+      rule.feed,
       rule.markupRatio,
       rule.rating,
     ]
@@ -90,9 +90,9 @@ export async function updatePricingRule(
     fields.push(`lab_grown = $${paramIndex++}`);
     values.push(updates.labGrown);
   }
-  if (updates.supplier !== undefined) {
-    fields.push(`supplier = $${paramIndex++}`);
-    values.push(updates.supplier);
+  if (updates.feed !== undefined) {
+    fields.push(`feed = $${paramIndex++}`);
+    values.push(updates.feed);
   }
   if (updates.markupRatio !== undefined) {
     fields.push(`markup_ratio = $${paramIndex++}`);

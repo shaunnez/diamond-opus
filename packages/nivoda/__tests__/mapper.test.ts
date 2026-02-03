@@ -48,7 +48,7 @@ describe('mapNivodaItemToDiamond', () => {
     const item = createMockItem();
     const result = mapNivodaItemToDiamond(item);
 
-    expect(result.supplier).toBe('nivoda');
+    expect(result.feed).toBe('nivoda');
     expect(result.supplierStoneId).toBe('diamond-456');
     expect(result.offerId).toBe('offer-123');
     expect(result.shape).toBe('ROUND');
@@ -61,8 +61,8 @@ describe('mapNivodaItemToDiamond', () => {
     const item = createMockItem();
     const result = mapNivodaItemToDiamond(item);
 
-    expect(result.supplierPriceCents).toBe(150050);
-    expect(result.pricePerCaratCents).toBe(Math.round(150050 / 1.5));
+    expect(result.priceModelPrice).toBe(1500.50);
+    expect(result.pricePerCarat).toBe(1500.50 / 1.5);
   });
 
   it('should map availability statuses correctly', () => {

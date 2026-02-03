@@ -5,7 +5,7 @@ import {
   getRunsWithStats,
   getRunDetails,
   getRecentFailedWorkers,
-  getSupplierStats,
+  getFeedStats,
   getConsolidationProgress,
   getOverallConsolidationStats,
   executeQuery,
@@ -222,14 +222,14 @@ router.get('/failed-workers', async (req: Request, res: Response, next: NextFunc
 });
 
 // ============================================================================
-// Suppliers
+// Feeds
 // ============================================================================
 
 /**
  * @openapi
- * /api/v2/analytics/suppliers:
+ * /api/v2/analytics/feeds:
  *   get:
- *     summary: Get diamond statistics grouped by supplier
+ *     summary: Get diamond statistics grouped by feed
  *     tags:
  *       - Analytics
  *     security:
@@ -237,14 +237,14 @@ router.get('/failed-workers', async (req: Request, res: Response, next: NextFunc
  *       - HmacAuth: []
  *     responses:
  *       200:
- *         description: Supplier statistics
+ *         description: Feed statistics
  *       401:
  *         description: Unauthorized
  */
-router.get('/suppliers', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/feeds', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const suppliers = await getSupplierStats();
-    res.json({ data: suppliers });
+    const feeds = await getFeedStats();
+    res.json({ data: feeds });
   } catch (error) {
     next(error);
   }

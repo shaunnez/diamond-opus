@@ -4,7 +4,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Runs } from './pages/Runs';
 import { RunDetails } from './pages/RunDetails';
 import { Consolidation } from './pages/Consolidation';
-import { Suppliers } from './pages/Suppliers';
+import { Feeds } from './pages/Feeds';
 import { Query } from './pages/Query';
 import { Triggers } from './pages/Triggers';
 import { Login } from './pages/Login';
@@ -36,7 +36,7 @@ function ProtectedRoutes() {
         <Route path="/runs" element={<Runs />} />
         <Route path="/runs/:runId" element={<RunDetails />} />
         <Route path="/consolidation" element={<Consolidation />} />
-        <Route path="/suppliers" element={<Suppliers />} />
+        <Route path="/feeds" element={<Feeds />} />
         <Route path="/query" element={<Query />} />
         <Route path="/triggers" element={<Triggers />} />
         <Route path="*" element={<Navigate to="/" replace />} />

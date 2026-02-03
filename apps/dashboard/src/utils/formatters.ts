@@ -39,14 +39,14 @@ export function formatNumber(num: number | null | undefined): string {
   return new Intl.NumberFormat().format(num);
 }
 
-export function formatCurrency(cents: number | null | undefined): string {
-  if (cents === null || cents === undefined) return '-';
+export function formatCurrency(dollars: number | null | undefined): string {
+  if (dollars === null || dollars === undefined) return '-';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(cents / 100);
+  }).format(dollars);
 }
 
 export function formatPercent(value: number | null | undefined): string {

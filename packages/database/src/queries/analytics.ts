@@ -13,7 +13,7 @@ export interface RunWithStats extends RunMetadata {
 
 export interface DashboardSummary {
   totalActiveDiamonds: number;
-  totalSuppliers: number;
+  totalFeeds: number;
   lastSuccessfulRun: RunMetadata | null;
   currentWatermark: Date | null;
   recentRunsCount: {
@@ -30,15 +30,15 @@ export interface DashboardSummary {
   };
 }
 
-export interface SupplierStats {
-  supplier: string;
+export interface FeedStats {
+  feed: string;
   totalDiamonds: number;
   availableDiamonds: number;
   onHoldDiamonds: number;
   soldDiamonds: number;
-  avgPriceCents: number;
-  minPriceCents: number;
-  maxPriceCents: number;
+  avgPrice: number;
+  minPrice: number;
+  maxPrice: number;
   lastUpdated: Date | null;
 }
 
@@ -68,7 +68,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // Run all queries in parallel for efficiency
   const [
     diamondCountsResult,
-    supplierCountResult,
+    feedCountResult,
     lastSuccessfulRunResult,
     recentRunsResult,
     availabilityResult,
@@ -77,9 +77,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     query<{ count: string }>(
       `SELECT COUNT(*) as count FROM diamonds WHERE status = 'active'`
     ),
-    // Total unique suppliers
+    // Total unique feeds
     query<{ count: string }>(
-      `SELECT COUNT(DISTINCT supplier) as count FROM diamonds WHERE status = 'active'`
+      `SELECT COUNT(DISTINCT feed) as count FROM diamonds WHERE status = 'active'`
     ),
     // Last successful run (completed with no failures)
     query<{
@@ -120,7 +120,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   ]);
 
   const totalActiveDiamonds = parseInt(diamondCountsResult.rows[0]?.count ?? '0', 10);
-  const totalSuppliers = parseInt(supplierCountResult.rows[0]?.count ?? '0', 10);
+  const totalFeeds = parseInt(feedCountResult.rows[0]?.count ?? '0', 10);
 
   const lastSuccessfulRunRow = lastSuccessfulRunResult.rows[0];
   const lastSuccessfulRun = lastSuccessfulRunRow
@@ -167,7 +167,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
   return {
     totalActiveDiamonds,
-    totalSuppliers,
+    totalFeeds,
     lastSuccessfulRun,
     currentWatermark: lastSuccessfulRun?.watermarkAfter ?? null,
     recentRunsCount,
@@ -425,46 +425,46 @@ export async function getRecentFailedWorkers(limit = 20): Promise<RecentFailedWo
 }
 
 // ============================================================================
-// Supplier Stats
+// Feed Stats
 // ============================================================================
 
-export async function getSupplierStats(): Promise<SupplierStats[]> {
+export async function getFeedStats(): Promise<FeedStats[]> {
   const result = await query<{
-    supplier: string;
+    feed: string;
     total_diamonds: string;
     available_diamonds: string;
     on_hold_diamonds: string;
     sold_diamonds: string;
-    avg_price_cents: string;
-    min_price_cents: string;
-    max_price_cents: string;
+    avg_price: string;
+    min_price: string;
+    max_price: string;
     last_updated: Date | null;
   }>(
     `SELECT
-      supplier,
+      feed,
       COUNT(*) as total_diamonds,
       COUNT(*) FILTER (WHERE availability = 'available') as available_diamonds,
       COUNT(*) FILTER (WHERE availability = 'on_hold') as on_hold_diamonds,
       COUNT(*) FILTER (WHERE availability = 'sold') as sold_diamonds,
-      COALESCE(AVG(supplier_price_cents), 0) as avg_price_cents,
-      COALESCE(MIN(supplier_price_cents), 0) as min_price_cents,
-      COALESCE(MAX(supplier_price_cents), 0) as max_price_cents,
+      COALESCE(AVG(price_model_price), 0) as avg_price,
+      COALESCE(MIN(price_model_price), 0) as min_price,
+      COALESCE(MAX(price_model_price), 0) as max_price,
       MAX(updated_at) as last_updated
      FROM diamonds
      WHERE status = 'active'
-     GROUP BY supplier
+     GROUP BY feed
      ORDER BY total_diamonds DESC`
   );
 
   return result.rows.map((row) => ({
-    supplier: row.supplier,
+    feed: row.feed,
     totalDiamonds: parseInt(row.total_diamonds, 10),
     availableDiamonds: parseInt(row.available_diamonds, 10),
     onHoldDiamonds: parseInt(row.on_hold_diamonds, 10),
     soldDiamonds: parseInt(row.sold_diamonds, 10),
-    avgPriceCents: Math.round(parseFloat(row.avg_price_cents)),
-    minPriceCents: parseInt(row.min_price_cents, 10),
-    maxPriceCents: parseInt(row.max_price_cents, 10),
+    avgPrice: parseFloat(row.avg_price),
+    minPrice: parseFloat(row.min_price),
+    maxPrice: parseFloat(row.max_price),
     lastUpdated: row.last_updated,
   }));
 }
@@ -567,9 +567,9 @@ type AllowedTable = (typeof ALLOWED_TABLES)[number];
 // Allowlist of columns per table for security
 const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
   diamonds: [
-    'id', 'supplier', 'supplier_stone_id', 'offer_id', 'shape', 'carats', 'color', 'clarity',
+    'id', 'feed', 'supplier_stone_id', 'offer_id', 'shape', 'carats', 'color', 'clarity',
     'cut', 'polish', 'symmetry', 'fluorescence', 'lab_grown', 'treated',
-    'supplier_price_cents', 'price_per_carat_cents', 'retail_price_cents',
+    'price_model_price', 'price_per_carat', 'retail_price',
     'markup_ratio', 'rating', 'availability', 'raw_availability',
     'image_url', 'video_url', 'certificate_lab', 'certificate_number',
     'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',

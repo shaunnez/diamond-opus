@@ -12,8 +12,8 @@ export interface ApiKey {
 export interface HoldHistory {
   id: string;
   diamondId: string;
-  supplier: string;
-  supplierHoldId?: string;
+  feed: string;
+  feedHoldId?: string;
   offerId: string;
   status: 'active' | 'expired' | 'released';
   denied: boolean;
@@ -24,8 +24,8 @@ export interface HoldHistory {
 export interface PurchaseHistory {
   id: string;
   diamondId: string;
-  supplier: string;
-  supplierOrderId?: string;
+  feed: string;
+  feedOrderId?: string;
   offerId: string;
   idempotencyKey: string;
   status: 'pending' | 'confirmed' | 'failed';

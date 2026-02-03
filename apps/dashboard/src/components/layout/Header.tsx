@@ -6,7 +6,7 @@ const pageNames: Record<string, string> = {
   '/': 'Dashboard',
   '/runs': 'Pipeline Runs',
   '/consolidation': 'Consolidation Monitor',
-  '/suppliers': 'Supplier Analytics',
+  '/feeds': 'Feed Analytics',
   '/query': 'Query Builder',
   '/triggers': 'Manual Triggers',
 };

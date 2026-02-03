@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Building2, Diamond, DollarSign } from 'lucide-react';
-import { getSupplierStats, type SupplierStats } from '../api/analytics';
+import { getFeedStats, type FeedStats } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import { Card, CardHeader, Table, PageLoader, Alert, Badge } from '../components/ui';
@@ -10,10 +10,10 @@ import {
   formatRelativeTime,
 } from '../utils/formatters';
 
-export function Suppliers() {
+export function Feeds() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['supplier-stats'],
-    queryFn: getSupplierStats,
+    queryKey: ['feed-stats'],
+    queryFn: getFeedStats,
     refetchInterval: 60000,
   });
 
@@ -26,8 +26,8 @@ export function Suppliers() {
       <>
         <Header />
         <PageContainer>
-          <Alert variant="error" title="Failed to load supplier data">
-            Unable to fetch supplier statistics. Please try again later.
+          <Alert variant="error" title="Failed to load feed data">
+            Unable to fetch feed statistics. Please try again later.
           </Alert>
         </PageContainer>
       </>
@@ -39,26 +39,26 @@ export function Suppliers() {
 
   const columns = [
     {
-      key: 'supplier',
-      header: 'Supplier',
-      render: (s: SupplierStats) => (
+      key: 'feed',
+      header: 'Feed',
+      render: (s: FeedStats) => (
         <div className="flex items-center gap-3">
           <div className="p-2 bg-stone-100 rounded-lg">
             <Building2 className="w-4 h-4 text-stone-600" />
           </div>
-          <span className="font-medium text-stone-900">{s.supplier}</span>
+          <span className="font-medium text-stone-900">{s.feed}</span>
         </div>
       ),
     },
     {
       key: 'totalDiamonds',
       header: 'Total',
-      render: (s: SupplierStats) => formatNumber(s.totalDiamonds),
+      render: (s: FeedStats) => formatNumber(s.totalDiamonds),
     },
     {
       key: 'availability',
       header: 'Availability',
-      render: (s: SupplierStats) => (
+      render: (s: FeedStats) => (
         <div className="flex items-center gap-2">
           <Badge variant="success">{formatNumber(s.availableDiamonds)}</Badge>
           {s.onHoldDiamonds > 0 && (
@@ -73,21 +73,21 @@ export function Suppliers() {
     {
       key: 'avgPrice',
       header: 'Avg Price',
-      render: (s: SupplierStats) => formatCurrency(s.avgPriceCents),
+      render: (s: FeedStats) => formatCurrency(s.avgPrice),
     },
     {
       key: 'priceRange',
       header: 'Price Range',
-      render: (s: SupplierStats) => (
+      render: (s: FeedStats) => (
         <span className="text-stone-600">
-          {formatCurrency(s.minPriceCents)} - {formatCurrency(s.maxPriceCents)}
+          {formatCurrency(s.minPrice)} - {formatCurrency(s.maxPrice)}
         </span>
       ),
     },
     {
       key: 'lastUpdated',
       header: 'Last Updated',
-      render: (s: SupplierStats) =>
+      render: (s: FeedStats) =>
         s.lastUpdated ? formatRelativeTime(s.lastUpdated) : '-',
     },
   ];
@@ -104,7 +104,7 @@ export function Suppliers() {
                 <Building2 className="w-6 h-6 text-primary-600" />
               </div>
               <div>
-                <p className="text-sm text-stone-500">Total Suppliers</p>
+                <p className="text-sm text-stone-500">Total Feeds</p>
                 <p className="text-2xl font-semibold text-stone-900">
                   {formatNumber(data?.length ?? 0)}
                 </p>
@@ -139,44 +139,44 @@ export function Suppliers() {
           </Card>
         </div>
 
-        {/* Supplier Table */}
+        {/* Feed Table */}
         <Card className="p-0 overflow-hidden">
           <div className="p-6 border-b border-stone-200">
             <CardHeader
-              title="Supplier Breakdown"
-              subtitle="Diamond inventory by supplier"
+              title="Feed Breakdown"
+              subtitle="Diamond inventory by feed"
             />
           </div>
           <Table
             columns={columns}
             data={data ?? []}
-            keyExtractor={(s) => s.supplier}
-            emptyMessage="No suppliers found"
+            keyExtractor={(s) => s.feed}
+            emptyMessage="No feeds found"
           />
         </Card>
 
-        {/* Top Suppliers Chart Alternative - Simple Bar */}
+        {/* Top Feeds Chart Alternative - Simple Bar */}
         <Card className="mt-6">
           <CardHeader
             title="Inventory Distribution"
-            subtitle="Diamonds by supplier (top 10)"
+            subtitle="Diamonds by feed (top 10)"
           />
           <div className="mt-4 space-y-3">
             {data
               ?.slice(0, 10)
-              .map((supplier) => {
+              .map((feed) => {
                 const percent =
                   totalDiamonds > 0
-                    ? (supplier.totalDiamonds / totalDiamonds) * 100
+                    ? (feed.totalDiamonds / totalDiamonds) * 100
                     : 0;
                 return (
-                  <div key={supplier.supplier}>
+                  <div key={feed.feed}>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-stone-700 font-medium">
-                        {supplier.supplier}
+                        {feed.feed}
                       </span>
                       <span className="text-stone-500">
-                        {formatNumber(supplier.totalDiamonds)} ({percent.toFixed(1)}%)
+                        {formatNumber(feed.totalDiamonds)} ({percent.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="w-full h-3 bg-stone-100 rounded-full overflow-hidden">
