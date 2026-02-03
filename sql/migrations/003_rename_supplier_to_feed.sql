@@ -11,22 +11,25 @@ ALTER TABLE diamonds RENAME COLUMN supplier TO feed;
 -- First add new columns
 ALTER TABLE diamonds ADD COLUMN price_model_price DECIMAL(12,2);
 ALTER TABLE diamonds ADD COLUMN price_per_carat DECIMAL(12,2);
-ALTER TABLE diamonds ADD COLUMN retail_price DECIMAL(12,2);
+ALTER TABLE diamonds ADD COLUMN retail_price_new DECIMAL(12,2);
 
 -- Migrate data (divide by 100 to convert cents to dollars)
 UPDATE diamonds SET
-  price_model_price = supplier_price_cents / 100.0,
+  price_model_price = feed_price_cents / 100.0,
   price_per_carat = price_per_carat_cents / 100.0,
-  retail_price = retail_price_cents / 100.0;
+  retail_price_new = retail_price_cents / 100.0;
 
 -- Make price_model_price NOT NULL after migration
 ALTER TABLE diamonds ALTER COLUMN price_model_price SET NOT NULL;
 ALTER TABLE diamonds ALTER COLUMN price_per_carat SET NOT NULL;
 
 -- Drop old columns
-ALTER TABLE diamonds DROP COLUMN supplier_price_cents;
+ALTER TABLE diamonds DROP COLUMN feed_price_cents;
 ALTER TABLE diamonds DROP COLUMN price_per_carat_cents;
 ALTER TABLE diamonds DROP COLUMN retail_price_cents;
+
+-- Rename retail_price_new to retail_price
+ALTER TABLE diamonds RENAME COLUMN retail_price_new TO retail_price;
 
 -- Update the unique constraint
 ALTER TABLE diamonds DROP CONSTRAINT IF EXISTS diamonds_supplier_supplier_stone_id_key;
