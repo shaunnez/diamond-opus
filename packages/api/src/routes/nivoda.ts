@@ -243,17 +243,23 @@ router.post(
       } = {};
 
       if (price_min !== undefined || price_max !== undefined) {
-        query.dollar_value = {
-          from: price_min,
-          to: price_max,
-        };
+        query.dollar_value = {};
+        if (price_min !== undefined) {
+          query.dollar_value.from = price_min;
+        }
+        if (price_max !== undefined) {
+          query.dollar_value.to = price_max;
+        }
       }
 
       if (carat_min !== undefined || carat_max !== undefined) {
-        query.sizes = {
-          from: carat_min,
-          to: carat_max,
-        };
+        query.sizes = {};
+        if (carat_min !== undefined) {
+          query.sizes.from = carat_min;
+        }
+        if (carat_max !== undefined) {
+          query.sizes.to = carat_max;
+        }
       }
 
       if (shapes) {
@@ -377,17 +383,23 @@ router.post(
       } = {};
 
       if (price_min !== undefined || price_max !== undefined) {
-        query.dollar_value = {
-          from: price_min,
-          to: price_max,
-        };
+        query.dollar_value = {};
+        if (price_min !== undefined) {
+          query.dollar_value.from = price_min;
+        }
+        if (price_max !== undefined) {
+          query.dollar_value.to = price_max;
+        }
       }
 
       if (carat_min !== undefined || carat_max !== undefined) {
-        query.sizes = {
-          from: carat_min,
-          to: carat_max,
-        };
+        query.sizes = {};
+        if (carat_min !== undefined) {
+          query.sizes.from = carat_min;
+        }
+        if (carat_max !== undefined) {
+          query.sizes.to = carat_max;
+        }
       }
 
       if (shapes) {
