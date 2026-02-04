@@ -671,6 +671,21 @@ resource "azurerm_container_app" "dashboard" {
     value = var.container_registry_password
   }
 
+  secret {
+    name  = "nivoda-endpoint"
+    value = var.nivoda_endpoint
+  }
+
+  secret {
+    name  = "nivoda-username"
+    value = var.nivoda_username
+  }
+
+  secret {
+    name  = "nivoda-password"
+    value = var.nivoda_password
+  }
+
   tags = var.tags
 
   depends_on = [azurerm_container_app.api]
