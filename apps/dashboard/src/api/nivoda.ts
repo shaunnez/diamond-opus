@@ -71,7 +71,7 @@ export interface OrderResponse {
 
 export interface CreateOrderOptions {
   offer_id: string;
-  destination_id: string;
+  destination_id?: string;
   reference?: string;
   comments?: string;
   return_option?: string;

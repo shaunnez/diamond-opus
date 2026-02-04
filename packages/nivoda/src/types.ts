@@ -106,7 +106,11 @@ export interface NivodaHoldResponse {
   until?: string;
 }
 
-export interface NivodaOrderResponse {
-  id: string;
-  status: string;
+
+export interface NivodaOrderItemInput {
+  offerId: string;
+  customer_comment?: string;
+  customer_order_number?: string;
+  return_option?: boolean;
+  destinationId?: string;
 }

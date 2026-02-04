@@ -11,7 +11,7 @@ export function getPool(): pg.Pool {
     if (url) {
       pool = new Pool({
         connectionString: url,
-        ssl: { rejectUnauthorized: false },
+        // ssl: { rejectUnauthorized: false },
       });
       return pool;
     }
@@ -22,10 +22,10 @@ export function getPool(): pg.Pool {
       user: optionalEnv("DATABASE_USERNAME", "postgres"),
       password: optionalEnv("DATABASE_PASSWORD", ""),
       min: 2,
-      max: 15,
-      idleTimeoutMillis: 30000,
+      max: 30,
+      idleTimeoutMillis: 60000,
       connectionTimeoutMillis: 10000,
-      ssl: { rejectUnauthorized: false },
+      // ssl: { rejectUnauthorized: false },
     };
     pool = new Pool(poolParams);
   }

@@ -30,7 +30,7 @@ export const purchaseRequestSchema = z.object({
   destination_id: z.string().min(1),
   reference: z.string().optional(),
   comments: z.string().optional(),
-  return_option: z.string().optional(),
+  return_option: z.boolean().optional(),
 });
 
 export type PurchaseRequestBody = z.infer<typeof purchaseRequestSchema>;

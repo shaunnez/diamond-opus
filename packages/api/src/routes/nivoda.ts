@@ -118,7 +118,7 @@ router.post(
  *                 type: string
  *                 description: Order comments or notes
  *               return_option:
- *                 type: string
+ *                 type: boolean
  *                 description: Return policy option
  *     responses:
  *       200:
@@ -140,21 +140,24 @@ router.post(
       if (!offer_id) {
         throw badRequest("offer_id is required");
       }
-      if (!destination_id) {
-        throw badRequest("destination_id is required");
-      }
+      // if (!destination_id) {
+      //   throw badRequest("destination_id is required");
+      // }
 
       const adapter = new NivodaAdapter();
-      const result = await adapter.createOrder(offer_id, destination_id, {
-        reference,
-        comments,
-        returnOption: return_option,
-      });
+      const result = await adapter.createOrder([
+        {
+          offerId: offer_id,
+          destinationId: destination_id,
+          customer_comment: comments,
+          customer_order_number: reference,
+          return_option: return_option || false,
+        }
+      ]);
 
       res.json({
         data: {
-          order_id: result.id,
-          status: result.status,
+          order_id: result,
           message: "Order created successfully",
         },
       });

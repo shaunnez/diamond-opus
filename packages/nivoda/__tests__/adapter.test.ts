@@ -174,20 +174,18 @@ describe('NivodaAdapter', () => {
 
       mockRequest.mockResolvedValueOnce({
         as: {
-          create_order: {
-            id: 'order-789',
-            status: 'confirmed',
-          },
+          create_order: 'order-789'
         },
       });
 
-      const result = await adapter.createOrder('offer-456', 'dest-123', {
-        reference: 'REF001',
-        comments: 'Test order',
-      });
-
-      expect(result.id).toBe('order-789');
-      expect(result.status).toBe('confirmed');
+      const result = await adapter.createOrder([{
+        offerId: 'offer-456',
+        destinationId: 'dest-123',
+        return_option: false,  
+        customer_order_number: 'REF001',
+        customer_comment: 'Test order',
+      }]);
+      expect(result).toBe('order-789');
     });
   });
 });

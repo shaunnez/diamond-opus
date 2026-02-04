@@ -393,27 +393,23 @@ router.post(
 
       try {
         const adapter = new NivodaAdapter();
-        const orderResponse = await adapter.createOrder(
-          diamond.offerId,
-          body.destination_id,
+        const orderResponse = await adapter.createOrder([
           {
-            reference: body.reference,
-            comments: body.comments,
-            returnOption: body.return_option,
+            offerId: diamond.offerId,
+            destinationId: body.destination_id,
+            customer_comment: body.comments,
+            customer_order_number: body.reference,
+            return_option: body.return_option,
           }
-        );
-
-        await updatePurchaseStatus(purchaseRecord.id, 'confirmed', orderResponse.id);
+        ]);
+        await updatePurchaseStatus(purchaseRecord.id, 'confirmed', orderResponse);
         await updateDiamondAvailability(diamond.id, 'sold');
 
         res.json({
-          data: {
-            id: orderResponse.id,
-            status: orderResponse.status,
-          },
+          data:  orderResponse
         });
       } catch (error) {
-        await updatePurchaseStatus(purchaseRecord.id, 'failed');
+        await updatePurchaseStatus(purchaseRecord.id, 'failed', null);
         throw error;
       }
     } catch (error) {

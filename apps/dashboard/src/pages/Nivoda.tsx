@@ -31,9 +31,18 @@ import {
 import { formatNumber } from '../utils/formatters';
 
 const DIAMOND_SHAPES = [
-  'Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear',
-  'Marquise', 'Radiant', 'Asscher', 'Heart'
+  'ROUND',
+  'PRINCESS',
+  'CUSHION',
+  'OVAL',
+  'EMERALD',
+  'PEAR',
+  'MARQUISE',
+  'RADIANT',
+  'ASSCHER',
+  'HEART'
 ];
+
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -104,7 +113,7 @@ export function Nivoda() {
     mutationFn: () =>
       createOrder({
         offer_id: selectedDiamond!.offer_id,
-        destination_id: destinationId,
+        // destination_id: destinationId,
         reference: orderReference || undefined,
       }),
     onSuccess: () => {
@@ -427,7 +436,7 @@ export function Nivoda() {
                               variant="secondary"
                               size="sm"
                               onClick={() => handlePlaceHold(item)}
-                              disabled={item.diamond.availability !== 'available'}
+                              disabled={item.diamond.availability?.toLowerCase() !== 'available'}
                               icon={<Hand className="w-3 h-3" />}
                             >
                               Hold
@@ -436,7 +445,7 @@ export function Nivoda() {
                               variant="primary"
                               size="sm"
                               onClick={() => handleCreateOrder(item)}
-                              disabled={item.diamond.availability === 'sold'}
+                              disabled={item.diamond.availability?.toLowerCase() === 'sold'}
                               icon={<ShoppingCart className="w-3 h-3" />}
                             >
                               Order
@@ -465,7 +474,7 @@ export function Nivoda() {
               setShowHoldModal(false);
               setSelectedDiamond(null);
             }}
-            onConfirm={() => selectedDiamond && holdMutation.mutate(selectedDiamond.offer_id)}
+            onConfirm={() => selectedDiamond && holdMutation.mutate(selectedDiamond.diamond.id)}
             title="Place Hold"
             message={
               selectedDiamond
@@ -544,7 +553,7 @@ export function Nivoda() {
                   <Button
                     variant="primary"
                     onClick={() => orderMutation.mutate()}
-                    disabled={!destinationId || orderMutation.isPending}
+                    disabled={ orderMutation.isPending}
                     icon={<ShoppingCart className="w-4 h-4" />}
                   >
                     {orderMutation.isPending ? 'Creating...' : 'Create Order'}

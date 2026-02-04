@@ -10,13 +10,14 @@ import {
   DIAMONDS_COUNT_QUERY,
   DIAMONDS_BY_QUERY,
   CREATE_HOLD_MUTATION,
+  CANCEL_HOLD_MUTATION,
   CREATE_ORDER_MUTATION,
 } from './queries.js';
 import type {
   NivodaQuery,
   NivodaDiamondsResponse,
   NivodaHoldResponse,
-  NivodaOrderResponse,
+  NivodaOrderItemInput,
 } from './types.js';
 
 interface AuthenticateResponse {
@@ -45,9 +46,15 @@ interface CreateHoldResponse {
   };
 }
 
+interface CancelHoldResponse {
+  as: {
+    cancel_hold: NivodaHoldResponse;
+  };
+}
+
 interface CreateOrderResponse {
   as: {
-    create_order: NivodaOrderResponse;
+    create_order: string;
   };
 }
 
@@ -128,34 +135,38 @@ export class NivodaAdapter {
       CREATE_HOLD_MUTATION,
       {
         token,
-        productId: offerId,
-        productType: 'diamond',
+        productId: offerId
       }
     );
 
     return response.as.create_hold;
   }
 
+
+  async cancelHold(holdId: string): Promise<NivodaHoldResponse> {
+    const token = await this.ensureAuthenticated();
+
+    const response = await this.client.request<CancelHoldResponse>(
+      CANCEL_HOLD_MUTATION,
+      {
+        token,
+        holdId: holdId
+      }
+    );
+
+    return response.as.cancel_hold;
+  }
+
   async createOrder(
-    offerId: string,
-    destinationId: string,
-    options: {
-      reference?: string;
-      comments?: string;
-      returnOption?: string;
-    } = {}
-  ): Promise<NivodaOrderResponse> {
+    items: NivodaOrderItemInput[]
+  ): Promise<string> {
     const token = await this.ensureAuthenticated();
 
     const response = await this.client.request<CreateOrderResponse>(
       CREATE_ORDER_MUTATION,
       {
         token,
-        offerId,
-        destinationId,
-        reference: options.reference,
-        comments: options.comments,
-        returnOption: options.returnOption,
+        items
       }
     );
 

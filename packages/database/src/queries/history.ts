@@ -115,7 +115,7 @@ export async function getPurchaseByIdempotencyKey(idempotencyKey: string): Promi
 export async function updatePurchaseStatus(
   id: string,
   status: PurchaseHistory['status'],
-  feedOrderId?: string
+  feedOrderId: string | null
 ): Promise<void> {
   await query(
     `UPDATE purchase_history

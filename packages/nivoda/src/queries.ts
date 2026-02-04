@@ -119,9 +119,21 @@ export const DIAMONDS_BY_QUERY = gql`
 `;
 
 export const CREATE_HOLD_MUTATION = gql`
-  mutation CreateHold($token: String!, $productId: ID!, $productType: String!) {
+  mutation CreateHold($token: String!, $productId: ID!) {
     as(token: $token) {
-      create_hold(product_id: $productId, product_type: $productType) {
+      create_hold(ProductId: $productId, ProductType: Diamond) {
+        id
+        denied
+        until
+      }
+    }
+  }
+`;
+
+export const CANCEL_HOLD_MUTATION = gql`
+  mutation CancelHold($token: String!, $holdId: ID!) {
+    as(token: $token) {
+      cancel_hold(hold_id: $holdId) {
         id
         denied
         until
@@ -133,23 +145,10 @@ export const CREATE_HOLD_MUTATION = gql`
 export const CREATE_ORDER_MUTATION = gql`
   mutation CreateOrder(
     $token: String!
-    $offerId: ID!
-    $destinationId: ID!
-    $reference: String
-    $comments: String
-    $returnOption: String
+    $items: [OrderItemInput!]!
   ) {
     as(token: $token) {
-      create_order(
-        offer_id: $offerId
-        destination_id: $destinationId
-        reference: $reference
-        comments: $comments
-        return_option: $returnOption
-      ) {
-        id
-        status
-      }
+      create_order(items: $items)
     }
   }
 `;

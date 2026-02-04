@@ -631,6 +631,21 @@ resource "azurerm_container_app" "dashboard" {
         name  = "API_URL"
         value = "https://${azurerm_container_app.api.ingress[0].fqdn}"
       }
+
+      env {
+        name        = "NIVODA_ENDPOINT"
+        secret_name = "nivoda-endpoint"
+      }
+
+      env {
+        name        = "NIVODA_USERNAME"
+        secret_name = "nivoda-username"
+      }
+
+      env {
+        name        = "NIVODA_PASSWORD"
+        secret_name = "nivoda-password"
+      }
     }
   }
 

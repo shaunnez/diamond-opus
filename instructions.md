@@ -570,10 +570,7 @@ mutation CreateOrder(
       reference: $reference
       comments: $comments
       return_option: $returnOption
-    ) {
-      id
-      status
-    }
+    )
   }
 }
 ```
