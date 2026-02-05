@@ -32,6 +32,7 @@ import {
   getPartitionProgress,
   updatePartitionOffset,
   completePartition,
+  markPartitionFailed,
   closePool,
 } from "@diamond/database";
 import {
@@ -302,15 +303,18 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
       offset: workItem.offset,
     });
 
-    // Update worker run status to failed only on first failure
+    // Update worker run status to failed
     await updateWorkerRun(workerRun.id, "failed", errorMessage);
 
-    // Increment failed workers only once per partition
-    // Check if this partition was already marked as failed
-    const progress = await getPartitionProgress(workItem.runId, workItem.partitionId);
-    if (!progress.completed && workItem.offset === 0) {
-      // Only increment failed workers on the first page failure
+    // Atomically mark partition as failed and increment failed workers
+    // markPartitionFailed returns true only on first failure (idempotent)
+    // This replaces the fragile offset === 0 check with proper database-level idempotency
+    const isFirstFailure = await markPartitionFailed(workItem.runId, workItem.partitionId);
+    if (isFirstFailure) {
       await incrementFailedWorkers(workItem.runId);
+      log.info("Partition marked as failed, incremented failed workers");
+    } else {
+      log.info("Partition already marked as failed, not double-counting");
     }
 
     // Send WORK_DONE failure message

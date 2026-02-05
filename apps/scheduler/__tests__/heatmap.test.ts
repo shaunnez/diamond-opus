@@ -57,11 +57,22 @@ describe('createPartitions', () => {
       ];
       const result = createPartitions(densityMap, 3);
 
-      // Single chunk can only produce 1 partition
-      expect(result.length).toBe(1);
+      // With chunk splitting enabled, a single large chunk CAN be split
+      // Target = ceil(5000/3) = 1667, chunk 5000 > 1667*1.5 = 2500, so it splits
+      // numSubChunks = ceil(5000/1667) = 3, countPerSubChunk = floor(5000/3) = 1666
+      // Sub-chunks: [1666, 1666, 1668]
+      // Greedy: sub-chunk 0 (1666) < target (1667), accumulate; + sub-chunk 1 = 3332 >= 1667, partition
+      //         sub-chunk 2 (1668) is last, partition
+      // Result: 2 partitions (split improves from 1 to 2)
+      expect(result.length).toBe(2);
+
+      // All records should be assigned
+      const totalAssigned = result.reduce((sum, p) => sum + p.totalRecords, 0);
+      expect(totalAssigned).toBe(5000);
+
+      // Price range should span the full chunk
       expect(result[0].minPrice).toBe(0);
-      expect(result[0].maxPrice).toBe(1000);
-      expect(result[0].totalRecords).toBe(5000);
+      expect(result[result.length - 1].maxPrice).toBe(1000);
     });
 
     it('should handle more workers than chunks', () => {
@@ -71,10 +82,13 @@ describe('createPartitions', () => {
       ];
       const result = createPartitions(densityMap, 10);
 
-      // Can only create as many partitions as there are chunks
-      expect(result.length).toBe(2);
-      expect(result[0].totalRecords).toBe(1000);
-      expect(result[1].totalRecords).toBe(1000);
+      // With chunk splitting enabled, large chunks CAN be split to achieve more partitions
+      // Target = 2000/10 = 200, chunks 1000 > 200*1.5 = 300, so each splits into ~5 sub-chunks
+      expect(result.length).toBe(10);
+
+      // All records should be assigned
+      const totalAssigned = result.reduce((sum, p) => sum + p.totalRecords, 0);
+      expect(totalAssigned).toBe(2000);
     });
   });
 
@@ -102,13 +116,10 @@ describe('createPartitions', () => {
       ];
       const result = createPartitions(densityMap, 3);
 
-      // Greedy algorithm: target = 5300/3 = 1767
-      // Partition 0: chunks 0+1 = 5100 (exceeds target, partition created)
-      // Partition 1: chunks 2+3 = 200 (last chunk, partition created)
-      // Result: 2 partitions (can't split chunks to get 3)
-      expect(result.length).toBe(2);
-      expect(result[0].totalRecords).toBe(5100);
-      expect(result[1].totalRecords).toBe(200);
+      // With chunk splitting: target = 5300/3 = 1767
+      // Chunk 1 (5000 records) > 1767*1.5 = 2650, so it splits into ~3 sub-chunks
+      // This allows achieving 3 partitions despite the uneven distribution
+      expect(result.length).toBe(3);
 
       const totalAssigned = result.reduce((sum, p) => sum + p.totalRecords, 0);
       expect(totalAssigned).toBe(5300);

@@ -775,14 +775,52 @@ export function createPartitions(
 
   logger.debug('Creating partitions', { targetPerWorker, effectiveTotal });
 
+  // Flatten large chunks that would prevent achieving desired worker count
+  // This allows the greedy algorithm to create partitions at finer boundaries
+  const flattenedChunks: DensityChunk[] = [];
+  for (const chunk of densityMap) {
+    // Split chunks that are > 1.5x the target to allow better distribution
+    if (chunk.count > targetPerWorker * 1.5) {
+      const numSubChunks = Math.ceil(chunk.count / targetPerWorker);
+      const priceStep = (chunk.max - chunk.min) / numSubChunks;
+      const countPerSubChunk = Math.floor(chunk.count / numSubChunks);
+
+      for (let j = 0; j < numSubChunks; j++) {
+        const isLast = j === numSubChunks - 1;
+        flattenedChunks.push({
+          min: Math.floor(chunk.min + (priceStep * j)),
+          max: isLast ? chunk.max : Math.floor(chunk.min + (priceStep * (j + 1))),
+          count: isLast ? chunk.count - (countPerSubChunk * j) : countPerSubChunk,
+        });
+      }
+
+      logger.debug('Split large chunk for balancing', {
+        originalPriceRange: { min: chunk.min, max: chunk.max },
+        originalCount: chunk.count,
+        subChunks: numSubChunks,
+        targetPerWorker,
+      });
+    } else {
+      flattenedChunks.push(chunk);
+    }
+  }
+
+  // Log if we split any chunks
+  if (flattenedChunks.length !== densityMap.length) {
+    logger.info('Chunks flattened for better partition balance', {
+      originalChunks: densityMap.length,
+      flattenedChunks: flattenedChunks.length,
+    });
+  }
+
   const partitions: WorkerPartition[] = [];
   let currentWorkerId = 0;
   let currentBatchSum = 0;
-  let currentBatchStart = densityMap[0].min;
+  let currentBatchStart = flattenedChunks[0].min;
   let cumulativeRecords = 0;
 
-  for (let i = 0; i < densityMap.length; i++) {
-    const chunk = densityMap[i];
+  for (let i = 0; i < flattenedChunks.length; i++) {
+    const chunk = flattenedChunks[i];
 
     // Check if adding this chunk would exceed the cap
     if (maxTotalRecords > 0 && cumulativeRecords + chunk.count > maxTotalRecords) {
@@ -822,7 +860,7 @@ export function createPartitions(
     cumulativeRecords += chunk.count;
 
     // Create partition when we hit target or reach the end
-    const isLastChunk = i === densityMap.length - 1;
+    const isLastChunk = i === flattenedChunks.length - 1;
     const hitTarget = currentBatchSum >= targetPerWorker;
     const hasRemainingWorkers = currentWorkerId < desiredWorkerCount - 1;
 
@@ -846,8 +884,8 @@ export function createPartitions(
       currentBatchSum = 0;
 
       // Next worker starts at the next chunk's min
-      if (i + 1 < densityMap.length) {
-        currentBatchStart = densityMap[i + 1].min;
+      if (i + 1 < flattenedChunks.length) {
+        currentBatchStart = flattenedChunks[i + 1].min;
       }
     }
   }

@@ -5,6 +5,7 @@ export interface PartitionProgress {
   partitionId: string;
   nextOffset: number;
   completed: boolean;
+  failed: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -14,6 +15,7 @@ interface PartitionProgressRow {
   partition_id: string;
   next_offset: number;
   completed: boolean;
+  failed: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -24,6 +26,7 @@ function mapRowToPartitionProgress(row: PartitionProgressRow): PartitionProgress
     partitionId: row.partition_id,
     nextOffset: row.next_offset,
     completed: row.completed,
+    failed: row.failed,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -146,4 +149,26 @@ export async function isPartitionCompleted(
   );
 
   return result.rows[0]?.completed ?? false;
+}
+
+/**
+ * Atomically mark a partition as failed.
+ * Only marks failed if not already failed or completed (for idempotency).
+ * Returns true if this was the first failure for this partition.
+ * Use this to prevent double-counting of failed workers.
+ */
+export async function markPartitionFailed(
+  runId: string,
+  partitionId: string
+): Promise<boolean> {
+  const result = await query<{ marked: boolean }>(
+    `UPDATE partition_progress
+     SET failed = TRUE, updated_at = NOW()
+     WHERE run_id = $1 AND partition_id = $2
+       AND failed = FALSE AND completed = FALSE
+     RETURNING TRUE as marked`,
+    [runId, partitionId]
+  );
+
+  return result.rows.length > 0;
 }
