@@ -46,8 +46,8 @@ resource "azurerm_container_app" "api" {
       memory = var.api_memory
 
       env {
-        name        = "PORT"
-        value       = "3000"
+        name  = "PORT"
+        value = "3000"
       }
 
       env {
@@ -200,7 +200,7 @@ resource "azurerm_container_app" "api" {
     value = var.container_registry_password
   }
 
-secret {
+  secret {
     name  = "nivoda-endpoint"
     value = var.nivoda_endpoint
   }
@@ -214,7 +214,7 @@ secret {
     name  = "nivoda-password"
     value = var.nivoda_password
   }
-  
+
   tags = var.tags
 }
 
@@ -735,7 +735,7 @@ resource "azurerm_container_app" "dashboard" {
 resource "azurerm_role_assignment" "api_scheduler_job_operator" {
   count = var.enable_scheduler ? 1 : 0
 
-  scope              = azurerm_container_app_job.scheduler[0].id
+  scope                = azurerm_container_app_job.scheduler[0].id
   role_definition_name = "Container Apps Jobs Operator"
-  principal_id       = azurerm_container_app.api.identity[0].principal_id
+  principal_id         = azurerm_container_app.api.identity[0].principal_id
 }

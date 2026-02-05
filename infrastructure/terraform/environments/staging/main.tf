@@ -57,6 +57,7 @@ module "storage" {
   location             = var.location
   resource_group_name  = azurerm_resource_group.main.name
   replication_type     = var.storage_replication_type
+  enable_versioning    = var.storage_enable_versioning
 
   tags = local.tags
 }
@@ -130,15 +131,21 @@ module "container_apps" {
   consolidator_max_replicas = var.consolidator_max_replicas
 
   # Resource allocation - CPU/memory (optimized for staging)
-  api_cpu            = var.api_cpu
-  api_memory         = var.api_memory
-  worker_cpu         = var.worker_cpu
-  worker_memory      = var.worker_memory
-  consolidator_cpu   = var.consolidator_cpu
-  consolidator_memory = var.consolidator_memory
-  scheduler_cpu      = var.scheduler_cpu
-  scheduler_memory   = var.scheduler_memory
+  api_cpu               = var.api_cpu
+  api_memory            = var.api_memory
+  worker_cpu            = var.worker_cpu
+  worker_memory         = var.worker_memory
+  consolidator_cpu      = var.consolidator_cpu
+  consolidator_memory   = var.consolidator_memory
+  scheduler_cpu         = var.scheduler_cpu
+  scheduler_memory      = var.scheduler_memory
   scheduler_parallelism = var.scheduler_parallelism
+  dashboard_cpu         = var.dashboard_cpu
+  dashboard_memory      = var.dashboard_memory
+
+  # Scaling - dashboard
+  dashboard_min_replicas = var.dashboard_min_replicas
+  dashboard_max_replicas = var.dashboard_max_replicas
 
   # Log Analytics (reduced retention for staging)
   log_analytics_retention_days = var.log_analytics_retention_days

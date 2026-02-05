@@ -22,14 +22,14 @@ resource "azurerm_servicebus_queue" "work_items" {
 
   # Continuation pattern: each message processes one page quickly (under 60s)
   # Reduced lock duration from PT5M to PT2M for faster processing
-  lock_duration                       = "PT2M"
-  max_delivery_count                  = 5
+  lock_duration                        = "PT2M"
+  max_delivery_count                   = 5
   dead_lettering_on_message_expiration = true
-  default_message_ttl                 = "P1D"
+  default_message_ttl                  = "P1D"
 
   # Enable duplicate detection for continuation pattern deduplication
   # Note: duplicate detection is only supported in Standard and Premium tiers
-  requires_duplicate_detection        = var.sku != "Basic" ? true : false
+  requires_duplicate_detection            = var.sku != "Basic" ? true : false
   duplicate_detection_history_time_window = var.sku != "Basic" ? "PT10M" : null
 }
 
@@ -37,10 +37,10 @@ resource "azurerm_servicebus_queue" "work_done" {
   name         = "work-done"
   namespace_id = azurerm_servicebus_namespace.main.id
 
-  lock_duration                       = "PT1M"
-  max_delivery_count                  = 3
+  lock_duration                        = "PT1M"
+  max_delivery_count                   = 3
   dead_lettering_on_message_expiration = true
-  default_message_ttl                 = "P1D"
+  default_message_ttl                  = "P1D"
 }
 
 resource "azurerm_servicebus_queue" "consolidate" {
@@ -48,10 +48,10 @@ resource "azurerm_servicebus_queue" "consolidate" {
   namespace_id = azurerm_servicebus_namespace.main.id
 
   # Consolidation can take longer
-  lock_duration                       = "PT5M"
-  max_delivery_count                  = 3
+  lock_duration                        = "PT5M"
+  max_delivery_count                   = 3
   dead_lettering_on_message_expiration = true
-  default_message_ttl                 = "P1D"
+  default_message_ttl                  = "P1D"
 }
 
 # Authorization rule for application access
@@ -61,5 +61,5 @@ resource "azurerm_servicebus_namespace_authorization_rule" "app" {
 
   listen = true
   send   = true
-  manage = true  # Required for KEDA to read queue metrics
+  manage = true # Required for KEDA to read queue metrics
 }

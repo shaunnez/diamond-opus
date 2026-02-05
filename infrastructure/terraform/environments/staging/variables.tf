@@ -1,3 +1,7 @@
+# ============================================
+# CORE CONFIGURATION
+# ============================================
+
 variable "subscription_id" {
   description = "Azure subscription ID"
   type        = string
@@ -15,39 +19,65 @@ variable "location" {
   default     = "australiaeast"
 }
 
-
 variable "image_tag" {
-  description = "Docker image tag to deploy"
+  description = "Docker image tag for worker, API, consolidator, and dashboard containers (typically commit SHA)"
   type        = string
   default     = "staging"
 }
 
 variable "environment_tag" {
-  description = "Environment-specific docker tag for scheduler job"
+  description = "Stable environment tag for scheduler job Docker image (staging or prod). Used by API for scheduler job triggers."
   type        = string
   default     = "staging"
 }
 
-# SKU configurations
+# ============================================
+# INFRASTRUCTURE SKUs
+# ============================================
+
 variable "servicebus_sku" {
   description = "Service Bus SKU (Basic for staging, Standard for prod)"
   type        = string
   default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.servicebus_sku)
+    error_message = "servicebus_sku must be Basic, Standard, or Premium"
+  }
 }
 
 variable "storage_replication_type" {
   description = "Storage replication type"
   type        = string
   default     = "LRS"
+
+  validation {
+    condition     = contains(["LRS", "GRS", "RAGRS", "ZRS", "GZRS", "RAGZRS"], var.storage_replication_type)
+    error_message = "storage_replication_type must be LRS, GRS, RAGRS, ZRS, GZRS, or RAGZRS"
+  }
+}
+
+variable "storage_enable_versioning" {
+  description = "Enable blob versioning for the storage account (recommended for production)"
+  type        = bool
+  default     = false
 }
 
 variable "acr_sku" {
   description = "Container Registry SKU"
   type        = string
   default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.acr_sku)
+    error_message = "acr_sku must be Basic, Standard, or Premium"
+  }
 }
 
-# Database configuration (Supabase)
+# ============================================
+# DATABASE CONFIGURATION (Supabase)
+# ============================================
+
 variable "database_host" {
   description = "PostgreSQL host (e.g., db.supabase.co)"
   type        = string
@@ -80,6 +110,11 @@ variable "database_password" {
   default     = "superstrongpassword123!"
 }
 
+# ============================================
+# EXTERNAL APIs
+# ============================================
+
+## Nivoda API
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
   type        = string
@@ -100,13 +135,7 @@ variable "nivoda_password" {
   default     = "staging-nivoda-22"
 }
 
-variable "hmac_secrets" {
-  description = "JSON object of HMAC secrets"
-  type        = string
-  sensitive   = true
-  default     = "{}"
-}
-
+## Alerting (Resend)
 variable "resend_api_key" {
   description = "Resend API key for alerts"
   type        = string
@@ -126,11 +155,22 @@ variable "alert_email_from" {
   default     = ""
 }
 
-# Scheduler
-variable "scheduler_cron_expression" {
-  description = "Cron expression for scheduler (use '0 0 31 2 *' to effectively disable)"
+## API Authentication
+variable "hmac_secrets" {
+  description = "JSON object of HMAC secrets"
   type        = string
-  default     = "0 0 31 2 *"  # Feb 31st = never runs, but job exists for manual triggers
+  sensitive   = true
+  default     = "{}"
+}
+
+# ============================================
+# SCHEDULER CONFIGURATION
+# ============================================
+
+variable "scheduler_cron_expression" {
+  description = "Cron expression for scheduler job. Use '0 2 * * *' for 2 AM daily. Use '0 0 31 2 *' (Feb 31st) to disable scheduled runs while keeping manual trigger capability."
+  type        = string
+  default     = "0 0 31 2 *" # Feb 31st = never runs, but job exists for manual triggers
 }
 
 variable "enable_scheduler" {
@@ -139,58 +179,22 @@ variable "enable_scheduler" {
   default     = true
 }
 
-# Worker scaling configuration
-variable "worker_message_count" {
-  description = "Number of Service Bus messages per worker replica for KEDA scaling"
+variable "scheduler_parallelism" {
+  description = "Parallelism for scheduler job"
   type        = number
   default     = 1
+
+  validation {
+    condition     = var.scheduler_parallelism >= 1
+    error_message = "scheduler_parallelism must be >= 1"
+  }
 }
 
-# Scaling configuration
-variable "api_min_replicas" {
-  description = "Minimum API replicas"
-  type        = number
-  default     = 0
-}
+# ============================================
+# CONTAINER RESOURCE ALLOCATION
+# ============================================
 
-variable "api_max_replicas" {
-  description = "Maximum API replicas"
-  type        = number
-  default     = 2
-}
-
-variable "worker_min_replicas" {
-  description = "Minimum worker replicas"
-  type        = number
-  default     = 0
-}
-
-variable "worker_max_replicas" {
-  description = "Maximum worker replicas"
-  type        = number
-  default     = 3
-}
-
-variable "consolidator_min_replicas" {
-  description = "Minimum consolidator replicas"
-  type        = number
-  default     = 0
-}
-
-variable "consolidator_max_replicas" {
-  description = "Maximum consolidator replicas (safe with FOR UPDATE SKIP LOCKED)"
-  type        = number
-  default     = 2
-}
-
-# Log Analytics configuration
-variable "log_analytics_retention_days" {
-  description = "Log Analytics workspace retention in days (7 for staging to reduce costs)"
-  type        = number
-  default     = 7
-}
-
-# Container resource allocation (optimized for cost in staging)
+## API Resources
 variable "api_cpu" {
   description = "CPU allocation for API container"
   type        = number
@@ -203,6 +207,7 @@ variable "api_memory" {
   default     = "0.5Gi"
 }
 
+## Worker Resources
 variable "worker_cpu" {
   description = "CPU allocation for worker container"
   type        = number
@@ -215,6 +220,13 @@ variable "worker_memory" {
   default     = "1Gi"
 }
 
+variable "worker_message_count" {
+  description = "Number of Service Bus messages per worker replica for KEDA scaling (lower = more parallelism, higher = fewer workers). Default 1 = one worker per message."
+  type        = number
+  default     = 1
+}
+
+## Consolidator Resources
 variable "consolidator_cpu" {
   description = "CPU allocation for consolidator container (increased for batch operations)"
   type        = number
@@ -227,6 +239,7 @@ variable "consolidator_memory" {
   default     = "1Gi"
 }
 
+## Scheduler Resources
 variable "scheduler_cpu" {
   description = "CPU allocation for scheduler job"
   type        = number
@@ -239,11 +252,126 @@ variable "scheduler_memory" {
   default     = "0.5Gi"
 }
 
-variable "scheduler_parallelism" {
-  type    = number
-  default = 1
+## Dashboard Resources
+variable "dashboard_cpu" {
+  description = "CPU allocation for dashboard container"
+  type        = number
+  default     = 0.25
+}
+
+variable "dashboard_memory" {
+  description = "Memory allocation for dashboard container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+# ============================================
+# SCALING CONFIGURATION
+# ============================================
+
+## API Scaling
+variable "api_min_replicas" {
+  description = "Minimum API replicas"
+  type        = number
+  default     = 0
+
   validation {
-    condition     = var.scheduler_parallelism >= 1
-    error_message = "scheduler_parallelism must be >= 1"
+    condition     = var.api_min_replicas >= 0
+    error_message = "api_min_replicas must be >= 0"
+  }
+}
+
+variable "api_max_replicas" {
+  description = "Maximum API replicas"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.api_max_replicas >= var.api_min_replicas
+    error_message = "api_max_replicas must be >= api_min_replicas"
+  }
+}
+
+## Worker Scaling
+variable "worker_min_replicas" {
+  description = "Minimum worker replicas"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.worker_min_replicas >= 0
+    error_message = "worker_min_replicas must be >= 0"
+  }
+}
+
+variable "worker_max_replicas" {
+  description = "Maximum worker replicas"
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.worker_max_replicas >= var.worker_min_replicas
+    error_message = "worker_max_replicas must be >= worker_min_replicas"
+  }
+}
+
+## Consolidator Scaling
+variable "consolidator_min_replicas" {
+  description = "Minimum consolidator replicas"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.consolidator_min_replicas >= 0
+    error_message = "consolidator_min_replicas must be >= 0"
+  }
+}
+
+variable "consolidator_max_replicas" {
+  description = "Maximum consolidator replicas (safe with FOR UPDATE SKIP LOCKED, recommended <= 3)"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.consolidator_max_replicas >= var.consolidator_min_replicas && var.consolidator_max_replicas <= 5
+    error_message = "consolidator_max_replicas must be >= consolidator_min_replicas and <= 5"
+  }
+}
+
+## Dashboard Scaling
+variable "dashboard_min_replicas" {
+  description = "Minimum dashboard replicas"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.dashboard_min_replicas >= 0
+    error_message = "dashboard_min_replicas must be >= 0"
+  }
+}
+
+variable "dashboard_max_replicas" {
+  description = "Maximum dashboard replicas"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.dashboard_max_replicas >= var.dashboard_min_replicas
+    error_message = "dashboard_max_replicas must be >= dashboard_min_replicas"
+  }
+}
+
+# ============================================
+# OBSERVABILITY
+# ============================================
+
+variable "log_analytics_retention_days" {
+  description = "Log Analytics workspace retention in days (7 for staging to reduce costs)"
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.log_analytics_retention_days >= 7 && var.log_analytics_retention_days <= 730
+    error_message = "log_analytics_retention_days must be between 7 and 730 days"
   }
 }

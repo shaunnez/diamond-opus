@@ -34,7 +34,7 @@ output "container_registry_admin_password" {
 
 output "api_url" {
   description = "URL of the API (if Container Apps enabled)"
-  value       =  module.container_apps[0].api_url
+  value       = module.container_apps[0].api_url
 }
 
 # Output for .env file generation

@@ -1,3 +1,7 @@
+# ============================================
+# ENVIRONMENT METADATA
+# ============================================
+
 variable "environment_name" {
   description = "Name of the Container Apps Environment"
   type        = string
@@ -23,19 +27,16 @@ variable "subscription_id" {
   type        = string
 }
 
-variable "image_tag" {
-  description = "Docker image tag to deploy"
-  type        = string
-  default     = "latest"
+variable "tags" {
+  description = "Tags to apply to resources"
+  type        = map(string)
+  default     = {}
 }
 
-variable "environment_tag" {
-  description = "Environment-specific docker tag for scheduler job (e.g., staging, prod)"
-  type        = string
-  default     = "staging"
-}
+# ============================================
+# CONTAINER REGISTRY
+# ============================================
 
-# Container Registry
 variable "container_registry_login_server" {
   description = "Login server URL for the container registry"
   type        = string
@@ -52,7 +53,43 @@ variable "container_registry_password" {
   sensitive   = true
 }
 
-# Database connection
+variable "image_tag" {
+  description = "Docker image tag for worker, API, consolidator, and dashboard containers (typically commit SHA)"
+  type        = string
+  default     = "latest"
+}
+
+variable "environment_tag" {
+  description = "Stable environment tag for scheduler job Docker image (staging or prod). Used by API for scheduler job triggers."
+  type        = string
+  default     = "staging"
+}
+
+# ============================================
+# AZURE SERVICES
+# ============================================
+
+variable "storage_connection_string" {
+  description = "Azure Storage connection string"
+  type        = string
+  sensitive   = true
+}
+
+variable "servicebus_connection_string" {
+  description = "Azure Service Bus connection string"
+  type        = string
+  sensitive   = true
+}
+
+variable "servicebus_namespace" {
+  description = "Azure Service Bus namespace name for scale rules"
+  type        = string
+}
+
+# ============================================
+# DATABASE CONFIGURATION
+# ============================================
+
 variable "database_host" {
   description = "PostgreSQL host (e.g., db.supabase.co)"
   type        = string
@@ -85,24 +122,11 @@ variable "database_password" {
   default     = "superstrongpassword123!"
 }
 
-variable "storage_connection_string" {
-  description = "Azure Storage connection string"
-  type        = string
-  sensitive   = true
-}
+# ============================================
+# EXTERNAL APIs
+# ============================================
 
-variable "servicebus_connection_string" {
-  description = "Azure Service Bus connection string"
-  type        = string
-  sensitive   = true
-}
-
-variable "servicebus_namespace" {
-  description = "Azure Service Bus namespace name for scale rules"
-  type        = string
-}
-
-# Nivoda API credentials
+## Nivoda API
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
   type        = string
@@ -120,15 +144,7 @@ variable "nivoda_password" {
   sensitive   = true
 }
 
-# API configuration
-variable "hmac_secrets" {
-  description = "JSON object of HMAC secrets for API authentication"
-  type        = string
-  sensitive   = true
-  default     = "{}"
-}
-
-# Alerting
+## Alerting (Resend)
 variable "resend_api_key" {
   description = "Resend API key for email alerts"
   type        = string
@@ -148,14 +164,46 @@ variable "alert_email_from" {
   default     = ""
 }
 
-# Scheduler configuration
+## API Authentication
+variable "hmac_secrets" {
+  description = "JSON object of HMAC secrets for API authentication"
+  type        = string
+  sensitive   = true
+  default     = "{}"
+}
+
+# ============================================
+# SCHEDULER CONFIGURATION
+# ============================================
+
 variable "scheduler_cron_expression" {
   description = "Cron expression for scheduler job (e.g., '0 2 * * *' for 2 AM daily)"
   type        = string
   default     = "0 2 * * *"
 }
 
-# Resource allocation - API
+variable "enable_scheduler" {
+  description = "Whether to create the scheduled cron job for the scheduler"
+  type        = bool
+  default     = true
+}
+
+variable "scheduler_parallelism" {
+  type        = number
+  default     = 1
+  description = "Parallelism for scheduler job"
+
+  validation {
+    condition     = var.scheduler_parallelism >= 1
+    error_message = "scheduler_parallelism must be >= 1"
+  }
+}
+
+# ============================================
+# CONTAINER RESOURCES & SCALING
+# ============================================
+
+## API Resources
 variable "api_cpu" {
   description = "CPU allocation for API container"
   type        = number
@@ -180,7 +228,7 @@ variable "api_max_replicas" {
   default     = 3
 }
 
-# Resource allocation - Worker
+## Worker Resources
 variable "worker_cpu" {
   description = "CPU allocation for worker container"
   type        = number
@@ -205,8 +253,13 @@ variable "worker_max_replicas" {
   default     = 5
 }
 
-# Resource allocation - Consolidator
-# Increased for batch operations (100 diamonds per upsert, 5 concurrent batches)
+variable "worker_message_count" {
+  description = "Number of Service Bus messages per worker replica for KEDA scaling (lower = more parallelism)"
+  type        = number
+  default     = 1
+}
+
+## Consolidator Resources
 variable "consolidator_cpu" {
   description = "CPU allocation for consolidator container"
   type        = number
@@ -231,7 +284,7 @@ variable "consolidator_max_replicas" {
   default     = 3
 }
 
-# Resource allocation - Scheduler
+## Scheduler Resources
 variable "scheduler_cpu" {
   description = "CPU allocation for scheduler job"
   type        = number
@@ -244,20 +297,7 @@ variable "scheduler_memory" {
   default     = "0.5Gi"
 }
 
-variable "enable_scheduler" {
-  description = "Whether to create the scheduled cron job for the scheduler"
-  type        = bool
-  default     = true
-}
-
-# Worker scaling configuration
-variable "worker_message_count" {
-  description = "Number of Service Bus messages per worker replica for KEDA scaling (lower = more parallelism)"
-  type        = number
-  default     = 1
-}
-
-# Resource allocation - Dashboard
+## Dashboard Resources
 variable "dashboard_cpu" {
   description = "CPU allocation for dashboard container"
   type        = number
@@ -282,24 +322,12 @@ variable "dashboard_max_replicas" {
   default     = 2
 }
 
-# Log Analytics configuration
+# ============================================
+# OBSERVABILITY
+# ============================================
+
 variable "log_analytics_retention_days" {
   description = "Log Analytics workspace retention in days"
   type        = number
   default     = 30
-}
-
-variable "tags" {
-  description = "Tags to apply to resources"
-  type        = map(string)
-  default     = {}
-}
-
-variable "scheduler_parallelism" {
-  type    = number
-  default = 1
-  validation {
-    condition     = var.scheduler_parallelism >= 1
-    error_message = "scheduler_parallelism must be >= 1"
-  }
 }
