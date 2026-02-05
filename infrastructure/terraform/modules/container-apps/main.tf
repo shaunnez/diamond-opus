@@ -90,6 +90,21 @@ resource "azurerm_container_app" "api" {
         secret_name = "hmac-secrets"
       }
 
+      env {
+        name        = "NIVODA_ENDPOINT"
+        secret_name = "nivoda-endpoint"
+      }
+
+      env {
+        name        = "NIVODA_USERNAME"
+        secret_name = "nivoda-username"
+      }
+
+      env {
+        name        = "NIVODA_PASSWORD"
+        secret_name = "nivoda-password"
+      }
+
       # Environment variables for scheduler job trigger
       env {
         name  = "AZURE_SUBSCRIPTION_ID"
