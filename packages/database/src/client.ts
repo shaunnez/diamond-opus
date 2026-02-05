@@ -1,33 +1,52 @@
 import pg from "pg";
-import { optionalEnv, requireEnv } from "@diamond/shared";
+import { optionalEnv } from "@diamond/shared";
 
 const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
 
+// Env-driven pool configuration for Supabase shared pooling
+// Set PG_POOL_MAX low (1-3) to avoid exhausting pooler connections when scaling replicas
+const DEFAULT_POOL_MAX = 2;
+const DEFAULT_IDLE_TIMEOUT_MS = 30000;
+const DEFAULT_CONN_TIMEOUT_MS = 10000;
+
+function getPoolConfig(): pg.PoolConfig {
+  const max = parseInt(optionalEnv("PG_POOL_MAX", String(DEFAULT_POOL_MAX)), 10);
+  const idleTimeoutMillis = parseInt(optionalEnv("PG_IDLE_TIMEOUT_MS", String(DEFAULT_IDLE_TIMEOUT_MS)), 10);
+  const connectionTimeoutMillis = parseInt(optionalEnv("PG_CONN_TIMEOUT_MS", String(DEFAULT_CONN_TIMEOUT_MS)), 10);
+
+  return {
+    max,
+    idleTimeoutMillis,
+    connectionTimeoutMillis,
+    keepAlive: true,
+  };
+}
+
 export function getPool(): pg.Pool {
   if (!pool) {
+    const poolConfig = getPoolConfig();
     const url = optionalEnv("DATABASE_URL", "");
+
     if (url) {
       pool = new Pool({
         connectionString: url,
+        ...poolConfig,
         // ssl: { rejectUnauthorized: false },
       });
       return pool;
     }
-    const poolParams = {
+
+    pool = new Pool({
       host: optionalEnv("DATABASE_HOST", "localhost"),
       port: Number(optionalEnv("DATABASE_PORT", "5432")),
       database: optionalEnv("DATABASE_NAME", "postgres"),
       user: optionalEnv("DATABASE_USERNAME", "postgres"),
       password: optionalEnv("DATABASE_PASSWORD", ""),
-      min: 2,
-      max: 30,
-      idleTimeoutMillis: 60000,
-      connectionTimeoutMillis: 10000,
+      ...poolConfig,
       // ssl: { rejectUnauthorized: false },
-    };
-    pool = new Pool(poolParams);
+    });
   }
   return pool;
 }

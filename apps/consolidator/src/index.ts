@@ -11,23 +11,27 @@ if (process.env.NODE_ENV !== 'production') {
   config({ path: resolve(rootDir, '.env') });
 }
 
+import { randomUUID } from 'node:crypto';
 import {
   CONSOLIDATOR_BATCH_SIZE,
   CONSOLIDATOR_UPSERT_BATCH_SIZE,
   CONSOLIDATOR_CONCURRENCY,
+  CONSOLIDATOR_CLAIM_TTL_MINUTES,
   createLogger,
   type ConsolidateMessage,
   type Watermark,
   type Logger,
 } from '@diamond/shared';
 import {
-  getUnconsolidatedRawDiamonds,
+  claimUnconsolidatedRawDiamonds,
+  resetStuckClaims,
   markAsConsolidated,
   upsertDiamondsBatch,
   completeRun,
   getRunMetadata,
   closePool,
   type DiamondInput,
+  type ClaimedRawDiamond,
 } from '@diamond/database';
 import { mapRawPayloadToDiamond } from '@diamond/nivoda';
 import { PricingEngine } from '@diamond/pricing-engine';
@@ -36,6 +40,9 @@ import { saveWatermark } from './watermark.js';
 import { sendAlert } from './alerts.js';
 
 const baseLogger = createLogger({ service: 'consolidator' });
+
+// Stable instance ID for this consolidator process - used to track claim ownership
+const CONSOLIDATOR_INSTANCE_ID = randomUUID();
 
 interface BatchResult {
   processedIds: string[];
@@ -82,7 +89,7 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
  * Returns the IDs that were successfully processed and error count.
  */
 async function processBatch(
-  rawDiamonds: { id: string; payload: Record<string, unknown> }[],
+  rawDiamonds: ClaimedRawDiamond[],
   pricingEngine: PricingEngine,
   log: Logger
 ): Promise<BatchResult> {
@@ -132,10 +139,17 @@ async function processConsolidation(
   log: Logger
 ): Promise<void> {
   log.info('Starting consolidation', {
+    instanceId: CONSOLIDATOR_INSTANCE_ID,
     concurrency: CONSOLIDATOR_CONCURRENCY,
     batchSize: CONSOLIDATOR_BATCH_SIZE,
     upsertBatchSize: CONSOLIDATOR_UPSERT_BATCH_SIZE,
   });
+
+  // Reset any stuck claims from crashed/timed out consolidators
+  const resetCount = await resetStuckClaims(CONSOLIDATOR_CLAIM_TTL_MINUTES);
+  if (resetCount > 0) {
+    log.info('Reset stuck claims', { count: resetCount, ttlMinutes: CONSOLIDATOR_CLAIM_TTL_MINUTES });
+  }
 
   const pricingEngine = new PricingEngine();
   await pricingEngine.loadRules();
@@ -145,8 +159,11 @@ async function processConsolidation(
   let totalErrors = 0;
 
   while (true) {
-    // Fetch batch with FOR UPDATE SKIP LOCKED (enables multi-replica processing)
-    const rawDiamonds = await getUnconsolidatedRawDiamonds(CONSOLIDATOR_BATCH_SIZE);
+    // Claim batch exclusively - prevents duplicate processing across replicas
+    const rawDiamonds = await claimUnconsolidatedRawDiamonds(
+      CONSOLIDATOR_BATCH_SIZE,
+      CONSOLIDATOR_INSTANCE_ID
+    );
 
     if (rawDiamonds.length === 0) {
       break;

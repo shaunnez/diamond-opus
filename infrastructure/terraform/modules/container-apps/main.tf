@@ -130,6 +130,22 @@ resource "azurerm_container_app" "api" {
         name  = "IMAGE_TAG"
         value = var.environment_tag
       }
+
+      # Database pooling configuration
+      env {
+        name  = "PG_POOL_MAX"
+        value = tostring(var.api_pg_pool_max)
+      }
+
+      env {
+        name  = "PG_IDLE_TIMEOUT_MS"
+        value = tostring(var.api_pg_idle_timeout_ms)
+      }
+
+      env {
+        name  = "PG_CONN_TIMEOUT_MS"
+        value = tostring(var.api_pg_conn_timeout_ms)
+      }
     }
   }
 
@@ -299,6 +315,22 @@ resource "azurerm_container_app" "worker" {
         name        = "NIVODA_PASSWORD"
         secret_name = "nivoda-password"
       }
+
+      # Database pooling configuration - keep low for high replica count scaling
+      env {
+        name  = "PG_POOL_MAX"
+        value = tostring(var.worker_pg_pool_max)
+      }
+
+      env {
+        name  = "PG_IDLE_TIMEOUT_MS"
+        value = tostring(var.worker_pg_idle_timeout_ms)
+      }
+
+      env {
+        name  = "PG_CONN_TIMEOUT_MS"
+        value = tostring(var.worker_pg_conn_timeout_ms)
+      }
     }
   }
 
@@ -449,6 +481,28 @@ resource "azurerm_container_app" "consolidator" {
         name  = "ALERT_EMAIL_FROM"
         value = var.alert_email_from
       }
+
+      # Database pooling configuration for multi-replica consolidation
+      env {
+        name  = "PG_POOL_MAX"
+        value = tostring(var.consolidator_pg_pool_max)
+      }
+
+      env {
+        name  = "PG_IDLE_TIMEOUT_MS"
+        value = tostring(var.consolidator_pg_idle_timeout_ms)
+      }
+
+      env {
+        name  = "PG_CONN_TIMEOUT_MS"
+        value = tostring(var.consolidator_pg_conn_timeout_ms)
+      }
+
+      # Concurrent batch operations - should not exceed PG_POOL_MAX
+      env {
+        name  = "CONSOLIDATOR_CONCURRENCY"
+        value = tostring(var.consolidator_concurrency)
+      }
     }
   }
 
@@ -582,6 +636,22 @@ resource "azurerm_container_app_job" "scheduler" {
       env {
         name        = "NIVODA_PASSWORD"
         secret_name = "nivoda-password"
+      }
+
+      # Database pooling configuration
+      env {
+        name  = "PG_POOL_MAX"
+        value = tostring(var.scheduler_pg_pool_max)
+      }
+
+      env {
+        name  = "PG_IDLE_TIMEOUT_MS"
+        value = tostring(var.scheduler_pg_idle_timeout_ms)
+      }
+
+      env {
+        name  = "PG_CONN_TIMEOUT_MS"
+        value = tostring(var.scheduler_pg_conn_timeout_ms)
       }
     }
   }

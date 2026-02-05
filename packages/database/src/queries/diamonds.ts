@@ -351,6 +351,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     sourceUpdatedAts.push(d.sourceUpdatedAt ?? null);
   }
 
+  // WHERE clause prevents no-op updates when nothing changed (reduces index churn)
   const result = await query<{ count: string }>(
     `WITH upserted AS (
       INSERT INTO diamonds (
@@ -403,6 +404,9 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         status = EXCLUDED.status,
         source_updated_at = EXCLUDED.source_updated_at,
         updated_at = NOW()
+      WHERE diamonds.source_updated_at IS DISTINCT FROM EXCLUDED.source_updated_at
+         OR diamonds.price_model_price IS DISTINCT FROM EXCLUDED.price_model_price
+         OR diamonds.status IS DISTINCT FROM EXCLUDED.status
       RETURNING 1
     )
     SELECT COUNT(*)::text as count FROM upserted`,

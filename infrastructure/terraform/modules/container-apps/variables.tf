@@ -391,6 +391,90 @@ variable "dashboard_max_replicas" {
 }
 
 # ============================================
+# DATABASE POOLING
+# Service-specific pool settings for Supabase shared pooling.
+# Keep values low to avoid exhausting pooler connections when scaling replicas.
+# ============================================
+
+variable "api_pg_pool_max" {
+  description = "Max Postgres connections for API (default: 3)"
+  type        = number
+  default     = 3
+}
+
+variable "api_pg_idle_timeout_ms" {
+  description = "Postgres idle timeout for API in ms (default: 30000)"
+  type        = number
+  default     = 30000
+}
+
+variable "api_pg_conn_timeout_ms" {
+  description = "Postgres connection timeout for API in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+variable "worker_pg_pool_max" {
+  description = "Max Postgres connections per worker replica (default: 1)"
+  type        = number
+  default     = 1
+}
+
+variable "worker_pg_idle_timeout_ms" {
+  description = "Postgres idle timeout for worker in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+variable "worker_pg_conn_timeout_ms" {
+  description = "Postgres connection timeout for worker in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+variable "consolidator_pg_pool_max" {
+  description = "Max Postgres connections per consolidator replica (default: 2)"
+  type        = number
+  default     = 2
+}
+
+variable "consolidator_pg_idle_timeout_ms" {
+  description = "Postgres idle timeout for consolidator in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+variable "consolidator_pg_conn_timeout_ms" {
+  description = "Postgres connection timeout for consolidator in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+variable "consolidator_concurrency" {
+  description = "Concurrent batch operations for consolidator (should not exceed pg_pool_max)"
+  type        = number
+  default     = 2
+}
+
+variable "scheduler_pg_pool_max" {
+  description = "Max Postgres connections for scheduler (default: 2)"
+  type        = number
+  default     = 2
+}
+
+variable "scheduler_pg_idle_timeout_ms" {
+  description = "Postgres idle timeout for scheduler in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+variable "scheduler_pg_conn_timeout_ms" {
+  description = "Postgres connection timeout for scheduler in ms (default: 5000)"
+  type        = number
+  default     = 5000
+}
+
+# ============================================
 # OBSERVABILITY
 # ============================================
 
