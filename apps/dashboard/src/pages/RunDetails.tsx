@@ -90,8 +90,9 @@ export function RunDetails() {
 
   const { run, workers } = data;
   const hasFailedWorkers = run.failedWorkers > 0;
-  const canConsolidate =
-    run.status !== 'running' && run.completedWorkers > 0;
+  // Can consolidate if the run hasn't been fully consolidated yet (watermark not advanced)
+  // and has at least some completed workers
+  const canConsolidate = !run.watermarkAfter && run.completedWorkers > 0;
   const canRetry = hasFailedWorkers;
 
   // Sort workers numerically by partition ID
