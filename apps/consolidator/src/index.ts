@@ -105,11 +105,8 @@ async function processBatch(
       diamonds.push(pricedDiamond);
       processedIds.push(rawDiamond.id);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      log.error('Error mapping raw diamond', {
+      log.error('Error mapping raw diamond', error, {
         rawDiamondId: rawDiamond.id,
-        errorType: error instanceof Error ? error.name : 'unknown',
-        errorMessage: errorMsg,
       });
       errorCount++;
     }
@@ -121,11 +118,8 @@ async function processBatch(
       await upsertDiamondsBatch(diamonds);
     } catch (error) {
       // If batch fails, all diamonds in this batch are considered failed
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      log.error('Batch upsert failed', {
+      log.error('Batch upsert failed', error, {
         batchSize: diamonds.length,
-        errorType: error instanceof Error ? error.name : 'unknown',
-        errorMessage: errorMsg,
       });
       return { processedIds: [], errorCount: rawDiamonds.length };
     }
