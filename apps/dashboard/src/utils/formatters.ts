@@ -34,6 +34,13 @@ export function formatDuration(ms: number | null | undefined): string {
   return `${seconds}s`;
 }
 
+export function formatLiveDuration(startDate: string | Date): string {
+  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  const now = new Date();
+  const ms = now.getTime() - start.getTime();
+  return formatDuration(ms);
+}
+
 export function formatNumber(num: number | null | undefined): string {
   if (num === null || num === undefined) return '-';
   return new Intl.NumberFormat().format(num);

@@ -27,6 +27,7 @@ import {
   formatNumber,
   formatRelativeTime,
   formatDuration,
+  formatLiveDuration,
   truncateId,
 } from '../utils/formatters';
 
@@ -246,7 +247,10 @@ export function Dashboard() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs sm:text-sm text-stone-600">
-                          {formatDuration(run.durationMs)}
+                          {run.status === 'running'
+                            ? formatLiveDuration(run.startedAt)
+                            : formatDuration(run.durationMs)
+                          }
                         </p>
                         <p className="text-xs text-stone-500">
                           {run.completedWorkers}/{run.expectedWorkers}
