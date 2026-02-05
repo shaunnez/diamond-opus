@@ -29,6 +29,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "environment_tag" {
+  description = "Environment-specific docker tag for scheduler job (e.g., staging, prod)"
+  type        = string
+  default     = "staging"
+}
+
 # Container Registry
 variable "container_registry_login_server" {
   description = "Login server URL for the container registry"

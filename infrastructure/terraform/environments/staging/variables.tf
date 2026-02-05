@@ -22,6 +22,12 @@ variable "image_tag" {
   default     = "staging"
 }
 
+variable "environment_tag" {
+  description = "Environment-specific docker tag for scheduler job"
+  type        = string
+  default     = "staging"
+}
+
 # SKU configurations
 variable "servicebus_sku" {
   description = "Service Bus SKU (Basic for staging, Standard for prod)"

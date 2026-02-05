@@ -124,9 +124,9 @@ async function triggerSchedulerJob(
   const credential = new DefaultAzureCredential();
   const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
 
-  // Get container registry info from environment to construct image URL
+  // Get container registry info to construct image URL for the job
   const containerRegistryServer = optionalEnv("CONTAINER_REGISTRY_SERVER", "");
-  const imageTag = optionalEnv("IMAGE_TAG", "staging");
+  const imageTag = optionalEnv("IMAGE_TAG", "latest");
 
   if (!containerRegistryServer) {
     throw new Error(
@@ -136,8 +136,9 @@ async function triggerSchedulerJob(
 
   const schedulerImage = `${containerRegistryServer}/diamond-scheduler:${imageTag}`;
 
-  // Start the Container Apps Job with environment override for run type
-  // beginStart returns a poller for long-running operation
+  // Start the Container Apps Job with:
+  // 1. Updated image reference (using IMAGE_TAG from deployment)
+  // 2. RUN_TYPE environment variable to enforce the requested run type
   const poller = await client.jobs.beginStart(
     config.resourceGroupName,
     config.jobName,
@@ -181,6 +182,12 @@ async function triggerSchedulerJob(
  *       Triggers the scheduler Azure Container Apps Job to start a new pipeline run.
  *       The job will perform a heatmap scan, partition work, and dispatch work items
  *       to the Service Bus queue for workers to process.
+ *
+ *       The run_type parameter controls whether to perform a full or incremental scan:
+ *       - full: Scans all diamonds in Nivoda (resets watermark)
+ *       - incremental: Scans only new diamonds since last watermark
+ *
+ *       If RUN_TYPE is not explicitly set, the scheduler auto-detects based on watermark state.
  *     tags:
  *       - Triggers
  *     security:
@@ -197,6 +204,7 @@ async function triggerSchedulerJob(
  *                 type: string
  *                 enum: [full, incremental]
  *                 default: incremental
+ *                 description: Type of run to perform
  *     responses:
  *       200:
  *         description: Scheduler job started successfully

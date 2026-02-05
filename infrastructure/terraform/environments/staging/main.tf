@@ -85,7 +85,8 @@ module "container_apps" {
   subscription_id     = var.subscription_id
 
   # Image configuration
-  image_tag = var.image_tag
+  image_tag       = var.image_tag
+  environment_tag = var.environment_tag
 
   # Container Registry
   container_registry_login_server = module.container_registry.login_server

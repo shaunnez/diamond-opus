@@ -22,6 +22,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "environment_tag" {
+  description = "Environment-specific docker tag for scheduler job"
+  type        = string
+  default     = "prod"
+}
+
 # SKU configurations
 variable "servicebus_sku" {
   description = "Service Bus SKU"

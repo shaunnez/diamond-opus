@@ -128,7 +128,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "IMAGE_TAG"
-        value = var.image_tag
+        value = var.environment_tag
       }
     }
   }

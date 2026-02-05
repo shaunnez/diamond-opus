@@ -35,7 +35,21 @@ async function run(): Promise<void> {
   log.info("Starting scheduler");
 
   const watermark = await getWatermark();
-  const runType: RunType = watermark ? "incremental" : "full";
+
+  // Check if RUN_TYPE is explicitly set (e.g., from API trigger)
+  // If not, auto-detect based on watermark state
+  let runType: RunType;
+  const explicitRunType = process.env.RUN_TYPE as RunType | undefined;
+
+  if (explicitRunType && ["full", "incremental"].includes(explicitRunType)) {
+    runType = explicitRunType;
+    log.info("Run type explicitly set via RUN_TYPE environment variable", { runType });
+  } else {
+    // Auto-detect: if watermark exists, do incremental; otherwise full
+    runType = watermark ? "incremental" : "full";
+    log.info("Run type auto-detected from watermark state", { runType, hasWatermark: !!watermark });
+  }
+
   const watermarkBefore = watermark
     ? new Date(watermark.lastUpdatedAt)
     : undefined;
@@ -43,6 +57,7 @@ async function run(): Promise<void> {
   log.info("Run configuration determined", {
     runType,
     watermarkBefore: watermarkBefore?.toISOString(),
+    explicitRunTypeSet: !!explicitRunType,
   });
 
   const adapter = new NivodaAdapter();
