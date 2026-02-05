@@ -158,12 +158,12 @@ async function run(): Promise<void> {
   const baseQuery: NivodaQuery = {
     shapes: [...DIAMOND_SHAPES],
     sizes: { from: 0.5, to: 10 },
-    updatedAt: { from: updatedFrom, to: updatedTo },
+    updated: { from: updatedFrom, to: updatedTo },
   };
   log.info("Base query constructed", {
     shapesCount: baseQuery.shapes?.length,
     sizes: baseQuery.sizes,
-    updatedAt: baseQuery.updatedAt,
+    updated: baseQuery.updated,
   });
 
   // Configure heatmap based on run type

@@ -57,14 +57,14 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
       console.log(`Basic query count: ${count}`);
     });
 
-    it('should return count with updatedAt filter', async () => {
+    it('should return count with updated filter', async () => {
       const now = new Date();
       const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
       const query: NivodaQuery = {
         shapes: ['ROUND'],
         sizes: { from: 0.5, to: 10 },
-        updatedAt: {
+        updated: {
           from: oneMonthAgo.toISOString(),
           to: now.toISOString(),
         },
@@ -74,10 +74,10 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
 
       expect(typeof count).toBe('number');
       expect(count).toBeGreaterThanOrEqual(0);
-      console.log(`Count with updatedAt (last 30 days): ${count}`);
+      console.log(`Count with updated (last 30 days): ${count}`);
     });
 
-    it('should return lower count for narrow updatedAt range', async () => {
+    it('should return lower count for narrow updated range', async () => {
       const now = new Date();
       const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -87,7 +87,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
         shapes: ['ROUND'],
         sizes: { from: 0.5, to: 5 },
         dollar_value: { from: 1000, to: 10000 },
-        updatedAt: {
+        updated: {
           from: oneYearAgo.toISOString(),
           to: now.toISOString(),
         },
@@ -98,7 +98,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
         shapes: ['ROUND'],
         sizes: { from: 0.5, to: 5 },
         dollar_value: { from: 1000, to: 10000 },
-        updatedAt: {
+        updated: {
           from: oneHourAgo.toISOString(),
           to: now.toISOString(),
         },
@@ -135,7 +135,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
       }
     });
 
-    it('should return diamonds with updatedAt filter', async () => {
+    it('should return diamonds with updated filter', async () => {
       const now = new Date();
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -143,7 +143,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
         shapes: ['ROUND', 'OVAL'],
         sizes: { from: 0.5, to: 5 },
         dollar_value: { from: 1000, to: 50000 },
-        updatedAt: {
+        updated: {
           from: oneWeekAgo.toISOString(),
           to: now.toISOString(),
         },
@@ -153,7 +153,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
 
       expect(response.items).toBeDefined();
       expect(Array.isArray(response.items)).toBe(true);
-      console.log(`Search with updatedAt returned ${response.items.length} items`);
+      console.log(`Search with updated returned ${response.items.length} items`);
     });
 
     it('should respect order parameter', async () => {
@@ -211,7 +211,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
       }
     });
 
-    it('should work with full query including updatedAt and order', async () => {
+    it('should work with full query including updated and order', async () => {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -219,7 +219,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
         shapes: ['ROUND', 'OVAL', 'CUSHION'],
         sizes: { from: 0.5, to: 5 },
         dollar_value: { from: 1000, to: 50000 },
-        updatedAt: {
+        updated: {
           from: thirtyDaysAgo.toISOString(),
           to: now.toISOString(),
         },
@@ -248,7 +248,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
         shapes: ['ROUND'],
         sizes: { from: 1, to: 2 },
         dollar_value: { from: 5000, to: 10000 },
-        updatedAt: {
+        updated: {
           from: FULL_RUN_START_DATE,
           to: now.toISOString(),
         },

@@ -122,7 +122,7 @@ export interface NivodaOrder {
 }
 
 /**
- * Date range filter for updatedAt queries.
+ * Date range filter for updated queries.
  * Both from and to are ISO 8601 date strings.
  */
 export interface NivodaDateRange {
@@ -138,7 +138,7 @@ export interface NivodaQuery {
   has_image?: boolean;
   has_video?: boolean;
   /** Filter by diamond update timestamp. Use ISO 8601 date strings. */
-  updatedAt?: NivodaDateRange;
+  updated?: NivodaDateRange;
 }
 
 export interface NivodaHoldResponse {

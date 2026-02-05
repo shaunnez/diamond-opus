@@ -93,7 +93,7 @@ describe('NivodaAdapter', () => {
       expect(count).toBe(5000);
     });
 
-    it('should pass updatedAt filter to count query', async () => {
+    it('should pass updated filter to count query', async () => {
       mockRequest.mockResolvedValueOnce({
         authenticate: {
           username_and_password: { token: 'test-token' },
@@ -107,7 +107,7 @@ describe('NivodaAdapter', () => {
       const query: NivodaQuery = {
         shapes: ['ROUND'],
         dollar_value: { from: 0, to: 5000 },
-        updatedAt: {
+        updated: {
           from: '2024-01-01T00:00:00.000Z',
           to: '2024-06-01T00:00:00.000Z',
         },
@@ -116,7 +116,7 @@ describe('NivodaAdapter', () => {
 
       expect(count).toBe(1000);
       const lastCall = mockRequest.mock.calls[1];
-      expect(lastCall?.[1]?.query?.updatedAt).toEqual({
+      expect(lastCall?.[1]?.query?.updated).toEqual({
         from: '2024-01-01T00:00:00.000Z',
         to: '2024-06-01T00:00:00.000Z',
       });
@@ -191,7 +191,7 @@ describe('NivodaAdapter', () => {
       expect(lastCall?.[1]?.order).toEqual({ type: 'createdAt', direction: 'ASC' });
     });
 
-    it('should pass updatedAt filter in query', async () => {
+    it('should pass updated filter in query', async () => {
       mockRequest.mockResolvedValueOnce({
         authenticate: {
           username_and_password: { token: 'test-token' },
@@ -209,7 +209,7 @@ describe('NivodaAdapter', () => {
 
       const query: NivodaQuery = {
         shapes: ['ROUND'],
-        updatedAt: {
+        updated: {
           from: '2024-01-01T00:00:00.000Z',
           to: '2024-06-01T00:00:00.000Z',
         },
@@ -219,14 +219,14 @@ describe('NivodaAdapter', () => {
       const lastCall = mockRequest.mock.calls[1];
       expect(lastCall?.[1]?.query).toEqual(expect.objectContaining({
         shapes: ['ROUND'],
-        updatedAt: {
+        updated: {
           from: '2024-01-01T00:00:00.000Z',
           to: '2024-06-01T00:00:00.000Z',
         },
       }));
     });
 
-    it('should pass both updatedAt and order together', async () => {
+    it('should pass both updated and order together', async () => {
       mockRequest.mockResolvedValueOnce({
         authenticate: {
           username_and_password: { token: 'test-token' },
@@ -245,7 +245,7 @@ describe('NivodaAdapter', () => {
       const query: NivodaQuery = {
         shapes: ['ROUND'],
         dollar_value: { from: 1000, to: 5000 },
-        updatedAt: {
+        updated: {
           from: '2024-01-01T00:00:00.000Z',
           to: '2024-06-01T00:00:00.000Z',
         },
@@ -254,7 +254,7 @@ describe('NivodaAdapter', () => {
       await adapter.searchDiamonds(query, { offset: 0, limit: 30, order });
 
       const lastCall = mockRequest.mock.calls[1];
-      expect(lastCall?.[1]?.query?.updatedAt).toEqual({
+      expect(lastCall?.[1]?.query?.updated).toEqual({
         from: '2024-01-01T00:00:00.000Z',
         to: '2024-06-01T00:00:00.000Z',
       });
