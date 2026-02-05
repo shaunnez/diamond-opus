@@ -215,7 +215,8 @@ RECORDS_PER_WORKER = 5000              // Target records per worker
 WORKER_PAGE_SIZE = 30                  // Pagination size for Nivoda API
 CONSOLIDATOR_BATCH_SIZE = 2000         // Raw diamonds fetched per cycle
 CONSOLIDATOR_UPSERT_BATCH_SIZE = 100   // Diamonds per batch INSERT (uses UNNEST)
-CONSOLIDATOR_CONCURRENCY = 5           // Concurrent batch upserts (respects 30 conn pool)
+CONSOLIDATOR_CONCURRENCY = 2           // Concurrent batch upserts (env: CONSOLIDATOR_CONCURRENCY)
+CONSOLIDATOR_CLAIM_TTL_MINUTES = 30    // Stuck claim recovery timeout
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
 HEATMAP_MAX_WORKERS = 30               // Max parallel workers
@@ -223,11 +224,13 @@ HEATMAP_MAX_WORKERS = 30               // Max parallel workers
 
 ### Consolidator Performance
 
-The consolidator is optimized for 500k+ records:
+The consolidator is optimized for 500k+ records with multi-replica safety:
 
+- **Claim pattern**: Uses `claimUnconsolidatedRawDiamonds` with atomic status update to prevent duplicate processing
+- **Stuck claim recovery**: Claims held > 30 minutes are reset to pending at consolidation start
 - **Batch upserts**: 100 diamonds per INSERT using PostgreSQL `UNNEST`
-- **Multi-replica safe**: Uses `FOR UPDATE SKIP LOCKED` for parallel processing
-- **Connection pool aware**: 5 concurrent operations (safe for 30-connection Supabase pool)
+- **Churn reduction**: Only updates `diamonds` table when data actually changed (source_updated_at, price, status)
+- **Connection pool aware**: Concurrency limited by CONSOLIDATOR_CONCURRENCY (default 2, should not exceed PG_POOL_MAX)
 
 | Records | Single Replica | 3 Replicas |
 |---------|----------------|------------|
@@ -299,6 +302,33 @@ Required variables (see `.env.example`):
 | `AZURE_RESOURCE_GROUP` | API: Resource group for scheduler job trigger |
 | `AZURE_SCHEDULER_JOB_NAME` | API: Container Apps Job name for scheduler |
 | `VITE_API_URL` | Dashboard: API base URL (default: http://localhost:3000) |
+
+### Database Pooling (Supabase Pro Micro)
+
+Connection pooling is critical for Supabase shared pooling. Set these per-service to avoid exhausting pooler connections when scaling replicas.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PG_POOL_MAX` | Max connections per replica | 2 |
+| `PG_IDLE_TIMEOUT_MS` | Idle connection timeout | 30000 |
+| `PG_CONN_TIMEOUT_MS` | Connection timeout | 10000 |
+| `CONSOLIDATOR_CONCURRENCY` | Concurrent batch upserts (must not exceed PG_POOL_MAX) | 2 |
+
+**Recommended per-service settings:**
+
+| Service | PG_POOL_MAX | PG_IDLE_TIMEOUT_MS | PG_CONN_TIMEOUT_MS | Notes |
+|---------|-------------|--------------------|--------------------|-------|
+| Worker | 1 | 5000 | 5000 | High replica count, minimal connections |
+| Consolidator | 2 | 5000 | 5000 | Set CONSOLIDATOR_CONCURRENCY=2 |
+| API | 3 | 30000 | 5000 | Longer idle for HTTP keep-alive |
+| Scheduler | 2 | 5000 | 5000 | Short-lived job |
+
+**Scaling example** (Supabase Pro Micro ~60 pooler connections):
+- 30 worker replicas × 1 connection = 30
+- 2 consolidator replicas × 2 connections = 4
+- 3 API replicas × 3 connections = 9
+- 1 scheduler × 2 connections = 2
+- **Total: 45 connections** (leaves headroom)
 
 ## Debugging Tips
 

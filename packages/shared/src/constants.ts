@@ -4,8 +4,17 @@ export const WORKER_PAGE_SIZE = 30;
 export const CONSOLIDATOR_BATCH_SIZE = 2000;
 /** Number of diamonds per batch upsert (balances query size vs round-trips) */
 export const CONSOLIDATOR_UPSERT_BATCH_SIZE = 100;
-/** Concurrent batch upserts - keep low to respect Supabase pool limits (30 connections) */
-export const CONSOLIDATOR_CONCURRENCY = 5;
+/**
+ * Concurrent batch upserts - env override via CONSOLIDATOR_CONCURRENCY.
+ * Should not exceed PG_POOL_MAX to avoid connection exhaustion.
+ * Default: 2 (safe for multi-replica with PG_POOL_MAX=2)
+ */
+export const CONSOLIDATOR_CONCURRENCY = parseInt(
+  process.env.CONSOLIDATOR_CONCURRENCY ?? '2',
+  10
+);
+/** TTL in minutes for stuck claim recovery. Claims older than this are reset to pending. */
+export const CONSOLIDATOR_CLAIM_TTL_MINUTES = 30;
 export const NIVODA_MAX_LIMIT = 50;
 
 export const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 hours
