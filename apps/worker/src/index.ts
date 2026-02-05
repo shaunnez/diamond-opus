@@ -16,6 +16,10 @@ import {
   DIAMOND_SHAPES,
   withRetry,
   createLogger,
+  RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_WAIT_MS,
+  RATE_LIMIT_BASE_DELAY_MS,
   type WorkItemMessage,
   type WorkDoneMessage,
   type Logger,
@@ -34,6 +38,7 @@ import {
   completePartition,
   markPartitionFailed,
   closePool,
+  acquireRateLimitToken,
 } from "@diamond/database";
 import {
   NivodaAdapter,
@@ -49,6 +54,27 @@ import {
 
 const baseLogger = createLogger({ service: "worker" });
 const workerId = randomUUID();
+
+// Rate limiter configuration for Nivoda API
+const rateLimitConfig = {
+  maxRequestsPerWindow: RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
+  windowDurationMs: RATE_LIMIT_WINDOW_MS,
+  maxWaitMs: RATE_LIMIT_MAX_WAIT_MS,
+  baseDelayMs: RATE_LIMIT_BASE_DELAY_MS,
+};
+
+// Rate limiter function to pass to adapter and retries
+const acquireRateLimit = () => acquireRateLimitToken("nivoda_global", rateLimitConfig);
+
+// Singleton NivodaAdapter - reused across all work items to preserve token cache
+// This dramatically reduces authentication calls and prevents auth storms
+// Configured with:
+// - enableDesyncDelay: adds random delay before API calls to desynchronize workers
+// - rateLimiter: integrates with global rate limiter to smooth request bursts
+const nivodaAdapter = new NivodaAdapter(undefined, undefined, undefined, {
+  enableDesyncDelay: true,
+  rateLimiter: acquireRateLimit,
+});
 
 /**
  * Process exactly one page for continuation pattern.
@@ -94,7 +120,8 @@ async function processWorkItemPage(
     return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
-  const adapter = new NivodaAdapter();
+  // Use singleton adapter (created at module scope) to preserve token cache
+  // This prevents authentication storms when processing many pages
 
   // Apply price range filter from the work item
   const query: NivodaQuery = {
@@ -109,12 +136,13 @@ async function processWorkItemPage(
   });
 
   const response = await withRetry(
-    () => adapter.searchDiamonds(query, { offset: workItem.offset, limit: workItem.limit }),
+    () => nivodaAdapter.searchDiamonds(query, { offset: workItem.offset, limit: workItem.limit }),
     {
-      onRetry: (error, attempt) => {
+      onRetry: (error, attempt, delayMs) => {
         log.warn("Retrying search diamonds", {
           attempt,
           offset: workItem.offset,
+          delayMs: Math.round(delayMs),
           error: error.message,
         });
       },
