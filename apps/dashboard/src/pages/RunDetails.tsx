@@ -19,14 +19,17 @@ import {
   StatusBadge,
   RunTypeBadge,
   WorkerProgress,
+  RecordProgress,
   PageLoader,
   Alert,
   ConfirmModal,
+  Modal,
   Table,
 } from '../components/ui';
 import {
   formatDate,
   formatDuration,
+  formatLiveDuration,
   formatNumber,
   truncateId,
 } from '../utils/formatters';
@@ -90,6 +93,24 @@ export function RunDetails() {
   const canConsolidate =
     run.status !== 'running' && run.completedWorkers > 0;
   const canRetry = hasFailedWorkers;
+
+  // Sort workers numerically by partition ID
+  const sortedWorkers = [...workers].sort((a, b) => {
+    const aNum = parseInt(a.partitionId, 10);
+    const bNum = parseInt(b.partitionId, 10);
+    return aNum - bNum;
+  });
+
+  // Calculate total expected records from all workers
+  const totalExpectedRecords = workers.reduce((sum, worker) => {
+    const workItemTotal = worker.workItemPayload?.totalRecords as number | undefined;
+    return sum + (workItemTotal || 0);
+  }, 0);
+
+  // Calculate live duration for running jobs
+  const displayDuration = run.status === 'running'
+    ? formatLiveDuration(run.startedAt)
+    : formatDuration(run.durationMs);
 
   const getWorkerProgress = (worker: WorkerRun): number | null => {
     if (!worker.workItemPayload || typeof worker.workItemPayload.totalRecords !== 'number') {
@@ -252,13 +273,16 @@ export function RunDetails() {
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Duration</p>
               <p className="text-base sm:text-lg font-semibold text-stone-900">
-                {formatDuration(run.durationMs)}
+                {displayDuration}
               </p>
             </div>
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Records</p>
               <p className="text-base sm:text-lg font-semibold text-stone-900">
-                {formatNumber(run.totalRecordsProcessed)}
+                {totalExpectedRecords > 0
+                  ? `${formatNumber(run.totalRecordsProcessed)} / ${formatNumber(totalExpectedRecords)}`
+                  : formatNumber(run.totalRecordsProcessed)
+                }
               </p>
             </div>
             <div>
@@ -285,13 +309,25 @@ export function RunDetails() {
             </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mt-6">
-            <WorkerProgress
-              completed={run.completedWorkers}
-              failed={run.failedWorkers}
-              total={run.expectedWorkers}
-            />
+          {/* Progress Bars */}
+          <div className="mt-6 space-y-4">
+            <div>
+              <p className="text-xs font-medium text-stone-700 mb-2">Worker Progress</p>
+              <WorkerProgress
+                completed={run.completedWorkers}
+                failed={run.failedWorkers}
+                total={run.expectedWorkers}
+              />
+            </div>
+            {totalExpectedRecords > 0 && (
+              <div>
+                <p className="text-xs font-medium text-stone-700 mb-2">Record Progress</p>
+                <RecordProgress
+                  processed={run.totalRecordsProcessed}
+                  total={totalExpectedRecords}
+                />
+              </div>
+            )}
           </div>
         </Card>
 
@@ -306,11 +342,11 @@ export function RunDetails() {
 
         {/* Workers Table */}
         <Card>
-          <CardHeader title="Worker Details" subtitle={`${workers.length} workers`} />
+          <CardHeader title="Worker Details" subtitle={`${sortedWorkers.length} workers`} />
           <div className="mt-4">
             <Table
               columns={workerColumns}
-              data={workers}
+              data={sortedWorkers}
               keyExtractor={(w) => String(w.id)}
               emptyMessage="No workers for this run"
             />
@@ -324,7 +360,7 @@ export function RunDetails() {
             subtitle="Visual overview of all workers"
           />
           <div className="mt-4 grid grid-cols-8 sm:grid-cols-12 md:grid-cols-15 lg:grid-cols-20 gap-1">
-            {workers.map((worker) => (
+            {sortedWorkers.map((worker) => (
               <div
                 key={worker.id}
                 title={`${worker.partitionId}: ${worker.status}${
@@ -362,22 +398,72 @@ export function RunDetails() {
         </Card>
 
         {/* Consolidate Modal */}
-        <ConfirmModal
+        <Modal
           isOpen={showConsolidateModal}
           onClose={() => {
             setShowConsolidateModal(false);
             setForceConsolidate(false);
           }}
-          onConfirm={() => consolidateMutation.mutate()}
           title="Trigger Consolidation"
-          message={
-            hasFailedWorkers
-              ? 'This run has failed workers. Do you want to force consolidation with only the completed data?'
-              : 'This will process all raw diamonds from this run and update the canonical diamonds table.'
+          size="md"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowConsolidateModal(false);
+                  setForceConsolidate(false);
+                }}
+                disabled={consolidateMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => consolidateMutation.mutate()}
+                loading={consolidateMutation.isPending}
+              >
+                Consolidate
+              </Button>
+            </>
           }
-          confirmText="Consolidate"
-          loading={consolidateMutation.isPending}
-        />
+        >
+          <div className="space-y-4">
+            <p className="text-stone-600">
+              {hasFailedWorkers
+                ? 'This run has failed workers. You can force consolidation to process only the completed data.'
+                : 'This will process all raw diamonds from this run and update the canonical diamonds table.'
+              }
+            </p>
+
+            {hasFailedWorkers && (
+              <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={forceConsolidate}
+                    onChange={(e) => setForceConsolidate(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-primary-600 border-stone-300 rounded focus:ring-primary-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-stone-900">
+                      Force consolidation
+                    </span>
+                    <p className="text-xs text-stone-600 mt-1">
+                      Process completed workers even though some workers failed. Failed partitions will be skipped.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            {hasFailedWorkers && !forceConsolidate && (
+              <Alert variant="warning" title="Warning">
+                Consolidation will fail without force option when workers have failed.
+              </Alert>
+            )}
+          </div>
+        </Modal>
 
         {/* Retry Modal */}
         <ConfirmModal

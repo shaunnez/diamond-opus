@@ -154,3 +154,28 @@ export function WorkerProgress({ completed, failed, total, className = '' }: Wor
     </div>
   );
 }
+
+interface RecordProgressProps {
+  processed: number;
+  total: number;
+  className?: string;
+}
+
+export function RecordProgress({ processed, total, className = '' }: RecordProgressProps) {
+  const processedPercent = total > 0 ? (processed / total) * 100 : 0;
+
+  return (
+    <div className={`w-full ${className}`}>
+      <div className="w-full h-2.5 bg-stone-200 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary-500 transition-all duration-300"
+          style={{ width: `${processedPercent}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-xs text-stone-500 mt-1">
+        <span>{processed.toLocaleString()} records processed</span>
+        <span>{total.toLocaleString()} total</span>
+      </div>
+    </div>
+  );
+}

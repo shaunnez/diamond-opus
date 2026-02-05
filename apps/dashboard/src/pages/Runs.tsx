@@ -20,6 +20,7 @@ import {
 import {
   formatDateShort,
   formatDuration,
+  formatLiveDuration,
   formatNumber,
   truncateId,
 } from '../utils/formatters';
@@ -91,7 +92,10 @@ export function Runs() {
     {
       key: 'duration',
       header: 'Duration',
-      render: (run: RunWithStats) => formatDuration(run.durationMs),
+      render: (run: RunWithStats) =>
+        run.status === 'running'
+          ? formatLiveDuration(run.startedAt)
+          : formatDuration(run.durationMs),
     },
     {
       key: 'startedAt',
