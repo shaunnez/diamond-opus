@@ -6,3 +6,4 @@ export * from './pricing-rules.js';
 export * from './history.js';
 export * from './analytics.js';
 export * from './partition-progress.js';
+export * from './rate-limit.js';

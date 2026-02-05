@@ -16,12 +16,16 @@ import {
   HEATMAP_MIN_RECORDS_PER_WORKER,
   MAX_SCHEDULER_RECORDS,
   WORKER_PAGE_SIZE,
+  RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_WAIT_MS,
+  RATE_LIMIT_BASE_DELAY_MS,
   createLogger,
   generateTraceId,
   type WorkItemMessage,
   type RunType,
 } from "@diamond/shared";
-import { createRunMetadata, closePool } from "@diamond/database";
+import { createRunMetadata, closePool, acquireRateLimitToken } from "@diamond/database";
 import { NivodaAdapter, scanHeatmap, type NivodaQuery, type HeatmapConfig } from "@diamond/nivoda";
 import { getWatermark } from "./watermark.js";
 import { sendWorkItems, closeConnections } from "./service-bus.js";
@@ -60,7 +64,20 @@ async function run(): Promise<void> {
     explicitRunTypeSet: !!explicitRunType,
   });
 
-  const adapter = new NivodaAdapter();
+  // Configure rate limiter for heatmap scanning
+  const rateLimitConfig = {
+    maxRequestsPerWindow: RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
+    windowDurationMs: RATE_LIMIT_WINDOW_MS,
+    maxWaitMs: RATE_LIMIT_MAX_WAIT_MS,
+    baseDelayMs: RATE_LIMIT_BASE_DELAY_MS,
+  };
+  const acquireRateLimit = () => acquireRateLimitToken("nivoda_global", rateLimitConfig);
+
+  // Create adapter with rate limiting but no desync delay (scheduler runs sequentially)
+  const adapter = new NivodaAdapter(undefined, undefined, undefined, {
+    enableDesyncDelay: false,
+    rateLimiter: acquireRateLimit,
+  });
 
   const baseQuery: NivodaQuery = {
     shapes: [...DIAMOND_SHAPES],

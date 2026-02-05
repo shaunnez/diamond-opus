@@ -22,6 +22,31 @@ export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 300; // 5 minutes
 
+// Rate limiting configuration for Nivoda API
+/** Maximum requests per second globally across all workers (conservative start) */
+export const RATE_LIMIT_MAX_REQUESTS_PER_WINDOW = parseInt(
+  process.env.RATE_LIMIT_MAX_REQUESTS ?? '2',
+  10
+);
+/** Rate limit window duration in milliseconds */
+export const RATE_LIMIT_WINDOW_MS = 1000;
+/** Maximum time to wait for a rate limit token before giving up */
+export const RATE_LIMIT_MAX_WAIT_MS = 30000;
+/** Base delay between rate limit retry attempts */
+export const RATE_LIMIT_BASE_DELAY_MS = 100;
+
+// Request timeout configuration
+/** Default timeout for Nivoda API requests in milliseconds */
+export const NIVODA_REQUEST_TIMEOUT_MS = parseInt(
+  process.env.NIVODA_REQUEST_TIMEOUT_MS ?? '45000',
+  10
+);
+
+// Worker desynchronization
+/** Random delay range before API calls to desynchronize workers (milliseconds) */
+export const WORKER_DESYNC_MIN_MS = 100;
+export const WORKER_DESYNC_MAX_MS = 500;
+
 export const DIAMOND_SHAPES = [
   'ROUND',
   'OVAL',
