@@ -53,12 +53,15 @@ const workerId = randomUUID();
 /**
  * Process exactly one page for continuation pattern.
  * Returns the number of records processed in this page.
+ *
+ * The `skipped` flag indicates if the message was skipped due to idempotency guards.
+ * When skipped=true, the caller should NOT trigger completion logic - just ack the message.
  */
 async function processWorkItemPage(
   workItem: WorkItemMessage,
   workerRunId: string,
   log: Logger
-): Promise<{ recordsProcessed: number; hasMore: boolean }> {
+): Promise<{ recordsProcessed: number; hasMore: boolean; skipped: boolean }> {
   log.info("Processing page", {
     partitionId: workItem.partitionId,
     offset: workItem.offset,
@@ -71,21 +74,24 @@ async function processWorkItemPage(
   const progress = await getPartitionProgress(workItem.runId, workItem.partitionId);
 
   // Idempotency guard: skip if already completed
+  // IMPORTANT: Return skipped=true so caller doesn't trigger false completion
   if (progress.completed) {
     log.info("Partition already completed, skipping", {
       partitionId: workItem.partitionId,
     });
-    return { recordsProcessed: 0, hasMore: false };
+    return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
   // Idempotency guard: skip if offset doesn't match expected nextOffset
+  // This handles duplicate/redelivered messages from Service Bus
+  // IMPORTANT: Return skipped=true so caller doesn't trigger false completion
   if (workItem.offset !== progress.nextOffset) {
     log.warn("Offset mismatch, skipping duplicate or out-of-order message", {
       messageOffset: workItem.offset,
       expectedOffset: progress.nextOffset,
       partitionId: workItem.partitionId,
     });
-    return { recordsProcessed: 0, hasMore: false };
+    return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
   const adapter = new NivodaAdapter();
@@ -129,7 +135,7 @@ async function processWorkItemPage(
       log.warn("Failed to mark partition as completed (already completed or offset mismatch)");
     }
 
-    return { recordsProcessed: 0, hasMore: false };
+    return { recordsProcessed: 0, hasMore: false, skipped: false };
   }
 
   // Bulk upsert all items from this page
@@ -182,7 +188,7 @@ async function processWorkItemPage(
     }
   }
 
-  return { recordsProcessed: response.items.length, hasMore };
+  return { recordsProcessed: response.items.length, hasMore, skipped: false };
 }
 
 async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
@@ -226,6 +232,13 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     const result = await processWorkItemPage(workItem, workerRun.id, log);
     recordsProcessed = result.recordsProcessed;
     hasMore = result.hasMore;
+
+    // If message was skipped due to idempotency guards (duplicate/redelivered message),
+    // just ack the message without any state changes - another worker is handling this partition
+    if (result.skipped) {
+      log.info("Message skipped due to idempotency guard, acknowledging without state changes");
+      return;
+    }
 
     log.info("Page processed successfully", {
       recordsProcessed,

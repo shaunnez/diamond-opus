@@ -1,5 +1,6 @@
 import type { RunMetadata, WorkerRun, RunType, WorkerStatus } from '@diamond/shared';
 import { query } from '../client.js';
+import { resetPartitionForRetry } from './partition-progress.js';
 
 interface RunMetadataRow {
   run_id: string;
@@ -178,7 +179,11 @@ export async function resetFailedWorker(
     [runId, partitionId]
   );
 
-  // Decrement the failed workers count and completed workers count
+  // Reset partition progress so retry resumes from where it left off
+  // This clears the failed flag but preserves next_offset
+  await resetPartitionForRetry(runId, partitionId);
+
+  // Decrement the failed workers count
   await query(
     `UPDATE run_metadata
      SET failed_workers = GREATEST(0, failed_workers - 1)
@@ -188,14 +193,14 @@ export async function resetFailedWorker(
 }
 
 export async function resetAllFailedWorkers(runId: string): Promise<number> {
-  // Get count of failed workers first
-  const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) as count FROM worker_runs WHERE run_id = $1 AND status = 'failed'`,
+  // Get failed worker partition IDs first
+  const failedResult = await query<{ partition_id: string }>(
+    `SELECT partition_id FROM worker_runs WHERE run_id = $1 AND status = 'failed'`,
     [runId]
   );
-  const failedCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  const failedPartitionIds = failedResult.rows.map(r => r.partition_id);
 
-  if (failedCount === 0) {
+  if (failedPartitionIds.length === 0) {
     return 0;
   }
 
@@ -205,11 +210,16 @@ export async function resetAllFailedWorkers(runId: string): Promise<number> {
     [runId]
   );
 
+  // Reset partition progress for all failed partitions so retries resume from where they left off
+  for (const partitionId of failedPartitionIds) {
+    await resetPartitionForRetry(runId, partitionId);
+  }
+
   // Reset the failed workers count
   await query(
     `UPDATE run_metadata SET failed_workers = 0 WHERE run_id = $1`,
     [runId]
   );
 
-  return failedCount;
+  return failedPartitionIds.length;
 }

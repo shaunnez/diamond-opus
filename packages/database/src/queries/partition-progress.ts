@@ -152,6 +152,26 @@ export async function isPartitionCompleted(
 }
 
 /**
+ * Reset a failed partition for retry.
+ * Clears the failed flag but preserves next_offset so retry resumes from where it left off.
+ * Returns true if reset succeeded, false if partition wasn't in failed state.
+ */
+export async function resetPartitionForRetry(
+  runId: string,
+  partitionId: string
+): Promise<boolean> {
+  const result = await query<{ reset: boolean }>(
+    `UPDATE partition_progress
+     SET failed = FALSE, updated_at = NOW()
+     WHERE run_id = $1 AND partition_id = $2 AND failed = TRUE
+     RETURNING TRUE as reset`,
+    [runId, partitionId]
+  );
+
+  return result.rows.length > 0;
+}
+
+/**
  * Atomically mark a partition as failed.
  * Only marks failed if not already failed or completed (for idempotency).
  * Returns true if this was the first failure for this partition.

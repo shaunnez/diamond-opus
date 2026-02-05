@@ -318,7 +318,7 @@ variable "worker_min_replicas" {
 variable "worker_max_replicas" {
   description = "Maximum replicas for worker"
   type        = number
-  default     = 5
+  default     = 30
 }
 
 variable "worker_message_count" {
