@@ -67,9 +67,10 @@ export function Triggers() {
     },
   });
 
-  // Get runs that can be consolidated (completed or failed but not running)
+  // Get runs that can be consolidated (haven't been fully consolidated yet)
+  // A run can be consolidated if it has completed workers and hasn't advanced the watermark yet
   const consolidatableRuns = runsData?.data.filter(
-    (r) => r.status !== 'running' && r.completedWorkers > 0
+    (r) => !r.watermarkAfter && r.completedWorkers > 0
   ) ?? [];
 
   // Get runs that have failed workers
