@@ -156,6 +156,26 @@ Nivoda Response:
 - All queries wrapped with `as(token: $token)` for authentication
 - Use `withRetry` utility for transient failure handling
 
+### Nivoda Query Date Filtering
+
+All Nivoda queries (heatmap counts and worker searches) use `updatedAt` date range filters for data consistency:
+
+**Full Runs:**
+- `updatedAt.from`: `2000-01-01T00:00:00.000Z` (captures all historical data)
+- `updatedAt.to`: Run start timestamp
+
+**Incremental Runs:**
+- `updatedAt.from`: `watermark.lastUpdatedAt - 15 minutes` (safety buffer)
+- `updatedAt.to`: Run start timestamp
+
+This ensures:
+1. **Consistent counts**: Heatmap partition sizes match actual filtered results
+2. **Fixed snapshot**: Data doesn't shift during the run (`updatedTo` is locked at run start)
+3. **No missed records**: 15-minute safety buffer on incremental runs prevents boundary issues
+
+**Ordering:**
+All worker searches use `order: { type: 'createdAt', direction: 'ASC' }` for deterministic pagination, preventing diamonds from shifting between pages during a run.
+
 ### Heatmap Algorithm
 
 The scheduler uses adaptive density scanning to partition work:
@@ -220,6 +240,10 @@ CONSOLIDATOR_CLAIM_TTL_MINUTES = 30    // Stuck claim recovery timeout
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
 HEATMAP_MAX_WORKERS = 30               // Max parallel workers
+
+// Nivoda query date filtering
+FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z'  // Start date for full runs
+INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES = 15        // Safety buffer for incremental runs
 ```
 
 ### Consolidator Performance

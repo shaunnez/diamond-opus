@@ -43,6 +43,7 @@ import {
 import {
   NivodaAdapter,
   type NivodaQuery,
+  type NivodaOrder,
 } from "@diamond/nivoda";
 import {
   receiveWorkItem,
@@ -123,20 +124,31 @@ async function processWorkItemPage(
   // Use singleton adapter (created at module scope) to preserve token cache
   // This prevents authentication storms when processing many pages
 
-  // Apply price range filter from the work item
+  // Build query with all filters from the work item
+  // - Price range from heatmap partition
+  // - Date range (updatedAt) for consistent filtering with heatmap counts
   const query: NivodaQuery = {
     shapes: [...DIAMOND_SHAPES],
     sizes: { from: 0.5, to: 10 },
     dollar_value: { from: workItem.minPrice, to: workItem.maxPrice },
+    // Use the same date range filter as the heatmap for consistency
+    updatedAt: workItem.updatedFrom && workItem.updatedTo
+      ? { from: workItem.updatedFrom, to: workItem.updatedTo }
+      : undefined,
   };
+
+  // Order by createdAt ASC for deterministic pagination
+  // This ensures diamonds don't shift between pages during the run
+  const order: NivodaOrder = { type: 'createdAt', direction: 'ASC' };
 
   log.debug("Fetching page from Nivoda", {
     offset: workItem.offset,
     limit: workItem.limit,
+    updatedAt: query.updatedAt,
   });
 
   const response = await withRetry(
-    () => nivodaAdapter.searchDiamonds(query, { offset: workItem.offset, limit: workItem.limit }),
+    () => nivodaAdapter.searchDiamonds(query, { offset: workItem.offset, limit: workItem.limit, order }),
     {
       onRetry: (error, attempt, delayMs) => {
         log.warn("Retrying search diamonds", {

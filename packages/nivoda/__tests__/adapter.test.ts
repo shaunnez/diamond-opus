@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NivodaAdapter } from '../src/adapter.js';
+import type { NivodaOrder, NivodaQuery } from '../src/types.js';
 
 vi.mock('graphql-request', async (importOriginal) => {
   const actual = await importOriginal<typeof import('graphql-request')>();
@@ -91,6 +92,35 @@ describe('NivodaAdapter', () => {
 
       expect(count).toBe(5000);
     });
+
+    it('should pass updatedAt filter to count query', async () => {
+      mockRequest.mockResolvedValueOnce({
+        authenticate: {
+          username_and_password: { token: 'test-token' },
+        },
+      });
+
+      mockRequest.mockResolvedValueOnce({
+        as: { diamonds_by_query_count: 1000 },
+      });
+
+      const query: NivodaQuery = {
+        shapes: ['ROUND'],
+        dollar_value: { from: 0, to: 5000 },
+        updatedAt: {
+          from: '2024-01-01T00:00:00.000Z',
+          to: '2024-06-01T00:00:00.000Z',
+        },
+      };
+      const count = await adapter.getDiamondsCount(query);
+
+      expect(count).toBe(1000);
+      const lastCall = mockRequest.mock.calls[1];
+      expect(lastCall?.[1]?.query?.updatedAt).toEqual({
+        from: '2024-01-01T00:00:00.000Z',
+        to: '2024-06-01T00:00:00.000Z',
+      });
+    });
   });
 
   describe('searchDiamonds', () => {
@@ -135,6 +165,101 @@ describe('NivodaAdapter', () => {
       await adapter.searchDiamonds({}, { limit: 30 });
 
       const lastCall = mockRequest.mock.calls[1];
+      expect(lastCall?.[1]?.limit).toBe(30);
+    });
+
+    it('should pass order parameter to GraphQL query', async () => {
+      mockRequest.mockResolvedValueOnce({
+        authenticate: {
+          username_and_password: { token: 'test-token' },
+        },
+      });
+
+      mockRequest.mockResolvedValueOnce({
+        as: {
+          diamonds_by_query: {
+            total_count: 100,
+            items: [],
+          },
+        },
+      });
+
+      const order: NivodaOrder = { type: 'createdAt', direction: 'ASC' };
+      await adapter.searchDiamonds({}, { order });
+
+      const lastCall = mockRequest.mock.calls[1];
+      expect(lastCall?.[1]?.order).toEqual({ type: 'createdAt', direction: 'ASC' });
+    });
+
+    it('should pass updatedAt filter in query', async () => {
+      mockRequest.mockResolvedValueOnce({
+        authenticate: {
+          username_and_password: { token: 'test-token' },
+        },
+      });
+
+      mockRequest.mockResolvedValueOnce({
+        as: {
+          diamonds_by_query: {
+            total_count: 100,
+            items: [],
+          },
+        },
+      });
+
+      const query: NivodaQuery = {
+        shapes: ['ROUND'],
+        updatedAt: {
+          from: '2024-01-01T00:00:00.000Z',
+          to: '2024-06-01T00:00:00.000Z',
+        },
+      };
+      await adapter.searchDiamonds(query, {});
+
+      const lastCall = mockRequest.mock.calls[1];
+      expect(lastCall?.[1]?.query).toEqual(expect.objectContaining({
+        shapes: ['ROUND'],
+        updatedAt: {
+          from: '2024-01-01T00:00:00.000Z',
+          to: '2024-06-01T00:00:00.000Z',
+        },
+      }));
+    });
+
+    it('should pass both updatedAt and order together', async () => {
+      mockRequest.mockResolvedValueOnce({
+        authenticate: {
+          username_and_password: { token: 'test-token' },
+        },
+      });
+
+      mockRequest.mockResolvedValueOnce({
+        as: {
+          diamonds_by_query: {
+            total_count: 100,
+            items: [],
+          },
+        },
+      });
+
+      const query: NivodaQuery = {
+        shapes: ['ROUND'],
+        dollar_value: { from: 1000, to: 5000 },
+        updatedAt: {
+          from: '2024-01-01T00:00:00.000Z',
+          to: '2024-06-01T00:00:00.000Z',
+        },
+      };
+      const order: NivodaOrder = { type: 'createdAt', direction: 'ASC' };
+      await adapter.searchDiamonds(query, { offset: 0, limit: 30, order });
+
+      const lastCall = mockRequest.mock.calls[1];
+      expect(lastCall?.[1]?.query?.updatedAt).toEqual({
+        from: '2024-01-01T00:00:00.000Z',
+        to: '2024-06-01T00:00:00.000Z',
+      });
+      expect(lastCall?.[1]?.order).toEqual({ type: 'createdAt', direction: 'ASC' });
+      expect(lastCall?.[1]?.offset).toBe(0);
       expect(lastCall?.[1]?.limit).toBe(30);
     });
   });

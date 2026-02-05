@@ -20,6 +20,8 @@ import {
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_WAIT_MS,
   RATE_LIMIT_BASE_DELAY_MS,
+  FULL_RUN_START_DATE,
+  INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES,
   createLogger,
   generateTraceId,
   type WorkItemMessage,
@@ -54,12 +56,31 @@ async function run(): Promise<void> {
     log.info("Run type auto-detected from watermark state", { runType, hasWatermark: !!watermark });
   }
 
+  // Calculate the run's time window (updatedTo is fixed at run start for consistency)
+  const now = new Date();
+  const updatedTo = now.toISOString();
+
+  // Calculate updatedFrom based on run type
+  let updatedFrom: string;
+  if (runType === "full") {
+    // Full run: capture all historical data from a safe start date
+    updatedFrom = FULL_RUN_START_DATE;
+  } else {
+    // Incremental run: use watermark with safety buffer
+    const watermarkTime = new Date(watermark!.lastUpdatedAt);
+    const safetyBufferMs = INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES * 60 * 1000;
+    updatedFrom = new Date(watermarkTime.getTime() - safetyBufferMs).toISOString();
+  }
+
+  // For backwards compatibility, also keep watermarkBefore for run metadata
   const watermarkBefore = watermark
     ? new Date(watermark.lastUpdatedAt)
     : undefined;
 
   log.info("Run configuration determined", {
     runType,
+    updatedFrom,
+    updatedTo,
     watermarkBefore: watermarkBefore?.toISOString(),
     explicitRunTypeSet: !!explicitRunType,
   });
@@ -79,9 +100,12 @@ async function run(): Promise<void> {
     rateLimiter: acquireRateLimit,
   });
 
+  // Base query includes date range filter for consistent heatmap counts
+  // This ensures partition sizes match actual filtered results
   const baseQuery: NivodaQuery = {
     shapes: [...DIAMOND_SHAPES],
     sizes: { from: 0.5, to: 10 },
+    updatedAt: { from: updatedFrom, to: updatedTo },
   };
 
   // Configure heatmap based on run type
@@ -125,7 +149,6 @@ async function run(): Promise<void> {
   const runLog = log.child({ runId: runMetadata.runId });
   runLog.info("Run created", { expectedWorkers: heatmapResult.workerCount });
 
-  const now = new Date();
   const workItems: WorkItemMessage[] = heatmapResult.partitions.map(
     (partition) => ({
       type: "WORK_ITEM" as const,
@@ -140,8 +163,9 @@ async function run(): Promise<void> {
       // Continuation pattern: start at offset 0 with page size 30
       offset: 0,
       limit: WORKER_PAGE_SIZE,
-      updatedFrom: watermarkBefore?.toISOString(),
-      updatedTo: now.toISOString(),
+      // Pass the same date range used in heatmap for consistent filtering
+      updatedFrom,
+      updatedTo,
     })
   );
 

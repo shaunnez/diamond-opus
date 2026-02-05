@@ -23,6 +23,7 @@ import type {
   NivodaDiamondsResponse,
   NivodaHoldResponse,
   NivodaOrderItemInput,
+  NivodaOrder,
 } from './types.js';
 
 interface AuthenticateResponse {
@@ -307,7 +308,7 @@ export class NivodaAdapter {
     options: {
       offset?: number;
       limit?: number;
-      order?: { type: string; direction: string };
+      order?: NivodaOrder;
     } = {}
   ): Promise<NivodaDiamondsResponse> {
     return this.executeWithTokenRefresh(async (token) => {

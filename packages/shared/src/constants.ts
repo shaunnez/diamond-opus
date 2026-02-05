@@ -103,3 +103,17 @@ export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 export const HEATMAP_MAX_WORKERS = 1000;
 /** Minimum records needed to spawn an additional worker */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
+
+// Nivoda query date filtering
+/**
+ * Start date for full runs - ensures we capture all historical diamonds.
+ * Using 2000-01-01 as a safe date before Nivoda's existence.
+ */
+export const FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z';
+
+/**
+ * Safety buffer in minutes for incremental runs.
+ * Subtracts this from the watermark's lastUpdatedAt to ensure no diamonds
+ * are missed due to timing issues at the boundary.
+ */
+export const INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES = 15;
