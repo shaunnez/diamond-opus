@@ -120,6 +120,16 @@ resource "azurerm_container_app" "api" {
         name  = "AZURE_SCHEDULER_JOB_NAME"
         value = "${var.app_name_prefix}-scheduler"
       }
+
+      env {
+        name  = "CONTAINER_REGISTRY_SERVER"
+        value = var.container_registry_login_server
+      }
+
+      env {
+        name  = "IMAGE_TAG"
+        value = var.image_tag
+      }
     }
   }
 

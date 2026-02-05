@@ -124,6 +124,18 @@ async function triggerSchedulerJob(
   const credential = new DefaultAzureCredential();
   const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
 
+  // Get container registry info from environment to construct image URL
+  const containerRegistryServer = optionalEnv("CONTAINER_REGISTRY_SERVER", "");
+  const imageTag = optionalEnv("IMAGE_TAG", "staging");
+
+  if (!containerRegistryServer) {
+    throw new Error(
+      "CONTAINER_REGISTRY_SERVER environment variable not configured for job image",
+    );
+  }
+
+  const schedulerImage = `${containerRegistryServer}/diamond-scheduler:${imageTag}`;
+
   // Start the Container Apps Job with environment override for run type
   // beginStart returns a poller for long-running operation
   const poller = await client.jobs.beginStart(
@@ -134,6 +146,7 @@ async function triggerSchedulerJob(
         containers: [
           {
             name: "scheduler",
+            image: schedulerImage,
             env: [
               {
                 name: "RUN_TYPE",
