@@ -282,13 +282,13 @@ variable "api_min_replicas" {
 }
 
 variable "api_max_replicas" {
-  description = "Maximum API replicas"
+  description = "Maximum API replicas (must be >= api_min_replicas)"
   type        = number
   default     = 5
 
   validation {
-    condition     = var.api_max_replicas >= var.api_min_replicas
-    error_message = "api_max_replicas must be >= api_min_replicas"
+    condition     = var.api_max_replicas >= 1
+    error_message = "api_max_replicas must be >= 1"
   }
 }
 
@@ -305,13 +305,13 @@ variable "worker_min_replicas" {
 }
 
 variable "worker_max_replicas" {
-  description = "Maximum worker replicas"
+  description = "Maximum worker replicas (must be >= worker_min_replicas)"
   type        = number
   default     = 10
 
   validation {
-    condition     = var.worker_max_replicas >= var.worker_min_replicas
-    error_message = "worker_max_replicas must be >= worker_min_replicas"
+    condition     = var.worker_max_replicas >= 1
+    error_message = "worker_max_replicas must be >= 1"
   }
 }
 
@@ -328,13 +328,13 @@ variable "consolidator_min_replicas" {
 }
 
 variable "consolidator_max_replicas" {
-  description = "Maximum consolidator replicas (safe with FOR UPDATE SKIP LOCKED, recommended <= 3)"
+  description = "Maximum consolidator replicas (safe with FOR UPDATE SKIP LOCKED, recommended <= 3, must be >= consolidator_min_replicas)"
   type        = number
   default     = 3
 
   validation {
-    condition     = var.consolidator_max_replicas >= var.consolidator_min_replicas && var.consolidator_max_replicas <= 5
-    error_message = "consolidator_max_replicas must be >= consolidator_min_replicas and <= 5"
+    condition     = var.consolidator_max_replicas >= 1 && var.consolidator_max_replicas <= 5
+    error_message = "consolidator_max_replicas must be >= 1 and <= 5"
   }
 }
 
@@ -351,13 +351,13 @@ variable "dashboard_min_replicas" {
 }
 
 variable "dashboard_max_replicas" {
-  description = "Maximum dashboard replicas"
+  description = "Maximum dashboard replicas (must be >= dashboard_min_replicas)"
   type        = number
   default     = 2
 
   validation {
-    condition     = var.dashboard_max_replicas >= var.dashboard_min_replicas
-    error_message = "dashboard_max_replicas must be >= dashboard_min_replicas"
+    condition     = var.dashboard_max_replicas >= 1
+    error_message = "dashboard_max_replicas must be >= 1"
   }
 }
 

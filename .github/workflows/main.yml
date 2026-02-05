@@ -157,6 +157,12 @@ jobs:
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
@@ -173,6 +179,12 @@ jobs:
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
         run: terraform apply -auto-approve tfplan
 
       - name: Verify Consolidator Scale Rules
