@@ -65,11 +65,14 @@ async function run(): Promise<void> {
   if (runType === "full") {
     // Full run: capture all historical data from a safe start date
     updatedFrom = FULL_RUN_START_DATE;
-  } else {
+  } else if (watermark?.lastUpdatedAt) {
     // Incremental run: use watermark with safety buffer
     const watermarkTime = new Date(watermark!.lastUpdatedAt);
     const safetyBufferMs = INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES * 60 * 1000;
     updatedFrom = new Date(watermarkTime.getTime() - safetyBufferMs).toISOString();
+  } else {
+    runType = "full";
+    updatedFrom = FULL_RUN_START_DATE;
   }
 
   // For backwards compatibility, also keep watermarkBefore for run metadata
