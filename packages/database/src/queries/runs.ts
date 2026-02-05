@@ -71,37 +71,90 @@ export async function createRunMetadata(
 }
 
 export async function getRunMetadata(runId: string): Promise<RunMetadata | null> {
-  const result = await query<RunMetadataRow>(
-    `SELECT * FROM run_metadata WHERE run_id = $1`,
+  const result = await query<RunMetadataRow & {
+    completed_workers_actual: string;
+    failed_workers_actual: string;
+  }>(
+    `SELECT
+      rm.*,
+      COALESCE(
+        (SELECT COUNT(*) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id AND pp.completed = TRUE),
+        0
+      ) as completed_workers_actual,
+      COALESCE(
+        (SELECT COUNT(*) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+        0
+      ) as failed_workers_actual
+     FROM run_metadata rm
+     WHERE rm.run_id = $1`,
     [runId]
   );
   const row = result.rows[0];
-  return row ? mapRowToRunMetadata(row) : null;
+  if (!row) return null;
+
+  // Use computed counts from partition_progress instead of stored counters
+  return {
+    ...mapRowToRunMetadata(row),
+    completedWorkers: parseInt(row.completed_workers_actual, 10),
+    failedWorkers: parseInt(row.failed_workers_actual, 10),
+  };
 }
 
-export async function incrementCompletedWorkers(
+/**
+ * Get run worker counts computed from partition_progress.
+ * Used by workers to determine if consolidation should be triggered.
+ *
+ * Note: This replaces incrementCompletedWorkers() which maintained counters in run_metadata.
+ * Now we compute counts directly from partition_progress for consistency.
+ */
+export async function getRunWorkerCounts(
   runId: string
 ): Promise<{ completedWorkers: number; expectedWorkers: number; failedWorkers: number }> {
-  const result = await query<{ completed_workers: number; expected_workers: number; failed_workers: number }>(
-    `UPDATE run_metadata
-     SET completed_workers = completed_workers + 1
-     WHERE run_id = $1
-     RETURNING completed_workers, expected_workers, failed_workers`,
+  const result = await query<{
+    expected_workers: number;
+    completed_count: string;
+    failed_count: string;
+  }>(
+    `SELECT
+      rm.expected_workers,
+      COALESCE(
+        (SELECT COUNT(*) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id AND pp.completed = TRUE),
+        0
+      ) as completed_count,
+      COALESCE(
+        (SELECT COUNT(*) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+        0
+      ) as failed_count
+     FROM run_metadata rm
+     WHERE rm.run_id = $1`,
     [runId]
   );
   const row = result.rows[0]!;
   return {
-    completedWorkers: row.completed_workers,
+    completedWorkers: parseInt(row.completed_count, 10),
     expectedWorkers: row.expected_workers,
-    failedWorkers: row.failed_workers,
+    failedWorkers: parseInt(row.failed_count, 10),
   };
 }
 
+/**
+ * @deprecated No longer needed - counts are computed from partition_progress
+ */
+export async function incrementCompletedWorkers(
+  runId: string
+): Promise<{ completedWorkers: number; expectedWorkers: number; failedWorkers: number }> {
+  return getRunWorkerCounts(runId);
+}
+
+/**
+ * @deprecated No longer needed - counts are computed from partition_progress
+ */
 export async function incrementFailedWorkers(runId: string): Promise<void> {
-  await query(
-    `UPDATE run_metadata SET failed_workers = failed_workers + 1 WHERE run_id = $1`,
-    [runId]
-  );
+  // No-op - partition_progress.failed is set by markPartitionFailed()
 }
 
 export async function completeRun(runId: string, watermarkAfter?: Date): Promise<void> {
@@ -183,13 +236,8 @@ export async function resetFailedWorker(
   // This clears the failed flag but preserves next_offset
   await resetPartitionForRetry(runId, partitionId);
 
-  // Decrement the failed workers count
-  await query(
-    `UPDATE run_metadata
-     SET failed_workers = GREATEST(0, failed_workers - 1)
-     WHERE run_id = $1`,
-    [runId]
-  );
+  // Note: No need to decrement run_metadata.failed_workers - counts are now
+  // computed from partition_progress.failed flag which is cleared above
 }
 
 export async function resetAllFailedWorkers(runId: string): Promise<number> {
@@ -215,11 +263,8 @@ export async function resetAllFailedWorkers(runId: string): Promise<number> {
     await resetPartitionForRetry(runId, partitionId);
   }
 
-  // Reset the failed workers count
-  await query(
-    `UPDATE run_metadata SET failed_workers = 0 WHERE run_id = $1`,
-    [runId]
-  );
+  // Note: No need to reset run_metadata.failed_workers - counts are now
+  // computed from partition_progress.failed flags which are cleared above
 
   return failedPartitionIds.length;
 }
