@@ -81,34 +81,54 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     query<{ count: string }>(
       `SELECT COUNT(DISTINCT feed) as count FROM diamonds WHERE status = 'active'`
     ),
-    // Last successful run (completed with no failures)
+    // Last successful run (completed with no failures) - compute from partition_progress
     query<{
       run_id: string;
       run_type: string;
       expected_workers: number;
       completed_workers: number;
       failed_workers: number;
+      failed_count_actual: string;
       watermark_before: Date | null;
       watermark_after: Date | null;
       started_at: Date;
       completed_at: Date | null;
     }>(
-      `SELECT * FROM run_metadata
-       WHERE completed_at IS NOT NULL AND failed_workers = 0
-       ORDER BY completed_at DESC LIMIT 1`
+      `SELECT rm.*,
+        COALESCE(
+          (SELECT COUNT(*) FROM partition_progress pp
+           WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+          0
+        ) as failed_count_actual
+       FROM run_metadata rm
+       WHERE rm.completed_at IS NOT NULL
+       HAVING COALESCE(
+         (SELECT COUNT(*) FROM partition_progress pp
+          WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+         0
+       ) = 0
+       ORDER BY rm.completed_at DESC LIMIT 1`
     ),
-    // Recent runs count (last 7 days)
+    // Recent runs count (last 7 days) - compute actual failed/completed from partition_progress
     query<{ status: string; count: string }>(
       `SELECT
         CASE
-          WHEN completed_at IS NULL AND failed_workers = 0 THEN 'running'
-          WHEN completed_at IS NOT NULL AND failed_workers = 0 THEN 'completed'
-          WHEN failed_workers > 0 AND completed_workers + failed_workers >= expected_workers THEN 'failed'
+          WHEN rm.completed_at IS NULL AND COALESCE(pp_stats.failed_count, 0) = 0 THEN 'running'
+          WHEN rm.completed_at IS NOT NULL AND COALESCE(pp_stats.failed_count, 0) = 0 THEN 'completed'
+          WHEN COALESCE(pp_stats.failed_count, 0) > 0
+               AND COALESCE(pp_stats.completed_count, 0) + COALESCE(pp_stats.failed_count, 0) >= rm.expected_workers THEN 'failed'
           ELSE 'partial'
         END as status,
         COUNT(*) as count
-       FROM run_metadata
-       WHERE started_at > NOW() - INTERVAL '7 days'
+       FROM run_metadata rm
+       LEFT JOIN LATERAL (
+         SELECT
+           COUNT(*) FILTER (WHERE pp.completed = TRUE) as completed_count,
+           COUNT(*) FILTER (WHERE pp.failed = TRUE) as failed_count
+         FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id
+       ) pp_stats ON TRUE
+       WHERE rm.started_at > NOW() - INTERVAL '7 days'
        GROUP BY 1`
     ),
     // Diamonds by availability
@@ -223,6 +243,8 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       expected_workers: number;
       completed_workers: number;
       failed_workers: number;
+      completed_workers_actual: string;
+      failed_workers_actual: string;
       watermark_before: Date | null;
       watermark_after: Date | null;
       started_at: Date;
@@ -231,6 +253,16 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     }>(
       `SELECT
         rm.*,
+        COALESCE(
+          (SELECT COUNT(*) FROM partition_progress pp
+           WHERE pp.run_id = rm.run_id AND pp.completed = TRUE),
+          0
+        ) as completed_workers_actual,
+        COALESCE(
+          (SELECT COUNT(*) FROM partition_progress pp
+           WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+          0
+        ) as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records
        FROM run_metadata rm
        LEFT JOIN worker_runs wr ON rm.run_id = wr.run_id
@@ -247,8 +279,8 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     runId: row.run_id,
     runType: row.run_type as RunType,
     expectedWorkers: row.expected_workers,
-    completedWorkers: row.completed_workers,
-    failedWorkers: row.failed_workers,
+    completedWorkers: parseInt(row.completed_workers_actual, 10),
+    failedWorkers: parseInt(row.failed_workers_actual, 10),
     watermarkBefore: row.watermark_before ?? undefined,
     watermarkAfter: row.watermark_after ?? undefined,
     startedAt: row.started_at,
@@ -257,7 +289,12 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     durationMs: row.completed_at
       ? row.completed_at.getTime() - row.started_at.getTime()
       : null,
-    status: getRunStatus(row),
+    status: getRunStatus({
+      completed_at: row.completed_at,
+      failed_workers: parseInt(row.failed_workers_actual, 10),
+      completed_workers: parseInt(row.completed_workers_actual, 10),
+      expected_workers: row.expected_workers,
+    }),
   }));
 
   return { runs, total };
@@ -295,7 +332,7 @@ export async function getRunDetails(runId: string): Promise<{
   run: RunWithStats | null;
   workers: WorkerRun[];
 }> {
-  const [runResult, workersResult] = await Promise.all([
+  const [runResult, workersResult, statsResult] = await Promise.all([
     query<{
       run_id: string;
       run_type: string;
@@ -319,6 +356,20 @@ export async function getRunDetails(runId: string): Promise<{
       started_at: Date;
       completed_at: Date | null;
     }>(`SELECT * FROM worker_runs WHERE run_id = $1 ORDER BY partition_id`, [runId]),
+    query<{
+      completed_count: string;
+      failed_count: string;
+      total_records: string;
+    }>(
+      `SELECT
+        COALESCE(COUNT(*) FILTER (WHERE pp.completed = TRUE), 0) as completed_count,
+        COALESCE(COUNT(*) FILTER (WHERE pp.failed = TRUE), 0) as failed_count,
+        COALESCE(SUM(wr.records_processed), 0) as total_records
+       FROM partition_progress pp
+       LEFT JOIN worker_runs wr ON pp.run_id = wr.run_id AND pp.partition_id = wr.partition_id
+       WHERE pp.run_id = $1`,
+      [runId]
+    ),
   ]);
 
   const runRow = runResult.rows[0];
@@ -326,27 +377,28 @@ export async function getRunDetails(runId: string): Promise<{
     return { run: null, workers: [] };
   }
 
-  // Get total records
-  const recordsResult = await query<{ total: string }>(
-    `SELECT COALESCE(SUM(records_processed), 0) as total FROM worker_runs WHERE run_id = $1`,
-    [runId]
-  );
+  const stats = statsResult.rows[0]!;
 
   const run: RunWithStats = {
     runId: runRow.run_id,
     runType: runRow.run_type as RunType,
     expectedWorkers: runRow.expected_workers,
-    completedWorkers: runRow.completed_workers,
-    failedWorkers: runRow.failed_workers,
+    completedWorkers: parseInt(stats.completed_count, 10),
+    failedWorkers: parseInt(stats.failed_count, 10),
     watermarkBefore: runRow.watermark_before ?? undefined,
     watermarkAfter: runRow.watermark_after ?? undefined,
     startedAt: runRow.started_at,
     completedAt: runRow.completed_at ?? undefined,
-    totalRecordsProcessed: parseInt(recordsResult.rows[0]?.total ?? '0', 10),
+    totalRecordsProcessed: parseInt(stats.total_records, 10),
     durationMs: runRow.completed_at
       ? runRow.completed_at.getTime() - runRow.started_at.getTime()
       : null,
-    status: getRunStatus(runRow),
+    status: getRunStatus({
+      completed_at: runRow.completed_at,
+      failed_workers: parseInt(stats.failed_count, 10),
+      completed_workers: parseInt(stats.completed_count, 10),
+      expected_workers: runRow.expected_workers,
+    }),
   };
 
   const workers: WorkerRun[] = workersResult.rows.map((row) => ({
