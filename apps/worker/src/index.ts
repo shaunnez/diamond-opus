@@ -125,13 +125,13 @@ async function processWorkItemPage(
 
   // Build query with all filters from the work item
   // - Price range from heatmap partition
-  // - Date range (updatedAt) for consistent filtering with heatmap counts
+  // - Date range (updated) for consistent filtering with heatmap counts
   const query: NivodaQuery = {
     shapes: [...DIAMOND_SHAPES],
     sizes: { from: 0.5, to: 10 },
     dollar_value: { from: workItem.minPrice, to: workItem.maxPrice },
     // Use the same date range filter as the heatmap for consistency
-    updatedAt: workItem.updatedFrom && workItem.updatedTo
+    updated: workItem.updatedFrom && workItem.updatedTo
       ? { from: workItem.updatedFrom, to: workItem.updatedTo }
       : undefined,
   };
@@ -143,7 +143,7 @@ async function processWorkItemPage(
   log.debug("Fetching page from Nivoda", {
     offset: workItem.offset,
     limit: workItem.limit,
-    updatedAt: query.updatedAt,
+    updated: query.updated,
   });
 
   const response = await withRetry(
