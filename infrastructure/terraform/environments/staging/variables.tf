@@ -160,7 +160,7 @@ variable "hmac_secrets" {
   description = "JSON object of HMAC secrets"
   type        = string
   sensitive   = true
-  default     = "{}"
+  default     = "{\"shopify\":\"changeme\",\"internal\":\"changeme\"}"
 }
 
 # ============================================

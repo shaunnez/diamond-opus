@@ -51,6 +51,11 @@ variable "container_registry_password" {
   description = "Password for the container registry"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.container_registry_password) > 0
+    error_message = "container_registry_password cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "image_tag" {
@@ -73,12 +78,22 @@ variable "storage_connection_string" {
   description = "Azure Storage connection string"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.storage_connection_string) > 0
+    error_message = "storage_connection_string cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "servicebus_connection_string" {
   description = "Azure Service Bus connection string"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.servicebus_connection_string) > 0
+    error_message = "servicebus_connection_string cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "servicebus_namespace" {
@@ -94,18 +109,33 @@ variable "database_host" {
   description = "PostgreSQL host (e.g., db.supabase.co)"
   type        = string
   default     = "aws-1-ap-southeast-1.pooler.supabase.com"
+
+  validation {
+    condition     = length(var.database_host) > 0
+    error_message = "database_host cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "database_port" {
   description = "PostgreSQL port"
   type        = string
   default     = "5432"
+
+  validation {
+    condition     = length(var.database_port) > 0
+    error_message = "database_port cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "database_name" {
   description = "PostgreSQL database name"
   type        = string
   default     = "postgres"
+
+  validation {
+    condition     = length(var.database_name) > 0
+    error_message = "database_name cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "database_username" {
@@ -113,6 +143,11 @@ variable "database_username" {
   type        = string
   sensitive   = true
   default     = "postgres.yazrhmjedaaplwbsaqob"
+
+  validation {
+    condition     = length(var.database_username) > 0
+    error_message = "database_username cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "database_password" {
@@ -120,6 +155,11 @@ variable "database_password" {
   type        = string
   sensitive   = true
   default     = "superstrongpassword123!"
+
+  validation {
+    condition     = length(var.database_password) > 0
+    error_message = "database_password cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 # ============================================
@@ -130,18 +170,36 @@ variable "database_password" {
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
   type        = string
+  default     = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
+
+  validation {
+    condition     = length(var.nivoda_endpoint) > 0
+    error_message = "nivoda_endpoint cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "nivoda_username" {
   description = "Nivoda API username"
   type        = string
   sensitive   = true
+  default     = "testaccount@sample.com"
+
+  validation {
+    condition     = length(var.nivoda_username) > 0
+    error_message = "nivoda_username cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "nivoda_password" {
   description = "Nivoda API password"
   type        = string
   sensitive   = true
+  default     = "staging-nivoda-22"
+
+  validation {
+    condition     = length(var.nivoda_password) > 0
+    error_message = "nivoda_password cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 ## Alerting (Resend)
@@ -150,6 +208,11 @@ variable "resend_api_key" {
   type        = string
   sensitive   = true
   default     = "demo"
+
+  validation {
+    condition     = length(var.resend_api_key) > 0
+    error_message = "resend_api_key cannot be empty - Azure Container Apps secrets require a non-empty value"
+  }
 }
 
 variable "alert_email_to" {
@@ -169,7 +232,12 @@ variable "hmac_secrets" {
   description = "JSON object of HMAC secrets for API authentication"
   type        = string
   sensitive   = true
-  default     = "{}"
+  default     = "{\"shopify\":\"changeme\",\"internal\":\"changeme\"}"
+
+  validation {
+    condition     = length(var.hmac_secrets) > 0
+    error_message = "hmac_secrets cannot be empty - Azure Container Apps secrets require a non-empty value. Use '{}' for empty JSON object."
+  }
 }
 
 # ============================================
