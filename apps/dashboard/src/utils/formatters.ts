@@ -19,7 +19,7 @@ export function formatRelativeTime(date: string | Date | null | undefined): stri
 }
 
 export function formatDuration(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined) return '-';
+  if (ms === null || ms === undefined || isNaN(ms)) return '-';
 
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
@@ -34,8 +34,12 @@ export function formatDuration(ms: number | null | undefined): string {
   return `${seconds}s`;
 }
 
-export function formatLiveDuration(startDate: string | Date): string {
+export function formatLiveDuration(startDate: string | Date | null | undefined): string {
+  if (!startDate) return '-';
+
   const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  if (isNaN(start.getTime())) return '-';
+
   const now = new Date();
   const ms = now.getTime() - start.getTime();
   return formatDuration(ms);

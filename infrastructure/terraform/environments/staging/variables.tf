@@ -307,7 +307,7 @@ variable "worker_min_replicas" {
 variable "worker_max_replicas" {
   description = "Maximum worker replicas (must be >= worker_min_replicas)"
   type        = number
-  default     = 3
+  default     = 30
 
   validation {
     condition     = var.worker_max_replicas >= 1

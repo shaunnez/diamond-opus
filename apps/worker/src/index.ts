@@ -29,7 +29,6 @@ import {
   updateWorkerRun,
   updateWorkerProgress,
   incrementCompletedWorkers,
-  incrementFailedWorkers,
   bulkUpsertRawDiamonds,
   type BulkRawDiamond,
   initializePartitionProgress,
@@ -359,13 +358,11 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     // Update worker run status to failed
     await updateWorkerRun(workerRun.id, "failed", errorMessage);
 
-    // Atomically mark partition as failed and increment failed workers
-    // markPartitionFailed returns true only on first failure (idempotent)
-    // This replaces the fragile offset === 0 check with proper database-level idempotency
+    // Atomically mark partition as failed (idempotent)
+    // markPartitionFailed returns true only on first failure
     const isFirstFailure = await markPartitionFailed(workItem.runId, workItem.partitionId);
     if (isFirstFailure) {
-      await incrementFailedWorkers(workItem.runId);
-      log.info("Partition marked as failed, incremented failed workers");
+      log.info("Partition marked as failed");
     } else {
       log.info("Partition already marked as failed, not double-counting");
     }
