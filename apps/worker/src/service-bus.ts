@@ -87,17 +87,36 @@ export async function receiveWorkItem(): Promise<{
 
 export async function sendWorkDone(message: WorkDoneMessage): Promise<void> {
   const sender = getWorkDoneSender();
+
+  // Create stable messageId for deduplication: one work-done per partition per run
+  const messageId = `work-done:${message.runId}:${message.partitionId}`;
+
   await sender.sendMessages({
     body: message,
     contentType: 'application/json',
+    messageId,
+    applicationProperties: {
+      runId: message.runId,
+      partitionId: message.partitionId,
+      status: message.status,
+    },
   });
 }
 
 export async function sendConsolidate(message: ConsolidateMessage): Promise<void> {
   const sender = getConsolidateSender();
+
+  // Create stable messageId for deduplication: one consolidation per run
+  const messageId = `consolidate:${message.runId}`;
+
   await sender.sendMessages({
     body: message,
     contentType: 'application/json',
+    messageId,
+    applicationProperties: {
+      runId: message.runId,
+      traceId: message.traceId,
+    },
   });
 }
 

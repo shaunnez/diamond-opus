@@ -10,9 +10,9 @@ import {
   withRetry,
   nullLogger,
   type Logger,
-} from '@diamond/shared';
-import { NivodaAdapter } from './adapter.js';
-import type { NivodaQuery } from './types.js';
+} from "@diamond/shared";
+import { NivodaAdapter } from "./adapter.js";
+import type { NivodaQuery } from "./types.js";
 
 export interface DensityChunk {
   min: number;
@@ -90,16 +90,19 @@ export async function scanHeatmap(
   adapter: NivodaAdapter,
   baseQuery: NivodaQuery,
   config: HeatmapConfig = {},
-  logger: Logger = nullLogger
+  logger: Logger = nullLogger,
 ): Promise<HeatmapResult> {
   const minPrice = config.minPrice ?? HEATMAP_MIN_PRICE;
   const maxPrice = config.maxPrice ?? HEATMAP_MAX_PRICE;
-  const denseZoneThreshold = config.denseZoneThreshold ?? HEATMAP_DENSE_ZONE_THRESHOLD;
+  const denseZoneThreshold =
+    config.denseZoneThreshold ?? HEATMAP_DENSE_ZONE_THRESHOLD;
   const denseZoneStep = config.denseZoneStep ?? HEATMAP_DENSE_ZONE_STEP;
   const initialStep = config.initialStep ?? HEATMAP_INITIAL_STEP;
-  const targetRecordsPerChunk = config.targetRecordsPerChunk ?? HEATMAP_TARGET_RECORDS_PER_CHUNK;
+  const targetRecordsPerChunk =
+    config.targetRecordsPerChunk ?? HEATMAP_TARGET_RECORDS_PER_CHUNK;
   const maxWorkers = config.maxWorkers ?? HEATMAP_MAX_WORKERS;
-  const minRecordsPerWorker = config.minRecordsPerWorker ?? HEATMAP_MIN_RECORDS_PER_WORKER;
+  const minRecordsPerWorker =
+    config.minRecordsPerWorker ?? HEATMAP_MIN_RECORDS_PER_WORKER;
   const concurrency = config.concurrency ?? 3;
   const useTwoPassScan = config.useTwoPassScan ?? false;
   const coarseStep = config.coarseStep ?? 5000;
@@ -107,9 +110,9 @@ export async function scanHeatmap(
 
   const startTime = Date.now();
 
-  const log = logger.child({ component: 'heatmap' });
+  const log = logger.child({ component: "heatmap" });
 
-  log.info('Starting heatmap scan', {
+  log.info("Starting heatmap scan", {
     priceRange: { min: minPrice, max: maxPrice },
     denseZoneThreshold,
     denseZoneStep,
@@ -129,31 +132,41 @@ export async function scanHeatmap(
   let densityMap: DensityChunk[];
 
   if (useTwoPassScan) {
-    densityMap = await buildDensityMapTwoPass(adapter, baseQuery, {
-      minPrice,
-      maxPrice,
-      denseZoneThreshold,
-      denseZoneStep,
-      coarseStep,
-      targetRecordsPerChunk,
-      concurrency,
-    }, scanContext);
+    densityMap = await buildDensityMapTwoPass(
+      adapter,
+      baseQuery,
+      {
+        minPrice,
+        maxPrice,
+        denseZoneThreshold,
+        denseZoneStep,
+        coarseStep,
+        targetRecordsPerChunk,
+        concurrency,
+      },
+      scanContext,
+    );
   } else {
-    densityMap = await buildDensityMap(adapter, baseQuery, {
-      minPrice,
-      maxPrice,
-      denseZoneThreshold,
-      denseZoneStep,
-      initialStep,
-      targetRecordsPerChunk,
-      concurrency,
-    }, scanContext);
+    densityMap = await buildDensityMap(
+      adapter,
+      baseQuery,
+      {
+        minPrice,
+        maxPrice,
+        denseZoneThreshold,
+        denseZoneStep,
+        initialStep,
+        targetRecordsPerChunk,
+        concurrency,
+      },
+      scanContext,
+    );
   }
 
   const scanDurationMs = Date.now() - startTime;
 
   if (densityMap.length === 0) {
-    log.info('No records found in heatmap scan');
+    log.info("No records found in heatmap scan");
     return {
       densityMap: [],
       partitions: [],
@@ -171,26 +184,38 @@ export async function scanHeatmap(
 
   // Phase 2: Calculate fair split
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
-  log.info('Heatmap scan phase complete', { totalRecords });
+  log.info("Heatmap scan phase complete", { totalRecords });
 
   // Calculate desired worker count based on data volume
-  const desiredWorkerCount = calculateWorkerCount(totalRecords, maxWorkers, minRecordsPerWorker);
-  log.info('Worker count calculated', { desiredWorkerCount, maxWorkers });
+  const desiredWorkerCount = calculateWorkerCount(
+    totalRecords,
+    maxWorkers,
+    minRecordsPerWorker,
+  );
+  log.info("Worker count calculated", { desiredWorkerCount, maxWorkers });
 
   // Phase 3: Partition into balanced worker buckets
-  const partitions = createPartitions(densityMap, desiredWorkerCount, log, maxTotalRecords);
+  const partitions = createPartitions(
+    densityMap,
+    desiredWorkerCount,
+    log,
+    maxTotalRecords,
+  );
 
   // workerCount is always the actual partition count (authoritative)
   const workerCount = partitions.length;
   if (workerCount !== desiredWorkerCount) {
-    log.info('Partition count differs from desired', {
+    log.info("Partition count differs from desired", {
       actual: workerCount,
       desired: desiredWorkerCount,
     });
   }
 
   // Calculate effective total (may be capped)
-  const effectiveTotalRecords = partitions.reduce((sum, p) => sum + p.totalRecords, 0);
+  const effectiveTotalRecords = partitions.reduce(
+    (sum, p) => sum + p.totalRecords,
+    0,
+  );
 
   // Build final stats
   const stats: ScanStats = {
@@ -201,7 +226,7 @@ export async function scanHeatmap(
     usedTwoPass: useTwoPassScan,
   };
 
-  log.info('Heatmap scan complete', {
+  log.info("Heatmap scan complete", {
     apiCalls: stats.apiCalls,
     rangesScanned: stats.rangesScanned,
     durationMs: stats.scanDurationMs,
@@ -241,7 +266,7 @@ async function buildDensityMap(
     targetRecordsPerChunk: number;
     concurrency: number;
   },
-  ctx: ScanContext
+  ctx: ScanContext,
 ): Promise<DensityChunk[]> {
   const densityMap: DensityChunk[] = [];
   let currentPrice = config.minPrice;
@@ -254,7 +279,11 @@ async function buildDensityMap(
     const batch: ScanRange[] = [];
     let batchPrice = currentPrice;
 
-    for (let i = 0; i < config.concurrency && batchPrice < config.maxPrice; i++) {
+    for (
+      let i = 0;
+      i < config.concurrency && batchPrice < config.maxPrice;
+      i++
+    ) {
       // In dense zone (below threshold), use fixed small steps
       if (batchPrice < config.denseZoneThreshold) {
         step = config.denseZoneStep;
@@ -288,31 +317,35 @@ async function buildDensityMap(
           () => adapter.getDiamondsCount(queryWithPrice),
           {
             onRetry: (error, attempt) => {
-              ctx.log.warn('Retrying count query', {
+              ctx.log.warn("Retrying count query", {
                 attempt,
                 priceRange: { min: range.min, max: range.max },
                 error: error.message,
               });
             },
-          }
+          },
         );
 
         return { ...range, count };
-      })
+      }),
     );
 
     // Process results and update adaptive stepping
     for (const result of results) {
       scannedRanges++;
       ctx.rangesScanned++;
-      ctx.log.debug('Scanned price range', {
+      ctx.log.debug("Scanned price range", {
         rangeIndex: scannedRanges,
         priceRange: { min: result.min, max: result.max },
         count: result.count,
       });
 
       if (result.count > 0) {
-        densityMap.push({ min: result.min, max: result.max, count: result.count });
+        densityMap.push({
+          min: result.min,
+          max: result.max,
+          count: result.count,
+        });
       }
 
       // Adaptive step adjustment (only above dense zone threshold)
@@ -335,7 +368,7 @@ async function buildDensityMap(
     currentPrice = batchPrice;
   }
 
-  ctx.log.info('Density map built', {
+  ctx.log.info("Density map built", {
     rangesScanned: scannedRanges,
     nonEmptyChunks: densityMap.length,
   });
@@ -366,55 +399,65 @@ async function buildDensityMapTwoPass(
     targetRecordsPerChunk: number;
     concurrency: number;
   },
-  ctx: ScanContext
+  ctx: ScanContext,
 ): Promise<DensityChunk[]> {
-  ctx.log.info('Phase 1: Coarse scan to identify dense regions');
+  ctx.log.info("Phase 1: Coarse scan to identify dense regions");
 
   // Phase 1: Coarse scan to find which regions have data
-  const coarseResults = await coarseScan(adapter, baseQuery, {
-    minPrice: config.minPrice,
-    maxPrice: config.maxPrice,
-    step: config.coarseStep,
-    concurrency: config.concurrency,
-  }, ctx);
+  const coarseResults = await coarseScan(
+    adapter,
+    baseQuery,
+    {
+      minPrice: config.minPrice,
+      maxPrice: config.maxPrice,
+      step: config.coarseStep,
+      concurrency: config.concurrency,
+    },
+    ctx,
+  );
 
   if (coarseResults.length === 0) {
-    ctx.log.info('No data found in coarse scan');
+    ctx.log.info("No data found in coarse scan");
     return [];
   }
 
   // Identify dense regions (contiguous ranges with data)
   const denseRegions = identifyDenseRegions(coarseResults);
-  ctx.log.info('Dense regions identified', { count: denseRegions.length });
+  ctx.log.info("Dense regions identified", { count: denseRegions.length });
 
   // Phase 2: Refine boundaries with binary search
-  ctx.log.info('Phase 2: Refining region boundaries');
+  ctx.log.info("Phase 2: Refining region boundaries");
   const refinedRegions = await refineBoundaries(
     adapter,
     baseQuery,
     denseRegions,
     coarseResults,
     config.denseZoneStep,
-    ctx
+    ctx,
   );
 
   // Phase 3: Fine scan within each refined region
-  ctx.log.info('Phase 3: Fine scanning dense regions');
+  ctx.log.info("Phase 3: Fine scanning dense regions");
   const densityMap: DensityChunk[] = [];
 
   for (const region of refinedRegions) {
-    const regionChunks = await fineScanRegion(adapter, baseQuery, {
-      start: region.start,
-      end: region.end,
-      denseZoneThreshold: config.denseZoneThreshold,
-      denseZoneStep: config.denseZoneStep,
-      targetRecordsPerChunk: config.targetRecordsPerChunk,
-      concurrency: config.concurrency,
-    }, ctx);
+    const regionChunks = await fineScanRegion(
+      adapter,
+      baseQuery,
+      {
+        start: region.start,
+        end: region.end,
+        denseZoneThreshold: config.denseZoneThreshold,
+        denseZoneStep: config.denseZoneStep,
+        targetRecordsPerChunk: config.targetRecordsPerChunk,
+        concurrency: config.concurrency,
+      },
+      ctx,
+    );
     densityMap.push(...regionChunks);
   }
 
-  ctx.log.info('Two-pass scan complete', { chunks: densityMap.length });
+  ctx.log.info("Two-pass scan complete", { chunks: densityMap.length });
   return densityMap;
 }
 
@@ -436,7 +479,7 @@ async function coarseScan(
     step: number;
     concurrency: number;
   },
-  ctx: ScanContext
+  ctx: ScanContext,
 ): Promise<CoarseResult[]> {
   const results: CoarseResult[] = [];
   let currentPrice = config.minPrice;
@@ -446,7 +489,11 @@ async function coarseScan(
     const batch: Array<{ min: number; max: number }> = [];
     let batchPrice = currentPrice;
 
-    for (let i = 0; i < config.concurrency && batchPrice < config.maxPrice; i++) {
+    for (
+      let i = 0;
+      i < config.concurrency && batchPrice < config.maxPrice;
+      i++
+    ) {
       const rangeMax = Math.min(batchPrice + config.step, config.maxPrice);
       batch.push({ min: batchPrice, max: rangeMax });
       batchPrice = rangeMax;
@@ -461,7 +508,7 @@ async function coarseScan(
         };
         const count = await withRetry(() => adapter.getDiamondsCount(query), {
           onRetry: (error, attempt) => {
-            ctx.log.warn('Retrying coarse scan', {
+            ctx.log.warn("Retrying coarse scan", {
               attempt,
               priceRange: { min: range.min, max: range.max },
               error: error.message,
@@ -469,13 +516,13 @@ async function coarseScan(
           },
         });
         return { ...range, count };
-      })
+      }),
     );
 
     for (const result of batchResults) {
       rangeCount++;
       ctx.rangesScanned++;
-      ctx.log.debug('Coarse scan range', {
+      ctx.log.debug("Coarse scan range", {
         rangeIndex: rangeCount,
         priceRange: { min: result.min, max: result.max },
         hasData: result.count > 0,
@@ -529,19 +576,19 @@ async function refineBoundaries(
   regions: DenseRegion[],
   coarseResults: CoarseResult[],
   minStep: number,
-  ctx: ScanContext
+  ctx: ScanContext,
 ): Promise<DenseRegion[]> {
   const refined: DenseRegion[] = [];
 
   for (const region of regions) {
     // Find the coarse result just before this region (if any) for start refinement
     const prevEmpty = coarseResults.find(
-      (r) => r.max === region.start && r.count === 0
+      (r) => r.max === region.start && r.count === 0,
     );
 
     // Find the coarse result just after this region (if any) for end refinement
     const nextEmpty = coarseResults.find(
-      (r) => r.min === region.end && r.count === 0
+      (r) => r.min === region.end && r.count === 0,
     );
 
     let refinedStart = region.start;
@@ -555,10 +602,10 @@ async function refineBoundaries(
         prevEmpty.min,
         region.start + minStep,
         minStep,
-        'start',
-        ctx
+        "start",
+        ctx,
       );
-      ctx.log.debug('Refined start boundary', {
+      ctx.log.debug("Refined start boundary", {
         from: prevEmpty.min,
         to: refinedStart,
       });
@@ -572,10 +619,10 @@ async function refineBoundaries(
         region.end - minStep,
         nextEmpty.max,
         minStep,
-        'end',
-        ctx
+        "end",
+        ctx,
       );
-      ctx.log.debug('Refined end boundary', {
+      ctx.log.debug("Refined end boundary", {
         from: nextEmpty.max,
         to: refinedEnd,
       });
@@ -596,8 +643,8 @@ async function binarySearchBoundary(
   low: number,
   high: number,
   minStep: number,
-  boundaryType: 'start' | 'end',
-  ctx: ScanContext
+  boundaryType: "start" | "end",
+  ctx: ScanContext,
 ): Promise<number> {
   // Stop when the range is smaller than minStep
   while (high - low > minStep) {
@@ -611,14 +658,14 @@ async function binarySearchBoundary(
 
     const count = await withRetry(() => adapter.getDiamondsCount(query), {
       onRetry: (error, attempt) => {
-        ctx.log.warn('Retrying binary search', {
+        ctx.log.warn("Retrying binary search", {
           attempt,
           error: error.message,
         });
       },
     });
 
-    if (boundaryType === 'start') {
+    if (boundaryType === "start") {
       // Looking for first non-empty range
       if (count > 0) {
         high = mid;
@@ -635,7 +682,7 @@ async function binarySearchBoundary(
     }
   }
 
-  return boundaryType === 'start' ? low : high;
+  return boundaryType === "start" ? low : high;
 }
 
 /**
@@ -652,7 +699,7 @@ async function fineScanRegion(
     targetRecordsPerChunk: number;
     concurrency: number;
   },
-  ctx: ScanContext
+  ctx: ScanContext,
 ): Promise<DensityChunk[]> {
   const chunks: DensityChunk[] = [];
   let currentPrice = config.start;
@@ -682,7 +729,7 @@ async function fineScanRegion(
         };
         const count = await withRetry(() => adapter.getDiamondsCount(query), {
           onRetry: (error, attempt) => {
-            ctx.log.warn('Retrying fine scan', {
+            ctx.log.warn("Retrying fine scan", {
               attempt,
               priceRange: { min: range.min, max: range.max },
               error: error.message,
@@ -690,14 +737,14 @@ async function fineScanRegion(
           },
         });
         return { ...range, count };
-      })
+      }),
     );
 
     for (const result of results) {
       ctx.rangesScanned++;
       if (result.count > 0) {
         chunks.push({ min: result.min, max: result.max, count: result.count });
-        ctx.log.debug('Fine scan chunk found', {
+        ctx.log.debug("Fine scan chunk found", {
           priceRange: { min: result.min, max: result.max },
           count: result.count,
         });
@@ -728,7 +775,7 @@ async function fineScanRegion(
 export function calculateWorkerCount(
   totalRecords: number,
   maxWorkers: number,
-  minRecordsPerWorker: number
+  minRecordsPerWorker: number,
 ): number {
   if (totalRecords === 0) {
     return 0;
@@ -751,7 +798,7 @@ export function createPartitions(
   densityMap: DensityChunk[],
   desiredWorkerCount: number,
   logger: Logger = nullLogger,
-  maxTotalRecords: number = 0
+  maxTotalRecords: number = 0,
 ): WorkerPartition[] {
   if (densityMap.length === 0 || desiredWorkerCount === 0) {
     return [];
@@ -760,12 +807,13 @@ export function createPartitions(
   const totalRecords = densityMap.reduce((sum, chunk) => sum + chunk.count, 0);
 
   // Apply maxTotalRecords cap if set
-  const effectiveTotal = maxTotalRecords > 0
-    ? Math.min(totalRecords, maxTotalRecords)
-    : totalRecords;
+  const effectiveTotal =
+    maxTotalRecords > 0
+      ? Math.min(totalRecords, maxTotalRecords)
+      : totalRecords;
 
   if (maxTotalRecords > 0 && totalRecords > maxTotalRecords) {
-    logger.info('Applying maxTotalRecords cap', {
+    logger.info("Applying maxTotalRecords cap", {
       originalTotal: totalRecords,
       cappedTotal: effectiveTotal,
       maxTotalRecords,
@@ -774,19 +822,60 @@ export function createPartitions(
 
   const targetPerWorker = Math.ceil(effectiveTotal / desiredWorkerCount);
 
-  logger.debug('Creating partitions', { targetPerWorker, effectiveTotal });
+  logger.debug("Creating partitions", { targetPerWorker, effectiveTotal });
+
+  // Flatten large chunks that would prevent achieving desired worker count
+  // This allows the greedy algorithm to create partitions at finer boundaries
+  const flattenedChunks: DensityChunk[] = [];
+  for (const chunk of densityMap) {
+    // Split chunks that are > 1.5x the target to allow better distribution
+    if (chunk.count > targetPerWorker * 1.5) {
+      const numSubChunks = Math.ceil(chunk.count / targetPerWorker);
+      const priceStep = (chunk.max - chunk.min) / numSubChunks;
+      const countPerSubChunk = Math.floor(chunk.count / numSubChunks);
+
+      for (let j = 0; j < numSubChunks; j++) {
+        const isLast = j === numSubChunks - 1;
+        flattenedChunks.push({
+          min: Math.floor(chunk.min + priceStep * j),
+          max: isLast ? chunk.max : Math.floor(chunk.min + priceStep * (j + 1)),
+          count: isLast ? chunk.count - countPerSubChunk * j : countPerSubChunk,
+        });
+      }
+
+      logger.debug("Split large chunk for balancing", {
+        originalPriceRange: { min: chunk.min, max: chunk.max },
+        originalCount: chunk.count,
+        subChunks: numSubChunks,
+        targetPerWorker,
+      });
+    } else {
+      flattenedChunks.push(chunk);
+    }
+  }
+
+  // Log if we split any chunks
+  if (flattenedChunks.length !== densityMap.length) {
+    logger.info("Chunks flattened for better partition balance", {
+      originalChunks: densityMap.length,
+      flattenedChunks: flattenedChunks.length,
+    });
+  }
 
   const partitions: WorkerPartition[] = [];
   let currentWorkerId = 0;
   let currentBatchSum = 0;
-  let currentBatchStart = densityMap[0].min;
+  let currentBatchStart = flattenedChunks[0].min;
   let cumulativeRecords = 0;
 
-  for (let i = 0; i < densityMap.length; i++) {
-    const chunk = densityMap[i];
+  for (let i = 0; i < flattenedChunks.length; i++) {
+    const chunk = flattenedChunks[i];
 
     // Check if adding this chunk would exceed the cap
-    if (maxTotalRecords > 0 && cumulativeRecords + chunk.count > maxTotalRecords) {
+    if (
+      maxTotalRecords > 0 &&
+      cumulativeRecords + chunk.count > maxTotalRecords
+    ) {
       // Calculate how many records we can still take from this chunk
       const remainingAllowance = maxTotalRecords - cumulativeRecords;
 
@@ -802,7 +891,7 @@ export function createPartitions(
           totalRecords: currentBatchSum,
         });
 
-        logger.debug('Final capped partition created', {
+        logger.debug("Final capped partition created", {
           partitionId: `partition-${currentWorkerId}`,
           priceRange: { min: currentBatchStart, max: chunk.max },
           records: currentBatchSum,
@@ -811,7 +900,7 @@ export function createPartitions(
       }
 
       // Stop processing - we've hit the cap
-      logger.info('Partitioning stopped at record cap', {
+      logger.info("Partitioning stopped at record cap", {
         totalPartitions: partitions.length,
         totalRecords: cumulativeRecords,
         maxTotalRecords,
@@ -823,7 +912,7 @@ export function createPartitions(
     cumulativeRecords += chunk.count;
 
     // Create partition when we hit target or reach the end
-    const isLastChunk = i === densityMap.length - 1;
+    const isLastChunk = i === flattenedChunks.length - 1;
     const hitTarget = currentBatchSum >= targetPerWorker;
     const hasRemainingWorkers = currentWorkerId < desiredWorkerCount - 1;
 
@@ -836,7 +925,7 @@ export function createPartitions(
         totalRecords: currentBatchSum,
       });
 
-      logger.debug('Partition created', {
+      logger.debug("Partition created", {
         partitionId: `partition-${currentWorkerId}`,
         priceRange: { min: currentBatchStart, max: chunk.max },
         records: currentBatchSum,
@@ -847,8 +936,8 @@ export function createPartitions(
       currentBatchSum = 0;
 
       // Next worker starts at the next chunk's min
-      if (i + 1 < densityMap.length) {
-        currentBatchStart = densityMap[i + 1].min;
+      if (i + 1 < flattenedChunks.length) {
+        currentBatchStart = flattenedChunks[i + 1].min;
       }
     }
   }
