@@ -91,6 +91,45 @@ export interface NivodaDiamondsResponse {
   items: NivodaItem[];
 }
 
+/**
+ * Valid order types for Nivoda diamond queries.
+ * Used with DiamondOrder to control result ordering.
+ */
+export type NivodaOrderType =
+  | 'createdAt'
+  | 'price'
+  | 'discount'
+  | 'color'
+  | 'clarity'
+  | 'cut'
+  | 'size'
+  | 'none'
+  | 'insert'
+  | 'price_per_carat'
+  | 'popular';
+
+/**
+ * Order direction for diamond queries.
+ */
+export type NivodaOrderDirection = 'ASC' | 'DESC';
+
+/**
+ * Order specification for diamond queries.
+ */
+export interface NivodaOrder {
+  type: NivodaOrderType;
+  direction: NivodaOrderDirection;
+}
+
+/**
+ * Date range filter for updatedAt queries.
+ * Both from and to are ISO 8601 date strings.
+ */
+export interface NivodaDateRange {
+  from?: string;
+  to?: string;
+}
+
 export interface NivodaQuery {
   dollar_value?: { from?: number; to?: number };
   sizes?: { from?: number; to?: number };
@@ -98,6 +137,8 @@ export interface NivodaQuery {
   labgrown?: boolean;
   has_image?: boolean;
   has_video?: boolean;
+  /** Filter by diamond update timestamp. Use ISO 8601 date strings. */
+  updatedAt?: NivodaDateRange;
 }
 
 export interface NivodaHoldResponse {
