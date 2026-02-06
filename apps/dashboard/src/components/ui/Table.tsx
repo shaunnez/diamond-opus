@@ -91,8 +91,8 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }: Pag
   const endItem = Math.min(page * limit, total);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-stone-200">
-      <div className="text-sm text-stone-500 text-center sm:text-left">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-stone-800 border-t border-stone-200 dark:border-stone-700">
+      <div className="text-sm text-stone-500 dark:text-stone-400 text-center sm:text-left">
         <span className="hidden sm:inline">
           Showing <span className="font-medium">{startItem}</span> to{' '}
           <span className="font-medium">{endItem}</span> of{' '}
@@ -109,7 +109,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }: Pag
         >
           <span className="hidden sm:inline">Previous</span>
         </Button>
-        <span className="text-sm text-stone-600 px-2">
+        <span className="text-sm text-stone-600 dark:text-stone-300 px-2">
           {page} / {totalPages}
         </span>
         <Button

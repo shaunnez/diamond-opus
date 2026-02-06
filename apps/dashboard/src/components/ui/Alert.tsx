@@ -16,28 +16,28 @@ const variantStyles: Record<
   { bg: string; border: string; icon: string; text: string }
 > = {
   success: {
-    bg: 'bg-success-50',
-    border: 'border-success-200',
+    bg: 'bg-success-50 dark:bg-success-500/10',
+    border: 'border-success-200 dark:border-success-500/30',
     icon: 'text-success-500',
-    text: 'text-success-800',
+    text: 'text-success-800 dark:text-success-400',
   },
   warning: {
-    bg: 'bg-warning-50',
-    border: 'border-warning-200',
+    bg: 'bg-warning-50 dark:bg-warning-500/10',
+    border: 'border-warning-200 dark:border-warning-500/30',
     icon: 'text-warning-500',
-    text: 'text-warning-800',
+    text: 'text-warning-800 dark:text-warning-400',
   },
   error: {
-    bg: 'bg-error-50',
-    border: 'border-error-200',
+    bg: 'bg-error-50 dark:bg-error-500/10',
+    border: 'border-error-200 dark:border-error-500/30',
     icon: 'text-error-500',
-    text: 'text-error-800',
+    text: 'text-error-800 dark:text-error-400',
   },
   info: {
-    bg: 'bg-info-50',
-    border: 'border-info-200',
+    bg: 'bg-info-50 dark:bg-info-500/10',
+    border: 'border-info-200 dark:border-info-500/30',
     icon: 'text-info-500',
-    text: 'text-info-800',
+    text: 'text-info-800 dark:text-info-400',
   },
 };
 
@@ -71,7 +71,7 @@ export function Alert({
         {onClose && (
           <button
             onClick={onClose}
-            className={`ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-lg hover:bg-white/50 ${styles.icon}`}
+            className={`ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-lg hover:bg-white/50 dark:hover:bg-stone-700/50 ${styles.icon}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -94,9 +94,9 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      {icon && <div className="text-stone-300 mb-4">{icon}</div>}
-      <h3 className="text-lg font-medium text-stone-900">{title}</h3>
-      {description && <p className="text-sm text-stone-500 mt-1 max-w-sm">{description}</p>}
+      {icon && <div className="text-stone-300 dark:text-stone-600 mb-4">{icon}</div>}
+      <h3 className="text-lg font-medium text-stone-900 dark:text-stone-100">{title}</h3>
+      {description && <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 max-w-sm">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

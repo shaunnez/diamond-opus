@@ -210,3 +210,62 @@ export async function getErrorLogServices(): Promise<string[]> {
   const response = await api.get<{ data: string[] }>('/analytics/error-logs/services');
   return response.data.data;
 }
+
+// Watermark
+export interface Watermark {
+  lastUpdatedAt: string;
+  lastRunId?: string;
+  lastRunCompletedAt?: string;
+}
+
+export async function getWatermark(): Promise<Watermark | null> {
+  const response = await api.get<{ data: Watermark | null }>('/analytics/watermark');
+  return response.data.data;
+}
+
+export async function updateWatermark(watermark: Watermark): Promise<Watermark> {
+  const response = await api.put<{ data: Watermark }>('/analytics/watermark', watermark);
+  return response.data.data;
+}
+
+// Holds
+export interface HoldHistoryItem {
+  id: string;
+  diamondId: string;
+  feed: string;
+  feedHoldId?: string;
+  offerId: string;
+  status: 'active' | 'expired' | 'released';
+  denied: boolean;
+  holdUntil?: string;
+  createdAt: string;
+}
+
+export async function getHolds(page = 1, limit = 50): Promise<PaginatedResponse<HoldHistoryItem>> {
+  const response = await api.get<PaginatedResponse<HoldHistoryItem>>(
+    `/analytics/holds?page=${page}&limit=${limit}`
+  );
+  return response.data;
+}
+
+// Orders
+export interface PurchaseHistoryItem {
+  id: string;
+  diamondId: string;
+  feed: string;
+  feedOrderId?: string;
+  offerId: string;
+  idempotencyKey: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  reference?: string;
+  comments?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getOrders(page = 1, limit = 50): Promise<PaginatedResponse<PurchaseHistoryItem>> {
+  const response = await api.get<PaginatedResponse<PurchaseHistoryItem>>(
+    `/analytics/orders?page=${page}&limit=${limit}`
+  );
+  return response.data;
+}

@@ -11,11 +11,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-stone-700 mb-1">{label}</label>
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">{label}</label>
         )}
         <div className="relative">
           {icon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 dark:text-stone-500">
               {icon}
             </div>
           )}
@@ -27,7 +27,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
         </div>
-        {error && <p className="mt-1 text-sm text-error-600">{error}</p>}
+        {error && <p className="mt-1 text-sm text-error-600 dark:text-error-400">{error}</p>}
       </div>
     );
   }
@@ -47,7 +47,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-stone-700 mb-1">{label}</label>
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">{label}</label>
         )}
         <select
           ref={ref}
@@ -67,7 +67,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           ))}
         </select>
-        {error && <p className="mt-1 text-sm text-error-600">{error}</p>}
+        {error && <p className="mt-1 text-sm text-error-600 dark:text-error-400">{error}</p>}
       </div>
     );
   }
@@ -86,10 +86,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
         <input
           ref={ref}
           type="checkbox"
-          className="w-4 h-4 rounded border-stone-300 text-primary-600 focus:ring-primary-500"
+          className="w-4 h-4 rounded border-stone-300 dark:border-stone-600 text-primary-600 focus:ring-primary-500 dark:bg-stone-700"
           {...props}
         />
-        <span className="text-sm text-stone-700">{label}</span>
+        <span className="text-sm text-stone-700 dark:text-stone-300">{label}</span>
       </label>
     );
   }
