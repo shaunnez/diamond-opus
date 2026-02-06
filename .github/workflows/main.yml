@@ -1,14 +1,16 @@
-name: CI Staging Build Test Terraform Deploy
+###############################################################################
+# Full Build Deploy (Manual Fallback)
+#
+# Emergency fallback or forced full deploy. Builds, tests, pushes Docker
+# images, applies Terraform, and deploys ALL apps regardless of what changed.
+#
+# Trigger: manual only (workflow_dispatch).
+# For automated change-based CI, see ci-affected-staging.yaml.
+###############################################################################
+
+name: Full Build Deploy (Manual Fallback)
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
   workflow_dispatch:
 
 permissions:
