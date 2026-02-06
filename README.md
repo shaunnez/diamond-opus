@@ -314,10 +314,8 @@ See [infrastructure/README.md](infrastructure/README.md) for Azure deployment us
 
 GitHub Actions workflows:
 
-- **ci.yml**: Build, test, type-check on PR/push
-- **deploy-staging.yml**: Auto-deploy to staging on push to main
-- **deploy-production.yml**: Manual production deployment
-- **infrastructure.yml**: Terraform infrastructure changes
+- **ci-affected-staging.yaml**: Primary CI/CD - detects affected apps, builds/tests/deploys to staging on push to main
+- **main.yml**: Manual fallback for full builds (workflow_dispatch only)
 
 ### Deployment Flow
 

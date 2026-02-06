@@ -194,21 +194,29 @@ npm run swagger
 
 ```
 src/
-├── index.ts              # Entry point
+├── index.ts              # Main exports
+├── main.ts               # Entry point (server startup)
 ├── server.ts             # Express app factory
 ├── routes/
+│   ├── index.ts          # Route registration
 │   ├── health.ts         # Health check route
 │   ├── diamonds.ts       # Diamond CRUD routes
-│   └── index.ts
+│   ├── analytics.ts      # Run analytics and dashboard data
+│   ├── triggers.ts       # Pipeline trigger endpoints
+│   ├── heatmap.ts        # Heatmap data endpoint
+│   ├── nivoda.ts         # Nivoda proxy endpoints
+│   └── pricing-rules.ts  # Pricing rules management
 ├── middleware/
+│   ├── index.ts          # Middleware exports
 │   ├── auth.ts           # Authentication middleware
-│   ├── error.ts          # Error handling
-│   └── logging.ts        # Request logging
-├── schemas/
-│   └── diamonds.ts       # Zod validation schemas
+│   ├── error-handler.ts  # Error handling
+│   └── request-validator.ts # Request validation
+├── validators/
+│   ├── index.ts          # Validator exports
+│   ├── diamonds.ts       # Diamond Zod schemas
+│   └── analytics.ts      # Analytics Zod schemas
 └── swagger/
-    ├── generator.ts      # OpenAPI spec generator
-    └── definitions.ts    # Schema definitions
+    └── generator.ts      # OpenAPI spec generator
 ```
 
 ## Error Handling

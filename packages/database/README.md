@@ -216,14 +216,24 @@ src/
 
 ## Connection Pool Settings
 
+All pool settings are configurable via environment variables:
+
 ```typescript
 {
-  min: 2,              // Minimum connections
-  max: 15,             // Maximum connections
-  idleTimeoutMillis: 30000,  // 30 seconds
-  connectionTimeoutMillis: 5000, // 5 seconds
+  max: PG_POOL_MAX || 2,                          // Default: 2 connections
+  idleTimeoutMillis: PG_IDLE_TIMEOUT_MS || 30000,  // Default: 30 seconds
+  connectionTimeoutMillis: PG_CONN_TIMEOUT_MS || 10000, // Default: 10 seconds
 }
 ```
+
+**Recommended per-service settings:**
+
+| Service | PG_POOL_MAX | PG_IDLE_TIMEOUT_MS | Notes |
+|---------|-------------|--------------------|----|
+| Worker | 1 | 5000 | High replica count, minimal connections |
+| Consolidator | 2 | 5000 | Set CONSOLIDATOR_CONCURRENCY=2 |
+| API | 3 | 30000 | Longer idle for HTTP keep-alive |
+| Scheduler | 2 | 5000 | Short-lived job |
 
 ## Database Schema
 
