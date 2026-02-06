@@ -13,8 +13,17 @@ import {
   isAllowedTable,
   getErrorLogs,
   getErrorLogServices,
+  getHoldHistoryList,
+  getPurchaseHistoryList,
   type RunsFilter,
 } from '@diamond/database';
+import { BlobServiceClient } from '@azure/storage-blob';
+import {
+  optionalEnv,
+  BLOB_CONTAINERS,
+  WATERMARK_BLOB_NAME,
+  type Watermark,
+} from '@diamond/shared';
 import { validateQuery, validateParams, validateBody, badRequest, notFound } from '../middleware/index.js';
 import {
   runsQuerySchema,
@@ -28,6 +37,30 @@ import {
 } from '../validators/index.js';
 
 const router = Router();
+
+// ============================================================================
+// Azure Blob Storage helpers for watermark
+// ============================================================================
+
+let blobServiceClient: BlobServiceClient | null = null;
+
+function getBlobServiceClient(): BlobServiceClient | null {
+  const connectionString = optionalEnv('AZURE_STORAGE_CONNECTION_STRING', '');
+  if (!connectionString) return null;
+  if (!blobServiceClient) {
+    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  }
+  return blobServiceClient;
+}
+
+async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    readableStream.on('data', (data: Buffer) => chunks.push(data));
+    readableStream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    readableStream.on('error', reject);
+  });
+}
 
 // ============================================================================
 // Dashboard Summary
@@ -53,6 +86,76 @@ router.get('/summary', async (_req: Request, res: Response, next: NextFunction) 
   try {
     const summary = await getDashboardSummary();
     res.json({ data: summary });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================================
+// Watermark (Azure Blob Storage)
+// ============================================================================
+
+router.get('/watermark', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const client = getBlobServiceClient();
+    if (!client) {
+      res.status(503).json({
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'Azure Storage not configured' },
+      });
+      return;
+    }
+
+    const containerClient = client.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
+    const blobClient = containerClient.getBlobClient(WATERMARK_BLOB_NAME);
+
+    try {
+      const downloadResponse = await blobClient.download();
+      const content = await streamToString(downloadResponse.readableStreamBody!);
+      const watermark = JSON.parse(content) as Watermark;
+      res.json({ data: watermark });
+    } catch (error) {
+      if ((error as { statusCode?: number }).statusCode === 404) {
+        res.json({ data: null });
+        return;
+      }
+      throw error;
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/watermark', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const client = getBlobServiceClient();
+    if (!client) {
+      res.status(503).json({
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'Azure Storage not configured' },
+      });
+      return;
+    }
+
+    const { lastUpdatedAt, lastRunId, lastRunCompletedAt } = req.body;
+    if (!lastUpdatedAt) {
+      throw badRequest('lastUpdatedAt is required');
+    }
+
+    const watermark: Watermark = {
+      lastUpdatedAt,
+      lastRunId,
+      lastRunCompletedAt,
+    };
+
+    const containerClient = client.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
+    await containerClient.createIfNotExists();
+    const blobClient = containerClient.getBlockBlobClient(WATERMARK_BLOB_NAME);
+    const content = JSON.stringify(watermark);
+
+    await blobClient.upload(content, content.length, {
+      blobHTTPHeaders: { blobContentType: 'application/json' },
+    });
+
+    res.json({ data: watermark, message: 'Watermark updated successfully' });
   } catch (error) {
     next(error);
   }
@@ -362,6 +465,54 @@ router.get(
     }
   }
 );
+
+// ============================================================================
+// Holds & Orders History
+// ============================================================================
+
+router.get('/holds', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
+    const offset = (page - 1) * limit;
+
+    const { holds, total } = await getHoldHistoryList(limit, offset);
+
+    res.json({
+      data: holds,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/orders', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
+    const offset = (page - 1) * limit;
+
+    const { orders, total } = await getPurchaseHistoryList(limit, offset);
+
+    res.json({
+      data: orders,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ============================================================================
 // Error Logs

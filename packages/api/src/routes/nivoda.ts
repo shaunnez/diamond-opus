@@ -2,7 +2,16 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { NivodaAdapter } from "@diamond/nivoda";
 import { badRequest } from "../middleware/index.js";
-import { getDiamondByOfferId } from "@diamond/database";
+import {
+  getDiamondByOfferId,
+  createHoldHistory,
+  updateDiamondAvailability,
+  createPurchaseHistory,
+  updatePurchaseStatus,
+  getHoldById,
+  updateHoldStatus,
+} from "@diamond/database";
+import type { Diamond } from "@diamond/shared";
 
 const router = Router();
 
@@ -13,7 +22,7 @@ const router = Router();
  *     summary: Place a hold on a diamond
  *     description: |
  *       Places a hold on a diamond using the Nivoda API.
- *       The offer_id can be obtained from the diamonds table.
+ *       Also records the hold in hold_history and updates diamond availability.
  *     tags:
  *       - Nivoda
  *     security:
@@ -54,6 +63,23 @@ router.post(
       const adapter = new NivodaAdapter();
       const result = await adapter.createHold(offer_id);
 
+      // Track in Supabase - look up diamond by offer_id
+      const diamond = await getDiamondByOfferId(offer_id) as Diamond | null;
+      if (diamond) {
+        await createHoldHistory(
+          diamond.id,
+          diamond.feed,
+          diamond.offerId,
+          result.id,
+          result.denied,
+          result.until ? new Date(result.until) : undefined
+        );
+
+        if (!result.denied) {
+          await updateDiamondAvailability(diamond.id, 'on_hold', result.id);
+        }
+      }
+
       if (result.denied) {
         res.status(400).json({
           error: {
@@ -84,12 +110,85 @@ router.post(
 
 /**
  * @openapi
+ * /api/v2/nivoda/cancel-hold:
+ *   post:
+ *     summary: Cancel/release a hold on a diamond
+ *     tags:
+ *       - Nivoda
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - hold_id
+ *             properties:
+ *               hold_id:
+ *                 type: string
+ *                 description: The hold history record ID
+ *     responses:
+ *       200:
+ *         description: Hold cancelled successfully
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Hold not found
+ */
+router.post(
+  "/cancel-hold",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { hold_id } = req.body;
+
+      if (!hold_id) {
+        throw badRequest("hold_id is required");
+      }
+
+      const hold = await getHoldById(hold_id);
+      if (!hold) {
+        res.status(404).json({
+          error: { code: "NOT_FOUND", message: "Hold not found" },
+        });
+        return;
+      }
+
+      if (hold.status !== 'active') {
+        throw badRequest(`Hold is already ${hold.status}`);
+      }
+
+      // Update hold status in DB
+      await updateHoldStatus(hold_id, 'released');
+
+      // Restore diamond availability if we have the diamond
+      if (hold.diamondId) {
+        await updateDiamondAvailability(hold.diamondId, 'available', undefined);
+      }
+
+      res.json({
+        data: {
+          hold_id: hold_id,
+          status: 'released',
+          message: "Hold cancelled successfully",
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @openapi
  * /api/v2/nivoda/order:
  *   post:
  *     summary: Create an order for a diamond
  *     description: |
  *       Creates an order for a diamond using the Nivoda API.
- *       Requires a destination_id from your Nivoda account.
+ *       Also records the order in purchase_history.
  *     tags:
  *       - Nivoda
  *     security:
@@ -103,7 +202,6 @@ router.post(
  *             type: object
  *             required:
  *               - offer_id
- *               - destination_id
  *             properties:
  *               offer_id:
  *                 type: string
@@ -140,27 +238,60 @@ router.post(
       if (!offer_id) {
         throw badRequest("offer_id is required");
       }
-      // if (!destination_id) {
-      //   throw badRequest("destination_id is required");
-      // }
 
-      const adapter = new NivodaAdapter();
-      const result = await adapter.createOrder([
-        {
-          offerId: offer_id,
-          destinationId: destination_id,
-          customer_comment: comments,
-          customer_order_number: reference,
-          return_option: return_option || false,
+      // Look up diamond for tracking
+      const diamond = await getDiamondByOfferId(offer_id) as Diamond | null;
+      const idempotencyKey = `nivoda-order-${offer_id}-${Date.now()}`;
+
+      // Create pending purchase record
+      let purchaseId: string | undefined;
+      if (diamond) {
+        const record = await createPurchaseHistory(
+          diamond.id,
+          diamond.feed,
+          diamond.offerId,
+          idempotencyKey,
+          'pending',
+          undefined,
+          reference,
+          comments
+        );
+        purchaseId = record.id;
+      }
+
+      try {
+        const adapter = new NivodaAdapter();
+        const result = await adapter.createOrder([
+          {
+            offerId: offer_id,
+            destinationId: destination_id,
+            customer_comment: comments,
+            customer_order_number: reference,
+            return_option: return_option || false,
+          }
+        ]);
+
+        // Update purchase record to confirmed
+        if (purchaseId) {
+          await updatePurchaseStatus(purchaseId, 'confirmed', result);
+          if (diamond) {
+            await updateDiamondAvailability(diamond.id, 'sold');
+          }
         }
-      ]);
 
-      res.json({
-        data: {
-          order_id: result,
-          message: "Order created successfully",
-        },
-      });
+        res.json({
+          data: {
+            order_id: result,
+            message: "Order created successfully",
+          },
+        });
+      } catch (orderError) {
+        // Update purchase record to failed
+        if (purchaseId) {
+          await updatePurchaseStatus(purchaseId, 'failed', null);
+        }
+        throw orderError;
+      }
     } catch (error) {
       next(error);
     }

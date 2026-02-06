@@ -21,8 +21,8 @@ export function CardHeader({ title, subtitle, action }: CardHeaderProps) {
   return (
     <div className="flex items-start justify-between mb-4">
       <div>
-        <h3 className="text-lg font-semibold text-stone-900">{title}</h3>
-        {subtitle && <p className="text-sm text-stone-500 mt-0.5">{subtitle}</p>}
+        <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">{title}</h3>
+        {subtitle && <p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">{subtitle}</p>}
       </div>
       {action && <div>{action}</div>}
     </div>
@@ -45,9 +45,9 @@ export function StatCard({ title, value, subtitle, icon, trend }: StatCardProps)
     <Card>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm font-medium text-stone-500">{title}</p>
-          <p className="text-2xl font-semibold text-stone-900 mt-1">{value}</p>
-          {subtitle && <p className="text-sm text-stone-500 mt-1">{subtitle}</p>}
+          <p className="text-sm font-medium text-stone-500 dark:text-stone-400">{title}</p>
+          <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100 mt-1">{value}</p>
+          {subtitle && <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{subtitle}</p>}
           {trend && (
             <p
               className={`text-sm mt-1 ${
@@ -60,7 +60,7 @@ export function StatCard({ title, value, subtitle, icon, trend }: StatCardProps)
           )}
         </div>
         {icon && (
-          <div className="p-2 bg-primary-50 rounded-lg text-primary-600">{icon}</div>
+          <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg text-primary-600 dark:text-primary-400">{icon}</div>
         )}
       </div>
     </Card>

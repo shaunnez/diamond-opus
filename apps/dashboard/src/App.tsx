@@ -11,8 +11,11 @@ import { Heatmap } from './pages/Heatmap';
 import { PricingRules } from './pages/PricingRules';
 import { Nivoda } from './pages/Nivoda';
 import { ErrorLogs } from './pages/ErrorLogs';
+import { Holds } from './pages/Holds';
+import { Orders } from './pages/Orders';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { ThemeProvider } from './hooks/useTheme';
 
 function ProtectedRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -20,10 +23,10 @@ function ProtectedRoutes() {
   // Show loading state while checking auth
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-stone-600">Loading...</p>
+          <p className="text-stone-600 dark:text-stone-400">Loading...</p>
         </div>
       </div>
     );
@@ -46,6 +49,8 @@ function ProtectedRoutes() {
         <Route path="/heatmap" element={<Heatmap />} />
         <Route path="/pricing-rules" element={<PricingRules />} />
         <Route path="/nivoda" element={<Nivoda />} />
+        <Route path="/holds" element={<Holds />} />
+        <Route path="/orders" element={<Orders />} />
         <Route path="/error-logs" element={<ErrorLogs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -55,11 +60,13 @@ function ProtectedRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/*" element={<ProtectedRoutes />} />
-      </Routes>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={<ProtectedRoutes />} />
+        </Routes>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

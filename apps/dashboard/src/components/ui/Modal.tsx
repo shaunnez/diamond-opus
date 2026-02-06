@@ -50,15 +50,15 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className={`relative w-full ${sizeClasses[size]} bg-white rounded-xl shadow-soft-lg transform transition-all`}
+          className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-stone-800 rounded-xl shadow-soft-lg transform transition-all`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200">
-            <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 dark:border-stone-700">
+            <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 text-stone-400 hover:text-stone-600 transition-colors rounded-lg hover:bg-stone-100"
+              className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700"
             >
               <X className="w-5 h-5" />
             </button>
@@ -69,7 +69,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-4 border-t border-stone-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-stone-200 dark:border-stone-700 flex justify-end gap-3">
               {footer}
             </div>
           )}
@@ -119,7 +119,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <p className="text-stone-600">{message}</p>
+      <p className="text-stone-600 dark:text-stone-300">{message}</p>
     </Modal>
   );
 }

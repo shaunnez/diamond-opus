@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Diamond,
@@ -9,8 +10,19 @@ import {
   PlayCircle,
   ArrowRight,
   AlertTriangle,
+  Pencil,
+  Bookmark,
 } from 'lucide-react';
-import { getDashboardSummary, getRuns, getRecentFailedWorkers, type RunWithStats, type RecentFailedWorker } from '../api/analytics';
+import {
+  getDashboardSummary,
+  getRuns,
+  getRecentFailedWorkers,
+  getWatermark,
+  updateWatermark,
+  type RunWithStats,
+  type RecentFailedWorker,
+  type Watermark,
+} from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -22,6 +34,7 @@ import {
   Button,
   PageLoader,
   Alert,
+  Modal,
 } from '../components/ui';
 import {
   formatNumber,
@@ -33,6 +46,9 @@ import {
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [editWatermark, setEditWatermark] = useState(false);
+  const [watermarkDate, setWatermarkDate] = useState('');
 
   const {
     data: summary,
@@ -70,10 +86,52 @@ export function Dashboard() {
     refetchOnWindowFocus: false,
   });
 
+  const {
+    data: watermark,
+    refetch: refetchWatermark,
+  } = useQuery({
+    queryKey: ['watermark'],
+    queryFn: getWatermark,
+    refetchInterval: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const updateWatermarkMutation = useMutation({
+    mutationFn: (wm: Watermark) => updateWatermark(wm),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['watermark'] });
+      refetchWatermark();
+      setEditWatermark(false);
+    },
+  });
+
   const handleRefresh = () => {
     refetchSummary();
     refetchRuns();
     refetchFailed();
+    refetchWatermark();
+  };
+
+  const openWatermarkEdit = () => {
+    if (watermark?.lastUpdatedAt) {
+      // Convert ISO to datetime-local format
+      const d = new Date(watermark.lastUpdatedAt);
+      setWatermarkDate(d.toISOString().slice(0, 16));
+    } else {
+      setWatermarkDate('');
+    }
+    setEditWatermark(true);
+  };
+
+  const saveWatermark = () => {
+    if (!watermarkDate) return;
+    const iso = new Date(watermarkDate).toISOString();
+    updateWatermarkMutation.mutate({
+      lastUpdatedAt: iso,
+      lastRunId: watermark?.lastRunId,
+      lastRunCompletedAt: watermark?.lastRunCompletedAt,
+    });
   };
 
   if (summaryLoading) {
@@ -93,10 +151,43 @@ export function Dashboard() {
     );
   }
 
+  const watermarkDisplay = watermark?.lastUpdatedAt
+    ? new Date(watermark.lastUpdatedAt).toLocaleString()
+    : 'Not set';
+
   return (
     <>
       <Header onRefresh={handleRefresh} />
       <PageContainer>
+        {/* Watermark Card */}
+        <Card className="mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
+                <Bookmark className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-stone-500 dark:text-stone-400">
+                  Watermark (Azure Blob)
+                </p>
+                <p className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                  {watermarkDisplay}
+                </p>
+                {watermark?.lastRunId && (
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    Last run: {truncateId(watermark.lastRunId, 8)}
+                    {watermark.lastRunCompletedAt &&
+                      ` (completed ${formatRelativeTime(watermark.lastRunCompletedAt)})`}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={openWatermarkEdit} icon={<Pencil className="w-4 h-4" />}>
+              Edit
+            </Button>
+          </div>
+        </Card>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
@@ -132,14 +223,14 @@ export function Dashboard() {
 
         {/* Failed Workers Alert */}
         {failedWorkers && failedWorkers.length > 0 && (
-          <div className="mb-8 bg-error-50 border border-error-200 rounded-xl p-4 sm:p-5">
+          <div className="mb-8 bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/30 rounded-xl p-4 sm:p-5">
             <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-error-600 dark:text-error-500 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-error-800">
+                <h3 className="text-sm font-semibold text-error-800 dark:text-error-400">
                   {failedWorkers.length} Failed Worker{failedWorkers.length !== 1 ? 's' : ''}
                 </h3>
-                <p className="text-xs text-error-600 mt-0.5">
+                <p className="text-xs text-error-600 dark:text-error-500 mt-0.5">
                   Recent worker failures that may need attention. Click a run to retry or force-consolidate.
                 </p>
               </div>
@@ -149,25 +240,25 @@ export function Dashboard() {
                 <div
                   key={fw.id}
                   onClick={() => navigate(`/runs/${fw.runId}`)}
-                  className="flex items-start sm:items-center justify-between p-3 bg-white rounded-lg border border-error-100 hover:border-error-300 cursor-pointer transition-colors gap-2"
+                  className="flex items-start sm:items-center justify-between p-3 bg-white dark:bg-stone-800 rounded-lg border border-error-100 dark:border-error-500/20 hover:border-error-300 dark:hover:border-error-500/40 cursor-pointer transition-colors gap-2"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <XCircle className="w-3.5 h-3.5 text-error-500 flex-shrink-0" />
-                      <span className="font-mono text-xs text-stone-700">
+                      <span className="font-mono text-xs text-stone-700 dark:text-stone-300">
                         {truncateId(fw.runId, 8)}
                       </span>
-                      <span className="text-xs px-1.5 py-0.5 bg-stone-100 text-stone-600 rounded">
+                      <span className="text-xs px-1.5 py-0.5 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded">
                         {fw.partitionId}
                       </span>
                     </div>
                     {fw.errorMessage && (
-                      <p className="text-xs text-error-600 mt-1 truncate max-w-md">
+                      <p className="text-xs text-error-600 dark:text-error-500 mt-1 truncate max-w-md">
                         {fw.errorMessage}
                       </p>
                     )}
                   </div>
-                  <span className="text-xs text-stone-500 flex-shrink-0">
+                  <span className="text-xs text-stone-500 dark:text-stone-400 flex-shrink-0">
                     {formatRelativeTime(fw.completedAt || fw.startedAt)}
                   </span>
                 </div>
@@ -175,9 +266,9 @@ export function Dashboard() {
               {failedWorkers.length > 5 && (
                 <button
                   onClick={() => navigate('/runs?status=failed')}
-                  className="w-full text-center text-xs text-error-600 hover:text-error-800 py-2 transition-colors"
+                  className="w-full text-center text-xs text-error-600 dark:text-error-400 hover:text-error-800 dark:hover:text-error-300 py-2 transition-colors"
                 >
-                  View all {failedWorkers.length} failures →
+                  View all {failedWorkers.length} failures
                 </button>
               )}
             </div>
@@ -204,29 +295,29 @@ export function Dashboard() {
               {runsLoading ? (
                 <div className="animate-pulse space-y-3">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="h-16 bg-stone-100 rounded-lg" />
+                    <div key={i} className="h-16 bg-stone-100 dark:bg-stone-700 rounded-lg" />
                   ))}
                 </div>
               ) : recentRuns?.data.length === 0 ? (
-                <div className="text-center py-8 text-stone-500">No runs yet</div>
+                <div className="text-center py-8 text-stone-500 dark:text-stone-400">No runs yet</div>
               ) : (
                 <div className="space-y-3">
                   {recentRuns?.data.map((run: RunWithStats) => (
                     <div
                       key={run.runId}
                       onClick={() => navigate(`/runs/${run.runId}`)}
-                      className="flex items-start sm:items-center justify-between p-3 sm:p-4 bg-stone-50 rounded-lg hover:bg-stone-100 cursor-pointer transition-colors gap-3"
+                      className="flex items-start sm:items-center justify-between p-3 sm:p-4 bg-stone-50 dark:bg-stone-700/50 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 cursor-pointer transition-colors gap-3"
                     >
                       <div className="flex items-start sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
                         <div
                           className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
                             run.status === 'completed'
-                              ? 'bg-success-100 text-success-600'
+                              ? 'bg-success-100 text-success-600 dark:bg-success-500/20 dark:text-success-500'
                               : run.status === 'failed'
-                              ? 'bg-error-100 text-error-600'
+                              ? 'bg-error-100 text-error-600 dark:bg-error-500/20 dark:text-error-500'
                               : run.status === 'running'
-                              ? 'bg-info-100 text-info-600'
-                              : 'bg-warning-100 text-warning-600'
+                              ? 'bg-info-100 text-info-600 dark:bg-info-500/20 dark:text-info-500'
+                              : 'bg-warning-100 text-warning-600 dark:bg-warning-500/20 dark:text-warning-500'
                           }`}
                         >
                           {run.status === 'completed' ? (
@@ -239,26 +330,26 @@ export function Dashboard() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                            <span className="font-mono text-xs sm:text-sm text-stone-700 break-all">
+                            <span className="font-mono text-xs sm:text-sm text-stone-700 dark:text-stone-300 break-all">
                               {truncateId(run.runId, 8)}
                             </span>
                             <RunTypeBadge type={run.runType} />
                             <StatusBadge status={run.status} />
                           </div>
-                          <p className="text-xs text-stone-500 mt-1">
+                          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
                             {formatRelativeTime(run.startedAt)}
                             <span className="hidden sm:inline"> &bull; {formatNumber(run.totalRecordsProcessed)} records</span>
                           </p>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-xs sm:text-sm text-stone-600">
+                        <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300">
                           {run.status === 'running'
                             ? formatLiveDuration(run.startedAt)
                             : formatDuration(run.durationMs)
                           }
                         </p>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-xs text-stone-500 dark:text-stone-400">
                           {run.completedWorkers}/{run.expectedWorkers}
                         </p>
                       </div>
@@ -305,34 +396,80 @@ export function Dashboard() {
             <Card className="mt-6">
               <CardHeader title="Run Summary (7 days)" />
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-success-50 rounded-lg">
-                  <p className="text-2xl font-semibold text-success-700">
+                <div className="text-center p-3 bg-success-50 dark:bg-success-500/10 rounded-lg">
+                  <p className="text-2xl font-semibold text-success-700 dark:text-success-500">
                     {summary?.recentRunsCount.completed ?? 0}
                   </p>
-                  <p className="text-xs text-success-600">Completed</p>
+                  <p className="text-xs text-success-600 dark:text-success-500">Completed</p>
                 </div>
-                <div className="text-center p-3 bg-error-50 rounded-lg">
-                  <p className="text-2xl font-semibold text-error-700">
+                <div className="text-center p-3 bg-error-50 dark:bg-error-500/10 rounded-lg">
+                  <p className="text-2xl font-semibold text-error-700 dark:text-error-500">
                     {summary?.recentRunsCount.failed ?? 0}
                   </p>
-                  <p className="text-xs text-error-600">Failed</p>
+                  <p className="text-xs text-error-600 dark:text-error-500">Failed</p>
                 </div>
-                <div className="text-center p-3 bg-info-50 rounded-lg">
-                  <p className="text-2xl font-semibold text-info-700">
+                <div className="text-center p-3 bg-info-50 dark:bg-info-500/10 rounded-lg">
+                  <p className="text-2xl font-semibold text-info-700 dark:text-info-500">
                     {summary?.recentRunsCount.running ?? 0}
                   </p>
-                  <p className="text-xs text-info-600">Running</p>
+                  <p className="text-xs text-info-600 dark:text-info-500">Running</p>
                 </div>
-                <div className="text-center p-3 bg-stone-100 rounded-lg">
-                  <p className="text-2xl font-semibold text-stone-700">
+                <div className="text-center p-3 bg-stone-100 dark:bg-stone-700 rounded-lg">
+                  <p className="text-2xl font-semibold text-stone-700 dark:text-stone-200">
                     {summary?.recentRunsCount.total ?? 0}
                   </p>
-                  <p className="text-xs text-stone-600">Total</p>
+                  <p className="text-xs text-stone-600 dark:text-stone-400">Total</p>
                 </div>
               </div>
             </Card>
           </div>
         </div>
+
+        {/* Watermark Edit Modal */}
+        <Modal
+          isOpen={editWatermark}
+          onClose={() => setEditWatermark(false)}
+          title="Edit Watermark"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setEditWatermark(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={saveWatermark}
+                loading={updateWatermarkMutation.isPending}
+                disabled={!watermarkDate}
+              >
+                Save
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-stone-600 dark:text-stone-300">
+              Set the watermark date to control when incremental runs start from.
+              This is the <code className="bg-stone-100 dark:bg-stone-700 px-1 rounded">lastUpdatedAt</code> field
+              in the Azure Blob Storage watermark file.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                Last Updated At
+              </label>
+              <input
+                type="datetime-local"
+                className="input"
+                value={watermarkDate}
+                onChange={(e) => setWatermarkDate(e.target.value)}
+              />
+            </div>
+            {updateWatermarkMutation.isError && (
+              <Alert variant="error" title="Failed to update watermark">
+                {(updateWatermarkMutation.error as Error).message}
+              </Alert>
+            )}
+          </div>
+        </Modal>
       </PageContainer>
     </>
   );
@@ -354,10 +491,10 @@ function AvailabilityRow({
   return (
     <div>
       <div className="flex justify-between text-sm mb-1">
-        <span className="text-stone-600">{label}</span>
-        <span className="text-stone-900 font-medium">{formatNumber(count)}</span>
+        <span className="text-stone-600 dark:text-stone-400">{label}</span>
+        <span className="text-stone-900 dark:text-stone-100 font-medium">{formatNumber(count)}</span>
       </div>
-      <div className="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+      <div className="w-full h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
         <div
           className={`h-full ${color} rounded-full transition-all duration-300`}
           style={{ width: `${percent}%` }}

@@ -9,6 +9,8 @@ const pageNames: Record<string, string> = {
   '/feeds': 'Feed Analytics',
   '/query': 'Query Builder',
   '/triggers': 'Manual Triggers',
+  '/holds': 'Holds',
+  '/orders': 'Orders',
   '/error-logs': 'Error Logs',
 };
 
@@ -26,9 +28,9 @@ export function Header({ onRefresh, isRefreshing }: HeaderProps) {
   const displayName = isRunDetails ? 'Run Details' : pageName;
 
   return (
-    <header className="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="h-16 bg-white dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700 flex items-center justify-between px-4 sm:px-6 lg:px-8">
       <div className="flex-1 min-w-0 pl-12 lg:pl-0">
-        <h1 className="text-lg sm:text-xl font-semibold text-stone-900 truncate">{displayName}</h1>
+        <h1 className="text-lg sm:text-xl font-semibold text-stone-900 dark:text-stone-100 truncate">{displayName}</h1>
       </div>
       {onRefresh && (
         <Button

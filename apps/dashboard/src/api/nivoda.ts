@@ -111,6 +111,15 @@ export async function createOrder(options: CreateOrderOptions): Promise<OrderRes
   return response.data.data;
 }
 
+// Cancel a hold
+export async function cancelHold(holdId: string): Promise<{ hold_id: string; status: string; message: string }> {
+  const response = await api.post<{ data: { hold_id: string; status: string; message: string } }>(
+    '/nivoda/cancel-hold',
+    { hold_id: holdId }
+  );
+  return response.data.data;
+}
+
 // Get diamond by offer ID from local database
 export async function getDiamondByOfferId(offerId: string): Promise<unknown> {
   const response = await api.get<{ data: unknown }>(`/nivoda/diamond/${offerId}`);

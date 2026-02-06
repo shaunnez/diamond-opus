@@ -124,3 +124,60 @@ export async function updatePurchaseStatus(
     [id, status, feedOrderId]
   );
 }
+
+// ============================================================================
+// Listing queries for dashboard
+// ============================================================================
+
+export async function getHoldHistoryList(
+  limit = 50,
+  offset = 0
+): Promise<{ holds: HoldHistory[]; total: number }> {
+  const [countResult, dataResult] = await Promise.all([
+    query<{ count: string }>(`SELECT COUNT(*) as count FROM hold_history`),
+    query<HoldHistoryRow>(
+      `SELECT * FROM hold_history ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    ),
+  ]);
+  return {
+    holds: dataResult.rows.map(mapRowToHoldHistory),
+    total: parseInt(countResult.rows[0]?.count ?? '0', 10),
+  };
+}
+
+export async function getPurchaseHistoryList(
+  limit = 50,
+  offset = 0
+): Promise<{ orders: PurchaseHistory[]; total: number }> {
+  const [countResult, dataResult] = await Promise.all([
+    query<{ count: string }>(`SELECT COUNT(*) as count FROM purchase_history`),
+    query<PurchaseHistoryRow>(
+      `SELECT * FROM purchase_history ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    ),
+  ]);
+  return {
+    orders: dataResult.rows.map(mapRowToPurchaseHistory),
+    total: parseInt(countResult.rows[0]?.count ?? '0', 10),
+  };
+}
+
+export async function getHoldById(holdId: string): Promise<HoldHistory | null> {
+  const result = await query<HoldHistoryRow>(
+    `SELECT * FROM hold_history WHERE id = $1`,
+    [holdId]
+  );
+  const row = result.rows[0];
+  return row ? mapRowToHoldHistory(row) : null;
+}
+
+export async function updateHoldStatus(
+  holdId: string,
+  status: HoldHistory['status']
+): Promise<void> {
+  await query(
+    `UPDATE hold_history SET status = $2 WHERE id = $1`,
+    [holdId, status]
+  );
+}
