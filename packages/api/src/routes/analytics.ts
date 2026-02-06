@@ -11,6 +11,8 @@ import {
   getRunsConsolidationStatus,
   executeQuery,
   isAllowedTable,
+  getErrorLogs,
+  getErrorLogServices,
   type RunsFilter,
 } from '@diamond/database';
 import { validateQuery, validateParams, validateBody, badRequest, notFound } from '../middleware/index.js';
@@ -360,6 +362,91 @@ router.get(
     }
   }
 );
+
+// ============================================================================
+// Error Logs
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/analytics/error-logs:
+ *   get:
+ *     summary: Get error logs with optional service filter
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: service
+ *         schema:
+ *           type: string
+ *           enum: [scheduler, worker, consolidator, api]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *           maximum: 100
+ *     responses:
+ *       200:
+ *         description: Paginated error logs
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/error-logs', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = req.query.service as string | undefined;
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
+    const offset = (page - 1) * limit;
+
+    const { logs, total } = await getErrorLogs({ service, limit, offset });
+
+    res.json({
+      data: logs,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v2/analytics/error-logs/services:
+ *   get:
+ *     summary: Get distinct services that have error logs
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     responses:
+ *       200:
+ *         description: List of service names
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/error-logs/services', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const services = await getErrorLogServices();
+    res.json({ data: services });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ============================================================================
 // Query Proxy

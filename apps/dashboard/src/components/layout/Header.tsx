@@ -9,6 +9,7 @@ const pageNames: Record<string, string> = {
   '/feeds': 'Feed Analytics',
   '/query': 'Query Builder',
   '/triggers': 'Manual Triggers',
+  '/error-logs': 'Error Logs',
 };
 
 interface HeaderProps {

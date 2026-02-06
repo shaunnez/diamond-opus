@@ -179,3 +179,34 @@ export async function getRecentFailedWorkers(limit = 20): Promise<RecentFailedWo
   const response = await api.get<{ data: RecentFailedWorker[] }>(`/analytics/failed-workers?limit=${limit}`);
   return response.data.data;
 }
+
+// Error Logs
+export interface ErrorLog {
+  id: string;
+  service: string;
+  errorMessage: string;
+  stackTrace?: string;
+  context?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ErrorLogsFilter {
+  service?: string;
+  page?: number;
+  limit?: number;
+}
+
+export async function getErrorLogs(filters: ErrorLogsFilter = {}): Promise<PaginatedResponse<ErrorLog>> {
+  const params = new URLSearchParams();
+  if (filters.service) params.set('service', filters.service);
+  if (filters.page) params.set('page', String(filters.page));
+  if (filters.limit) params.set('limit', String(filters.limit));
+
+  const response = await api.get<PaginatedResponse<ErrorLog>>(`/analytics/error-logs?${params}`);
+  return response.data;
+}
+
+export async function getErrorLogServices(): Promise<string[]> {
+  const response = await api.get<{ data: string[] }>('/analytics/error-logs/services');
+  return response.data.data;
+}

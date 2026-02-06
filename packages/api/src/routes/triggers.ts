@@ -128,39 +128,40 @@ async function triggerSchedulerJob(
   const credential = new DefaultAzureCredential();
   const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
 
-  // Get container registry info to construct image URL for the job
-  const containerRegistryServer = optionalEnv("CONTAINER_REGISTRY_SERVER", "");
-  const imageTag = optionalEnv("IMAGE_TAG", "latest");
+  // Fetch the existing job definition to preserve its environment variables.
+  // When beginStart() is called with a template override, it replaces the
+  // entire container spec - including env vars. Without this, env vars like
+  // AZURE_STORAGE_CONNECTION_STRING are lost, causing the scheduler to fail.
+  const job = await client.jobs.get(config.resourceGroupName, config.jobName);
+  const existingContainers = job.template?.containers ?? [];
 
-  if (!containerRegistryServer) {
-    throw new Error(
-      "CONTAINER_REGISTRY_SERVER environment variable not configured for job image",
-    );
+  // Merge RUN_TYPE into the existing container's env vars
+  const containers = existingContainers.map((container) => ({
+    ...container,
+    env: [
+      ...(container.env ?? []).filter((e) => e.name !== "RUN_TYPE"),
+      { name: "RUN_TYPE", value: runType },
+    ],
+  }));
+
+  // Optionally override the image tag if CONTAINER_REGISTRY_SERVER is set
+  const containerRegistryServer = optionalEnv("CONTAINER_REGISTRY_SERVER", "");
+  const imageTag = optionalEnv("IMAGE_TAG", "");
+
+  if (containerRegistryServer && imageTag) {
+    const schedulerImage = `${containerRegistryServer}/diamond-scheduler:${imageTag}`;
+    for (const container of containers) {
+      if (container.name === "scheduler") {
+        container.image = schedulerImage;
+      }
+    }
   }
 
-  const schedulerImage = `${containerRegistryServer}/diamond-scheduler:${imageTag}`;
-
-  // Start the Container Apps Job with:
-  // 1. Updated image reference (using IMAGE_TAG from deployment)
-  // 2. RUN_TYPE environment variable to enforce the requested run type
   const poller = await client.jobs.beginStart(
     config.resourceGroupName,
     config.jobName,
     {
-      template: {
-        containers: [
-          {
-            name: "scheduler",
-            image: schedulerImage,
-            env: [
-              {
-                name: "RUN_TYPE",
-                value: runType,
-              },
-            ],
-          },
-        ],
-      },
+      template: { containers },
     },
   );
 

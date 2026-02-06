@@ -36,6 +36,7 @@ import {
   updatePartitionOffset,
   completePartition,
   markPartitionFailed,
+  insertErrorLog,
   closePool,
   acquireRateLimitToken,
 } from "@diamond/database";
@@ -359,6 +360,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
   } catch (error) {
     errorOccurred = true;
     errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
 
     // Log error message and type to avoid large payloads
     log.error("Worker page processing failed", {
@@ -366,6 +368,12 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
       errorMessage,
       offset: workItem.offset,
     });
+
+    insertErrorLog('worker', errorMessage, errorStack, {
+      runId: workItem.runId,
+      partitionId: workItem.partitionId,
+      offset: String(workItem.offset),
+    }).catch(() => {});
 
     // Update worker run status to failed
     await updateWorkerRun(workerRun.id, "failed", errorMessage);

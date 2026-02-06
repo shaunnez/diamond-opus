@@ -10,6 +10,7 @@ import { Triggers } from './pages/Triggers';
 import { Heatmap } from './pages/Heatmap';
 import { PricingRules } from './pages/PricingRules';
 import { Nivoda } from './pages/Nivoda';
+import { ErrorLogs } from './pages/ErrorLogs';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 
@@ -45,6 +46,7 @@ function ProtectedRoutes() {
         <Route path="/heatmap" element={<Heatmap />} />
         <Route path="/pricing-rules" element={<PricingRules />} />
         <Route path="/nivoda" element={<Nivoda />} />
+        <Route path="/error-logs" element={<ErrorLogs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
