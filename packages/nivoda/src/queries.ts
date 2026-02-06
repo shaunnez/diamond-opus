@@ -1,4 +1,4 @@
-import { gql } from 'graphql-request';
+import { gql } from "graphql-request";
 
 export const AUTHENTICATE_QUERY = gql`
   query Authenticate($username: String!, $password: String!) {
@@ -25,7 +25,14 @@ export const DIAMONDS_COUNT_QUERY = gql`
  * - floInt/floCol (DiamondFluorescence enum)
  * - labgrown_type (LabgrownType enum)
  */
-const disableStagingFields = process.env.NIVODA_DISABLE_STAGING_FIELDS === 'true';
+// const disableStagingFields = process.env.NIVODA_DISABLE_STAGING_FIELDS === 'true';
+
+//               ${disableStagingFields ? '# clarity excluded - DiamondClarity enum issue on staging' : 'clarity'}
+
+//               ${disableStagingFields ? '# floInt excluded - DiamondFluorescence enum issue on staging' : 'floInt'}
+//               ${disableStagingFields ? '# floCol excluded - DiamondFluorescence enum issue on staging' : 'floCol'}
+//               ${disableStagingFields ? '# labgrown_type excluded - LabgrownType enum issue on staging' : 'labgrown_type'}
+//               ${disableStagingFields ? '# labgrown excluded - LabgrownType enum issue on staging' : 'labgrown'}
 
 export const DIAMONDS_BY_QUERY = gql`
   query DiamondsByQuery(
@@ -86,7 +93,6 @@ export const DIAMONDS_BY_QUERY = gql`
               shape
               fullShape
               carats
-              ${disableStagingFields ? '# clarity excluded - DiamondClarity enum issue on staging' : 'clarity'}
               cut
               polish
               symmetry
@@ -101,11 +107,7 @@ export const DIAMONDS_BY_QUERY = gql`
               pavAngle
               pavHeight
               pavDepth
-              ${disableStagingFields ? '# floInt excluded - DiamondFluorescence enum issue on staging' : 'floInt'}
-              ${disableStagingFields ? '# floCol excluded - DiamondFluorescence enum issue on staging' : 'floCol'}
               verified
-              labgrown
-              ${disableStagingFields ? '# labgrown_type excluded - LabgrownType enum issue on staging' : 'labgrown_type'}
               treated
               girdle
               culetSize
@@ -152,10 +154,7 @@ export const CANCEL_HOLD_MUTATION = gql`
 `;
 
 export const CREATE_ORDER_MUTATION = gql`
-  mutation CreateOrder(
-    $token: String!
-    $items: [OrderItemInput!]!
-  ) {
+  mutation CreateOrder($token: String!, $items: [OrderItemInput!]!) {
     as(token: $token) {
       create_order(items: $items)
     }
