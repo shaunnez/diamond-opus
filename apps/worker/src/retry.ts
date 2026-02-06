@@ -16,52 +16,12 @@ import {
   getRunMetadata,
   getFailedWorkerRuns,
   resetFailedWorker,
-  resetAllFailedWorkers,
+  getPartitionProgress,
   closePool,
 } from '@diamond/database';
-import { ServiceBusClient, ServiceBusSender } from '@azure/service-bus';
-import { requireEnv, SERVICE_BUS_QUEUES } from '@diamond/shared';
+import { sendWorkItem, closeConnections } from './service-bus.js';
 
 const logger = createLogger({ service: 'worker-retry' });
-
-let serviceBusClient: ServiceBusClient | null = null;
-let workItemsSender: ServiceBusSender | null = null;
-
-function getServiceBusClient(): ServiceBusClient {
-  if (!serviceBusClient) {
-    serviceBusClient = new ServiceBusClient(
-      requireEnv('AZURE_SERVICE_BUS_CONNECTION_STRING')
-    );
-  }
-  return serviceBusClient;
-}
-
-function getWorkItemsSender(): ServiceBusSender {
-  if (!workItemsSender) {
-    const client = getServiceBusClient();
-    workItemsSender = client.createSender(SERVICE_BUS_QUEUES.WORK_ITEMS);
-  }
-  return workItemsSender;
-}
-
-async function sendWorkItem(message: WorkItemMessage): Promise<void> {
-  const sender = getWorkItemsSender();
-  await sender.sendMessages({
-    body: message,
-    contentType: 'application/json',
-  });
-}
-
-async function closeConnections(): Promise<void> {
-  if (workItemsSender) {
-    await workItemsSender.close();
-    workItemsSender = null;
-  }
-  if (serviceBusClient) {
-    await serviceBusClient.close();
-    serviceBusClient = null;
-  }
-}
 
 function printUsage(): void {
   console.log(`
@@ -159,17 +119,23 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
 
     const workItem = worker.workItemPayload as unknown as WorkItemMessage;
 
+    // Get partition progress to resume from correct offset
+    const progress = await getPartitionProgress(runId, worker.partitionId);
+    workItem.offset = progress.nextOffset;
+
     log.info('Re-queuing work item', {
       partitionId: worker.partitionId,
       minPrice: workItem.minPrice,
       maxPrice: workItem.maxPrice,
       totalRecords: workItem.totalRecords,
+      resumeOffset: workItem.offset,
     });
 
     // Reset the worker status in the database
+    // (clears failed flag, preserves next_offset)
     await resetFailedWorker(runId, worker.partitionId);
 
-    // Re-queue the work item
+    // Re-queue the work item with the correct resume offset
     await sendWorkItem(workItem);
 
     log.info('Work item re-queued successfully', { partitionId: worker.partitionId });

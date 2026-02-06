@@ -17,6 +17,7 @@ import {
   Package,
   Moon,
   Sun,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -34,6 +35,7 @@ const navigation = [
   { name: 'Orders', href: '/orders', icon: Package },
   { name: 'Price Models', href: '/pricing-rules', icon: DollarSign },
   { name: 'Error Logs', href: '/error-logs', icon: AlertTriangle },
+  { name: 'API Docs', href: '/api-docs', icon: FileText },
 ];
 
 interface SidebarProps {

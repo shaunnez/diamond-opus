@@ -271,6 +271,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       started_at: Date;
       completed_at: Date | null;
       total_records: string;
+      last_worker_completed_at: Date | null;
     }>(
       `SELECT
         rm.*,
@@ -284,7 +285,8 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
            WHERE wr2.run_id = rm.run_id AND wr2.status = 'failed'),
           0
         ) as failed_workers_actual,
-        COALESCE(SUM(wr.records_processed), 0) as total_records
+        COALESCE(SUM(wr.records_processed), 0) as total_records,
+        MAX(wr.completed_at) as last_worker_completed_at
        FROM run_metadata rm
        LEFT JOIN worker_runs wr ON rm.run_id = wr.run_id
        WHERE ${whereClause}
@@ -309,7 +311,9 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     totalRecordsProcessed: parseInt(row.total_records, 10),
     durationMs: row.completed_at
       ? row.completed_at.getTime() - row.started_at.getTime()
-      : null,
+      : row.last_worker_completed_at
+        ? row.last_worker_completed_at.getTime() - row.started_at.getTime()
+        : null,
     status: getRunStatus({
       completed_at: row.completed_at,
       failed_workers: parseInt(row.failed_workers_actual, 10),
@@ -381,11 +385,13 @@ export async function getRunDetails(runId: string): Promise<{
       completed_count: string;
       failed_count: string;
       total_records: string;
+      last_worker_completed_at: Date | null;
     }>(
       `SELECT
         COALESCE(COUNT(*) FILTER (WHERE wr.status = 'completed'), 0) as completed_count,
         COALESCE(COUNT(*) FILTER (WHERE wr.status = 'failed'), 0) as failed_count,
-        COALESCE(SUM(wr.records_processed), 0) as total_records
+        COALESCE(SUM(wr.records_processed), 0) as total_records,
+        MAX(wr.completed_at) as last_worker_completed_at
        FROM worker_runs wr
        WHERE wr.run_id = $1`,
       [runId]
@@ -412,7 +418,9 @@ export async function getRunDetails(runId: string): Promise<{
     totalRecordsProcessed: parseInt(stats.total_records, 10),
     durationMs: runRow.completed_at
       ? runRow.completed_at.getTime() - runRow.started_at.getTime()
-      : null,
+      : stats.last_worker_completed_at
+        ? stats.last_worker_completed_at.getTime() - runRow.started_at.getTime()
+        : null,
     status: getRunStatus({
       completed_at: runRow.completed_at,
       failed_workers: parseInt(stats.failed_count, 10),
