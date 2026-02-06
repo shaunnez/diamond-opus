@@ -198,7 +198,7 @@ export function Query() {
                   </div>
                 ))}
                 {filters.length === 0 && (
-                  <p className="text-sm text-stone-500 text-center py-2">
+                  <p className="text-sm text-stone-500 dark:text-stone-400 text-center py-2">
                     No filters added
                   </p>
                 )}
@@ -261,12 +261,12 @@ export function Query() {
           {/* Results Panel */}
           <div className="lg:col-span-3">
             <Card className="p-0 overflow-hidden">
-              <div className="p-4 border-b border-stone-200 flex items-center justify-between">
+              <div className="p-4 border-b border-stone-200 dark:border-stone-600 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Database className="w-5 h-5 text-stone-400" />
-                  <h3 className="font-semibold text-stone-900">Query Results</h3>
+                  <Database className="w-5 h-5 text-stone-400 dark:text-stone-500" />
+                  <h3 className="font-semibold text-stone-900 dark:text-stone-100">Query Results</h3>
                   {queryMutation.data && (
-                    <span className="text-sm text-stone-500">
+                    <span className="text-sm text-stone-500 dark:text-stone-400">
                       {formatNumber(queryMutation.data.pagination.total)} total rows
                     </span>
                   )}
@@ -292,10 +292,10 @@ export function Query() {
                   </Alert>
                 </div>
               ) : !queryMutation.data ? (
-                <div className="flex flex-col items-center justify-center py-16 text-stone-400">
+                <div className="flex flex-col items-center justify-center py-16 text-stone-400 dark:text-stone-500">
                   <Search className="w-12 h-12 mb-4" />
-                  <p className="text-lg font-medium text-stone-500">No query run yet</p>
-                  <p className="text-sm text-stone-400 mt-1">
+                  <p className="text-lg font-medium text-stone-500 dark:text-stone-400">No query run yet</p>
+                  <p className="text-sm text-stone-400 dark:text-stone-500 mt-1">
                     Configure your query and click "Run Query"
                   </p>
                 </div>

@@ -248,7 +248,7 @@ export function Nivoda() {
                       className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                         selectedShapes.includes(shape)
                           ? 'bg-primary-100 border-primary-300 text-primary-700'
-                          : 'bg-white border-stone-200 text-stone-600 dark:text-stone-400 hover:border-primary-300'
+                          : 'bg-white dark:bg-stone-700 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:border-primary-300'
                       }`}
                     >
                       {shape}
@@ -342,42 +342,42 @@ export function Nivoda() {
                 </Alert>
               )}
               <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full divide-y divide-stone-200">
+                <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-600">
                   <thead>
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Diamond
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Details
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Status
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Price
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Media
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-200">
+                  <tbody className="divide-y divide-stone-200 dark:divide-stone-600">
                     {searchQuery.data.items.map((item) => (
-                      <tr key={item.offer_id} className="hover:bg-stone-50">
+                      <tr key={item.offer_id} className="hover:bg-stone-50 dark:hover:bg-stone-700/50">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-stone-100 rounded-lg">
-                              <Diamond className="w-5 h-5 text-stone-400" />
+                            <div className="p-2 bg-stone-100 dark:bg-stone-700/50 rounded-lg">
+                              <Diamond className="w-5 h-5 text-stone-400 dark:text-stone-500" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-stone-900">
+                              <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
                                 {item.diamond.certificate.shape} {item.diamond.certificate.carats}ct
                               </p>
-                              <p className="text-xs text-stone-500">
+                              <p className="text-xs text-stone-500 dark:text-stone-400">
                                 {item.diamond.certificate.lab} #{item.diamond.certificate.number}
                               </p>
                             </div>
@@ -399,7 +399,7 @@ export function Nivoda() {
                           {getAvailabilityBadge(item.diamond.availability)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <p className="text-lg font-semibold text-stone-900">
+                          <p className="text-lg font-semibold text-stone-900 dark:text-stone-100">
                             {formatPrice(item.price)}
                           </p>
                           {item.discount && (
@@ -413,7 +413,7 @@ export function Nivoda() {
                                 href={item.diamond.image}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1 text-stone-400 hover:text-primary-600"
+                                className="p-1 text-stone-400 dark:text-stone-500 hover:text-primary-600"
                               >
                                 <Image className="w-4 h-4" />
                               </a>
@@ -423,7 +423,7 @@ export function Nivoda() {
                                 href={item.diamond.video}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1 text-stone-400 hover:text-primary-600"
+                                className="p-1 text-stone-400 dark:text-stone-500 hover:text-primary-600"
                               >
                                 <Video className="w-4 h-4" />
                               </a>
@@ -456,7 +456,7 @@ export function Nivoda() {
                     ))}
                     {searchQuery.data.items.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-stone-500">
+                        <td colSpan={6} className="px-4 py-8 text-center text-stone-500 dark:text-stone-400">
                           No diamonds found matching your criteria
                         </td>
                       </tr>

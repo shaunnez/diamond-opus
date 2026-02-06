@@ -177,36 +177,36 @@ export function PricingRules() {
               subtitle={`${data?.total ?? 0} rules configured`}
             />
             {isLoading ? (
-              <div className="p-8 text-center text-stone-500">Loading...</div>
+              <div className="p-8 text-center text-stone-500 dark:text-stone-400">Loading...</div>
             ) : error ? (
               <Alert variant="error" className="mt-4">
                 Failed to load pricing rules
               </Alert>
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full divide-y divide-stone-200">
+                <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-600">
                   <thead>
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Priority
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Criteria
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Markup
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Rating
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 uppercase">
+                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-200">
+                  <tbody className="divide-y divide-stone-200 dark:divide-stone-600">
                     {data?.rules.map((rule) => (
-                      <tr key={rule.id} className="hover:bg-stone-50">
+                      <tr key={rule.id} className="hover:bg-stone-50 dark:hover:bg-stone-700/50">
                         <td className="px-4 py-3">
                           <Badge variant="neutral">{rule.priority}</Badge>
                         </td>
@@ -237,7 +237,7 @@ export function PricingRules() {
                               !rule.shapes?.length &&
                               rule.lab_grown === undefined &&
                               !rule.feed && (
-                                <span className="text-stone-400 text-sm italic">
+                                <span className="text-stone-400 dark:text-stone-500 text-sm italic">
                                   Matches all diamonds
                                 </span>
                               )}
@@ -256,20 +256,20 @@ export function PricingRules() {
                               {rule.rating}/10
                             </span>
                           ) : (
-                            <span className="text-stone-400">-</span>
+                            <span className="text-stone-400 dark:text-stone-500">-</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleOpenEdit(rule)}
-                              className="p-1 text-stone-400 hover:text-primary-600 transition-colors"
+                              className="p-1 text-stone-400 dark:text-stone-500 hover:text-primary-600 transition-colors"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => setDeletingRuleId(rule.id)}
-                              className="p-1 text-stone-400 hover:text-error-600 transition-colors"
+                              className="p-1 text-stone-400 dark:text-stone-500 hover:text-error-600 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -279,7 +279,7 @@ export function PricingRules() {
                     ))}
                     {data?.rules.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-stone-500">
+                        <td colSpan={5} className="px-4 py-8 text-center text-stone-500 dark:text-stone-400">
                           No pricing rules configured. Add a rule to get started.
                         </td>
                       </tr>
@@ -294,8 +294,8 @@ export function PricingRules() {
         {/* Create/Edit Modal */}
         {(showCreateModal || editingRule) && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-stone-200">
+            <div className="bg-white dark:bg-stone-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-stone-200 dark:border-stone-600">
                 <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
                   {editingRule ? 'Edit Pricing Rule' : 'Create Pricing Rule'}
                 </h2>
@@ -311,7 +311,7 @@ export function PricingRules() {
                       setFormData((prev) => ({ ...prev, priority: e.target.value }))
                     }
                   />
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
                     Lower number = higher priority. Rules are evaluated in order.
                   </p>
                 </div>
@@ -354,7 +354,7 @@ export function PricingRules() {
                         className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                           formData.shapes.includes(shape)
                             ? 'bg-primary-100 border-primary-300 text-primary-700'
-                            : 'bg-white border-stone-200 text-stone-600 dark:text-stone-400 hover:border-primary-300'
+                            : 'bg-white dark:bg-stone-700 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:border-primary-300'
                         }`}
                       >
                         {shape}
@@ -392,7 +392,7 @@ export function PricingRules() {
                     }
                     placeholder="Leave empty to match all feeds"
                   />
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
                     Specific feed/supplier name to match
                   </p>
                 </div>
@@ -408,7 +408,7 @@ export function PricingRules() {
                       setFormData((prev) => ({ ...prev, markup_ratio: e.target.value }))
                     }
                   />
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
                     1.15 = 15% markup, 1.25 = 25% markup, etc.
                   </p>
                 </div>
@@ -436,7 +436,7 @@ export function PricingRules() {
                   </Alert>
                 )}
               </div>
-              <div className="p-6 border-t border-stone-200 flex justify-end gap-3">
+              <div className="p-6 border-t border-stone-200 dark:border-stone-600 flex justify-end gap-3">
                 <Button
                   variant="secondary"
                   onClick={() => {

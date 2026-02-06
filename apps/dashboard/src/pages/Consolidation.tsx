@@ -205,7 +205,7 @@ export function Consolidation() {
                 return (
                   <div
                     key={run.runId}
-                    className="p-4 bg-stone-50 rounded-lg"
+                    className="p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 min-w-0">
@@ -335,11 +335,11 @@ export function Consolidation() {
           <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
             <li>
               Raw diamonds are fetched by workers and stored in{' '}
-              <code className="bg-info-100 px-1 rounded">raw_diamonds_nivoda</code>
+              <code className="bg-info-100 dark:bg-info-900/30 px-1 rounded">raw_diamonds_nivoda</code>
             </li>
             <li>
               The consolidator maps raw data to the canonical{' '}
-              <code className="bg-info-100 px-1 rounded">diamonds</code> table
+              <code className="bg-info-100 dark:bg-info-900/30 px-1 rounded">diamonds</code> table
             </li>
             <li>Pricing rules are applied during consolidation</li>
             <li>

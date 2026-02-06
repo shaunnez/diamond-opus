@@ -162,9 +162,9 @@ export function Triggers() {
                       : 'An unknown error occurred'}
                   </Alert>
                   {schedulerMutation.error instanceof SchedulerTriggerError && (
-                    <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
+                    <div className="p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg border border-stone-200 dark:border-stone-600">
                       <div className="flex items-center gap-2 mb-2">
-                        <Terminal className="w-4 h-4 text-stone-500" />
+                        <Terminal className="w-4 h-4 text-stone-500 dark:text-stone-400" />
                         <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
                           Run manually instead:
                         </span>
@@ -182,7 +182,7 @@ export function Triggers() {
                         </button>
                       </div>
                       {schedulerMutation.error.help && (
-                        <p className="mt-2 text-sm text-stone-500">
+                        <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
                           {schedulerMutation.error.help}
                         </p>
                       )}
@@ -310,7 +310,7 @@ export function Triggers() {
                   </div>
 
                   {failedWorkersData && failedWorkersData.workers.length > 0 && (
-                    <div className="p-4 bg-stone-50 rounded-lg">
+                    <div className="p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg">
                       <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
                         Failed Workers ({failedWorkersData.total_failed}):
                       </p>
@@ -318,7 +318,7 @@ export function Triggers() {
                         {failedWorkersData.workers.map((w) => (
                           <div
                             key={w.partition_id}
-                            className="text-xs p-2 bg-white rounded border border-stone-200"
+                            className="text-xs p-2 bg-white dark:bg-stone-900 rounded border border-stone-200 dark:border-stone-600"
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-mono">{w.partition_id}</span>
