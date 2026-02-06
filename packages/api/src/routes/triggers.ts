@@ -14,6 +14,7 @@ import {
   getRunMetadata,
   getFailedWorkerRuns,
   resetFailedWorker,
+  getPartitionProgress,
 } from "@diamond/database";
 import { validateBody, badRequest, notFound } from "../middleware/index.js";
 import {
@@ -500,10 +501,17 @@ router.post(
 
         const workItem = worker.workItemPayload as unknown as WorkItemMessage;
 
+        // Get the current partition progress to resume from correct offset.
+        // The original payload has offset: 0, but partition_progress.next_offset
+        // tracks how far the worker got before failing.
+        const progress = await getPartitionProgress(body.run_id, worker.partitionId);
+        workItem.offset = progress.nextOffset;
+
         // Reset the worker status in the database
+        // (clears failed flag, preserves next_offset)
         await resetFailedWorker(body.run_id, worker.partitionId);
 
-        // Re-queue the work item
+        // Re-queue the work item with the correct resume offset
         await sendWorkItem(workItem);
 
         retriedWorkers.push(worker.partitionId);
