@@ -334,6 +334,7 @@ Required variables (see `.env.example`):
 | `AZURE_RESOURCE_GROUP` | API: Resource group for scheduler job trigger |
 | `AZURE_SCHEDULER_JOB_NAME` | API: Container Apps Job name for scheduler |
 | `VITE_API_URL` | Dashboard: API base URL (default: http://localhost:3000) |
+| `NIVODA_DISABLE_STAGING_FIELDS` | Set to `true` to exclude fields causing GraphQL enum errors on staging (clarity, floInt, floCol, labgrown_type) |
 
 ### Database Pooling (Supabase Pro Micro)
 
