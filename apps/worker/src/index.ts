@@ -56,6 +56,15 @@ import {
 const baseLogger = createLogger({ service: "worker" });
 const workerId = randomUUID();
 
+// Cap error messages to prevent overly long stack traces in database
+const MAX_ERROR_MESSAGE_LENGTH = 1000;
+function capErrorMessage(message: string): string {
+  if (message.length <= MAX_ERROR_MESSAGE_LENGTH) {
+    return message;
+  }
+  return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
+}
+
 // Rate limiter configuration for Nivoda API
 const rateLimitConfig = {
   maxRequestsPerWindow: RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
@@ -359,7 +368,8 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     }
   } catch (error) {
     errorOccurred = true;
-    errorMessage = error instanceof Error ? error.message : String(error);
+    const rawErrorMessage = error instanceof Error ? error.message : String(error);
+    errorMessage = capErrorMessage(rawErrorMessage);
     const errorStack = error instanceof Error ? error.stack : undefined;
 
     // Log error message and type to avoid large payloads
@@ -424,7 +434,8 @@ async function run(): Promise<void> {
       await received.complete();
     } catch (error) {
       // Log only error message to avoid large payloads
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const rawErrorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = capErrorMessage(rawErrorMsg);
       log.error("Error processing work item", {
         errorMessage: errorMsg,
         errorType: error instanceof Error ? error.name : "unknown",
@@ -439,7 +450,8 @@ async function main(): Promise<void> {
     await run();
   } catch (error) {
     // Log only error message to avoid large payloads
-    const errorMsg = error instanceof Error ? error.message : String(error);
+    const rawErrorMsg = error instanceof Error ? error.message : String(error);
+    const errorMsg = capErrorMessage(rawErrorMsg);
     baseLogger.error("Worker failed", {
       errorMessage: errorMsg,
       errorType: error instanceof Error ? error.name : "unknown",

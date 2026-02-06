@@ -147,8 +147,8 @@ export function WorkerProgress({ completed, failed, total, className = '' }: Wor
         )}
       </div>
       <div className="flex justify-between text-xs text-stone-500 mt-1">
-        <span>{completed} completed</span>
-        {failed > 0 && <span className="text-error-600">{failed} failed</span>}
+        <span>{completed} completed ({Math.round(completedPercent)}%)</span>
+        {failed > 0 && <span className="text-error-600">{failed} failed ({Math.round(failedPercent)}%)</span>}
         <span>{total} total</span>
       </div>
     </div>
@@ -173,7 +173,7 @@ export function RecordProgress({ processed, total, className = '' }: RecordProgr
         />
       </div>
       <div className="flex justify-between text-xs text-stone-500 mt-1">
-        <span>{processed.toLocaleString()} records processed</span>
+        <span>{processed.toLocaleString()} records processed ({Math.round(processedPercent)}%)</span>
         <span>{total.toLocaleString()} total</span>
       </div>
     </div>

@@ -48,6 +48,15 @@ const baseLogger = createLogger({ service: 'consolidator' });
 // Stable instance ID for this consolidator process - used to track claim ownership
 const CONSOLIDATOR_INSTANCE_ID = randomUUID();
 
+// Cap error messages to prevent overly long stack traces in database
+const MAX_ERROR_MESSAGE_LENGTH = 1000;
+function capErrorMessage(message: string): string {
+  if (message.length <= MAX_ERROR_MESSAGE_LENGTH) {
+    return message;
+  }
+  return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
+}
+
 interface BatchResult {
   processedIds: string[];
   failedIds: string[];
@@ -111,7 +120,8 @@ async function processBatch(
       diamonds.push(pricedDiamond);
       processedIds.push(rawDiamond.id);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const rawMsg = error instanceof Error ? error.message : String(error);
+      const msg = capErrorMessage(rawMsg);
       const stack = error instanceof Error ? error.stack : undefined;
       log.error('Error mapping raw diamond', error, {
         rawDiamondId: rawDiamond.id,
@@ -128,7 +138,8 @@ async function processBatch(
       await upsertDiamondsBatch(diamonds);
     } catch (error) {
       // If batch fails, all diamonds in this batch are considered failed
-      const msg = error instanceof Error ? error.message : String(error);
+      const rawMsg = error instanceof Error ? error.message : String(error);
+      const msg = capErrorMessage(rawMsg);
       const stack = error instanceof Error ? error.stack : undefined;
       log.error('Batch upsert failed', error, {
         batchSize: diamonds.length,
@@ -293,7 +304,8 @@ async function handleConsolidateMessage(
   try {
     await processConsolidation(message, log);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const rawErrorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = capErrorMessage(rawErrorMessage);
     const errorStack = error instanceof Error ? error.stack : undefined;
     log.error('Consolidation failed', error);
 
