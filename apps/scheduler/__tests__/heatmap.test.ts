@@ -3,7 +3,7 @@ import {
   createPartitions,
   calculateWorkerCount,
   type DensityChunk,
-} from '../src/heatmap.js';
+} from '@diamond/nivoda';
 
 // Suppress console.log during tests
 vi.spyOn(console, 'log').mockImplementation(() => {});

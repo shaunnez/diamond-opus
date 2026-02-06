@@ -471,6 +471,35 @@ router.get(
 // Holds & Orders History
 // ============================================================================
 
+/**
+ * @openapi
+ * /api/v2/analytics/holds:
+ *   get:
+ *     summary: Get hold history
+ *     description: Returns a paginated list of diamond hold records.
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *           maximum: 100
+ *     responses:
+ *       200:
+ *         description: Paginated list of holds
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/holds', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
@@ -493,6 +522,35 @@ router.get('/holds', async (req: Request, res: Response, next: NextFunction) => 
   }
 });
 
+/**
+ * @openapi
+ * /api/v2/analytics/orders:
+ *   get:
+ *     summary: Get purchase history
+ *     description: Returns a paginated list of diamond purchase/order records.
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *           maximum: 100
+ *     responses:
+ *       200:
+ *         description: Paginated list of orders
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/orders', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);

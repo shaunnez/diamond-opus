@@ -11,6 +11,7 @@ import { Heatmap } from './pages/Heatmap';
 import { PricingRules } from './pages/PricingRules';
 import { Nivoda } from './pages/Nivoda';
 import { ErrorLogs } from './pages/ErrorLogs';
+import { ApiDocs } from './pages/ApiDocs';
 import { Holds } from './pages/Holds';
 import { Orders } from './pages/Orders';
 import { Login } from './pages/Login';
@@ -53,6 +54,7 @@ function ProtectedRoutes() {
         <Route path="/holds" element={<Holds />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/error-logs" element={<ErrorLogs />} />
+        <Route path="/api-docs" element={<ApiDocs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
