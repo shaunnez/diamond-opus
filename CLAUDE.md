@@ -86,11 +86,14 @@ This is a TypeScript monorepo using npm workspaces for diamond inventory managem
 4. Sends work items to Azure Service Bus `work-items` queue
 5. **Workers** consume messages, fetch diamonds via Nivoda GraphQL API
 6. Write raw JSON payloads to `raw_diamonds_nivoda` table
-7. Last successful worker triggers consolidation (atomic counter)
+7. Last worker triggers consolidation check (atomic counter):
+   - 100% success → immediate consolidation
+   - ≥70% success → delayed consolidation (5 min) with `force: true`
+   - <70% success → skip consolidation
 
 **Stage 2: Consolidation**
 1. **Consolidator** receives `ConsolidateMessage` from Service Bus
-2. Validates all workers completed successfully (skips if any failed)
+2. Validates workers (skips if failures and not `force: true`)
 3. Batches raw diamonds, maps to canonical schema
 4. Applies pricing rules from `pricing_rules` table
 5. Upserts into `diamonds` table
@@ -135,12 +138,15 @@ Nivoda Response:
 - **NEVER** use `total_count` from paginated search results (unreliable)
 - The scheduler heatmap relies on accurate counts for partitioning
 
-### Failure Handling
+### Failure Handling & Auto-Consolidation
 
-- If **ANY** worker fails → skip consolidation, do **NOT** advance watermark
-- Last worker triggers consolidation via atomic counter increment
+- Last worker (success or failure) checks if all workers are done
+- If **ALL workers succeed** → trigger consolidation immediately
+- If **≥70% workers succeed** → auto-start consolidation after 5-minute delay (with `force: true`)
+- If **<70% workers succeed** → skip consolidation, do **NOT** advance watermark
 - Consolidator failure → send alert via Resend, do **NOT** advance watermark
 - Failed runs can be force-consolidated with `force: true` flag
+- The 5-minute delay uses Service Bus scheduled messages to allow in-flight retries to finish
 
 ### Database
 
@@ -237,6 +243,8 @@ CONSOLIDATOR_BATCH_SIZE = 2000         // Raw diamonds fetched per cycle
 CONSOLIDATOR_UPSERT_BATCH_SIZE = 100   // Diamonds per batch INSERT (uses UNNEST)
 CONSOLIDATOR_CONCURRENCY = 2           // Concurrent batch upserts (env: CONSOLIDATOR_CONCURRENCY)
 CONSOLIDATOR_CLAIM_TTL_MINUTES = 30    // Stuck claim recovery timeout
+AUTO_CONSOLIDATION_SUCCESS_THRESHOLD = 0.70  // Min success rate for auto-consolidation
+AUTO_CONSOLIDATION_DELAY_MINUTES = 5   // Delay before auto-consolidation on partial success
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
 HEATMAP_MAX_WORKERS = 1000             // Max parallel workers (incremental capped to 10)
@@ -319,9 +327,9 @@ Required variables (see `.env.example`):
 | `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage for watermarks |
 | `AZURE_SERVICE_BUS_CONNECTION_STRING` | Azure Service Bus for queues |
 | `HMAC_SECRETS` | JSON object of client secrets |
-| `RESEND_API_KEY` | Resend API key for alerts |
-| `ALERT_EMAIL_TO` | Alert recipient email |
-| `ALERT_EMAIL_FROM` | Alert sender email |
+| `RESEND_API_KEY` | Resend API key for alerts (worker + consolidator) |
+| `ALERT_EMAIL_TO` | Alert recipient email (worker + consolidator) |
+| `ALERT_EMAIL_FROM` | Alert sender email (worker + consolidator) |
 | `AZURE_SUBSCRIPTION_ID` | API: Azure subscription for scheduler job trigger |
 | `AZURE_RESOURCE_GROUP` | API: Resource group for scheduler job trigger |
 | `AZURE_SCHEDULER_JOB_NAME` | API: Container Apps Job name for scheduler |

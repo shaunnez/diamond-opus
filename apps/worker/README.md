@@ -83,6 +83,11 @@ NIVODA_ENDPOINT=https://intg-customer-staging.nivodaapi.net/api/diamonds
 NIVODA_USERNAME=your-username
 NIVODA_PASSWORD=your-password
 AZURE_SERVICE_BUS_CONNECTION_STRING=Endpoint=sb://...
+
+# Alerts (optional - falls back to console logging)
+RESEND_API_KEY=re_...
+ALERT_EMAIL_TO=alerts@example.com
+ALERT_EMAIL_FROM=noreply@yourdomain.com
 ```
 
 ## Running
@@ -122,6 +127,7 @@ scaling_rule {
 src/
 ├── index.ts          # Entry point, message handler, and processing logic
 ├── service-bus.ts    # Service Bus message publishing (continuations)
+├── alerts.ts         # Email notifications via Resend
 └── retry.ts          # Manual retry functionality
 ```
 
@@ -187,9 +193,10 @@ INSERT INTO worker_runs (
 | Worker crash | Message returns to queue (lock timeout) |
 
 **On Worker Failure:**
-1. Worker marks partition as `failed` in `worker_runs`
-2. Increments `failed_workers` counter in `run_metadata`
-3. **Consolidation is skipped** if any workers failed
+1. Worker marks partition as `failed` in `partition_progress`
+2. Checks if all workers are done (completed + failed >= expected)
+3. If ≥70% of workers succeeded → auto-starts consolidation after 5-minute delay
+4. If <70% succeeded → skips consolidation, sends failure alert email
 
 ## Manual Retry
 

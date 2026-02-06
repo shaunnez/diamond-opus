@@ -10,8 +10,13 @@ import {
   createMockWorkDoneMessage,
   createMockConsolidateMessage,
   createMockServiceBus,
+  createMockEmailClient,
 } from '../src/testing/index.js';
 import { generateTraceId } from '../src/utils/logger.js';
+import {
+  AUTO_CONSOLIDATION_SUCCESS_THRESHOLD,
+  AUTO_CONSOLIDATION_DELAY_MINUTES,
+} from '../src/constants.js';
 import type {
   WorkItemMessage,
   WorkDoneMessage,
@@ -290,38 +295,172 @@ describe('Pipeline Message Flow', () => {
       });
     });
 
-    it('should NOT trigger consolidation when any worker fails', async () => {
+    it('should auto-start consolidation with force when >=70% workers succeed', async () => {
       const bus = createMockServiceBus();
+      const emailClient = createMockEmailClient();
       const traceId = generateTraceId();
       const runId = 'run-789';
-      const expectedWorkers = 3;
+      const expectedWorkers = 10;
 
-      let completedWorkers = 0;
-      let failedWorkers = 0;
+      // 8 succeed, 2 fail = 80% success
+      const completedWorkers = 8;
+      const failedWorkers = 2;
+      const successRate = completedWorkers / expectedWorkers;
 
-      // Worker 1: success
-      completedWorkers++;
+      // Simulate the auto-consolidation logic from the worker
+      if (completedWorkers + failedWorkers >= expectedWorkers) {
+        if (completedWorkers === expectedWorkers && failedWorkers === 0) {
+          await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId });
+        } else if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
+          await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId, force: true });
+          await emailClient.sendAlert(
+            'Run Completed (Partial Success)',
+            `Run ${runId} finished with partial success.\n` +
+              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
+              `Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
+          );
+        }
+      }
 
-      // Worker 2: failure
-      failedWorkers++;
+      expect(bus.consolidate).toHaveLength(1);
+      const msg = bus.consolidate[0].body as ConsolidateMessage;
+      expect(msg.force).toBe(true);
+      expect(msg.runId).toBe(runId);
+      expect(emailClient.hasEmail('Partial Success')).toBe(true);
+      expect(emailClient.sentEmails[0].body).toContain('80%');
+    });
 
-      // Worker 3: success
-      completedWorkers++;
+    it('should NOT trigger consolidation when <70% workers succeed', async () => {
+      const bus = createMockServiceBus();
+      const emailClient = createMockEmailClient();
+      const traceId = generateTraceId();
+      const runId = 'run-low-success';
+      const expectedWorkers = 10;
 
-      // Check completion condition
-      if (completedWorkers + failedWorkers === expectedWorkers) {
-        if (failedWorkers > 0) {
-          // Should NOT send consolidate
+      // 5 succeed, 5 fail = 50% success
+      const completedWorkers = 5;
+      const failedWorkers = 5;
+      const successRate = completedWorkers / expectedWorkers;
+
+      if (completedWorkers + failedWorkers >= expectedWorkers) {
+        if (completedWorkers === expectedWorkers && failedWorkers === 0) {
+          await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId });
+        } else if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
+          await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId, force: true });
         } else {
-          await bus.sendConsolidate({
-            type: 'CONSOLIDATE',
-            runId,
-            traceId,
-          });
+          await emailClient.sendAlert(
+            'Run Failed',
+            `Run ${runId} failed - success rate below threshold.`
+          );
         }
       }
 
       expect(bus.consolidate).toHaveLength(0);
+      expect(emailClient.hasEmail('Run Failed')).toBe(true);
+    });
+
+    it('should trigger immediate consolidation at exactly 70% threshold', async () => {
+      const bus = createMockServiceBus();
+      const traceId = generateTraceId();
+      const runId = 'run-threshold';
+      const expectedWorkers = 10;
+
+      // 7 succeed, 3 fail = exactly 70%
+      const completedWorkers = 7;
+      const failedWorkers = 3;
+      const successRate = completedWorkers / expectedWorkers;
+
+      if (completedWorkers + failedWorkers >= expectedWorkers) {
+        if (completedWorkers === expectedWorkers && failedWorkers === 0) {
+          await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId });
+        } else if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
+          await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId, force: true });
+        }
+      }
+
+      expect(bus.consolidate).toHaveLength(1);
+      const msg = bus.consolidate[0].body as ConsolidateMessage;
+      expect(msg.force).toBe(true);
+    });
+  });
+
+  describe('Mock Email Client', () => {
+    it('should capture sent alert emails', async () => {
+      const emailClient = createMockEmailClient();
+
+      await emailClient.sendAlert('Run Completed', 'All workers done.');
+      await emailClient.sendAlert('Consolidation Failed', 'DB error.');
+
+      expect(emailClient.sentEmails).toHaveLength(2);
+      expect(emailClient.sentEmails[0].subject).toBe('Run Completed');
+      expect(emailClient.sentEmails[1].body).toContain('DB error');
+    });
+
+    it('should filter emails by subject pattern (string)', async () => {
+      const emailClient = createMockEmailClient();
+
+      await emailClient.sendAlert('Run Completed', 'body1');
+      await emailClient.sendAlert('Run Failed', 'body2');
+      await emailClient.sendAlert('Consolidation Completed', 'body3');
+
+      const runEmails = emailClient.getEmailsBySubject('Run');
+      expect(runEmails).toHaveLength(2);
+
+      const failedEmails = emailClient.getEmailsBySubject('Failed');
+      expect(failedEmails).toHaveLength(1);
+    });
+
+    it('should filter emails by subject pattern (regex)', async () => {
+      const emailClient = createMockEmailClient();
+
+      await emailClient.sendAlert('Run Completed (Partial Success)', 'body');
+      await emailClient.sendAlert('Run Completed', 'body');
+
+      const partialEmails = emailClient.getEmailsBySubject(/Partial/);
+      expect(partialEmails).toHaveLength(1);
+    });
+
+    it('should check email existence with hasEmail', async () => {
+      const emailClient = createMockEmailClient();
+
+      expect(emailClient.hasEmail('Run Completed')).toBe(false);
+
+      await emailClient.sendAlert('Run Completed', 'body');
+
+      expect(emailClient.hasEmail('Run Completed')).toBe(true);
+      expect(emailClient.hasEmail('Nonexistent')).toBe(false);
+    });
+
+    it('should reset all emails', async () => {
+      const emailClient = createMockEmailClient();
+
+      await emailClient.sendAlert('Test 1', 'body');
+      await emailClient.sendAlert('Test 2', 'body');
+
+      emailClient.reset();
+
+      expect(emailClient.sentEmails).toHaveLength(0);
+    });
+
+    it('should track email timestamps', async () => {
+      const emailClient = createMockEmailClient();
+      const before = new Date();
+
+      await emailClient.sendAlert('Test', 'body');
+
+      const after = new Date();
+      expect(emailClient.sentEmails[0].sentAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      expect(emailClient.sentEmails[0].sentAt.getTime()).toBeLessThanOrEqual(after.getTime());
+    });
+  });
+
+  describe('Auto-Consolidation Constants', () => {
+    it('should have sensible auto-consolidation defaults', () => {
+      expect(AUTO_CONSOLIDATION_SUCCESS_THRESHOLD).toBe(0.70);
+      expect(AUTO_CONSOLIDATION_DELAY_MINUTES).toBe(5);
+      expect(AUTO_CONSOLIDATION_SUCCESS_THRESHOLD).toBeGreaterThan(0);
+      expect(AUTO_CONSOLIDATION_SUCCESS_THRESHOLD).toBeLessThanOrEqual(1);
+      expect(AUTO_CONSOLIDATION_DELAY_MINUTES).toBeGreaterThan(0);
     });
   });
 

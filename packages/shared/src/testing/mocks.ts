@@ -295,6 +295,58 @@ export function createMockHttpClient(): MockHttpClient {
 }
 
 /**
+ * Mock email client for testing alert/notification emails without sending real mail.
+ * Mirrors the sendAlert(subject, body) interface used by worker and consolidator alerts.
+ */
+export interface MockSentEmail {
+  subject: string;
+  body: string;
+  sentAt: Date;
+}
+
+export interface MockEmailClient {
+  sentEmails: MockSentEmail[];
+  sendAlert(subject: string, body: string): Promise<void>;
+  getEmailsBySubject(pattern: string | RegExp): MockSentEmail[];
+  hasEmail(subjectPattern: string | RegExp): boolean;
+  reset(): void;
+}
+
+export function createMockEmailClient(): MockEmailClient {
+  const sentEmails: MockSentEmail[] = [];
+
+  return {
+    sentEmails,
+
+    async sendAlert(subject: string, body: string): Promise<void> {
+      sentEmails.push({ subject, body, sentAt: new Date() });
+    },
+
+    getEmailsBySubject(pattern: string | RegExp): MockSentEmail[] {
+      return sentEmails.filter(email => {
+        if (typeof pattern === 'string') {
+          return email.subject.includes(pattern);
+        }
+        return pattern.test(email.subject);
+      });
+    },
+
+    hasEmail(subjectPattern: string | RegExp): boolean {
+      return sentEmails.some(email => {
+        if (typeof subjectPattern === 'string') {
+          return email.subject.includes(subjectPattern);
+        }
+        return subjectPattern.test(email.subject);
+      });
+    },
+
+    reset(): void {
+      sentEmails.length = 0;
+    },
+  };
+}
+
+/**
  * Test utilities for async operations
  */
 export function delay(ms: number): Promise<void> {

@@ -7,7 +7,7 @@ Data transformation service that processes raw diamonds into the canonical schem
 The consolidator is a **long-running queue consumer** that:
 
 1. Receives `ConsolidateMessage` from Azure Service Bus
-2. Validates all workers completed successfully
+2. Validates worker success (proceeds if all passed or `force: true`)
 3. Fetches raw diamonds with `FOR UPDATE SKIP LOCKED` (multi-replica safe)
 4. Maps Nivoda payload to canonical `Diamond` schema in batches
 5. Applies pricing rules from `pricing_rules` table
@@ -261,15 +261,21 @@ await saveWatermark({
 
 | Scenario | Behavior |
 |----------|----------|
-| Worker failures detected | Skip consolidation, log warning |
+| Worker failures detected (no force) | Skip consolidation, send alert |
+| Worker failures detected (force/auto) | Proceed with consolidation |
 | Database error during batch | Retry batch 3 times, then fail run |
 | Pricing engine error | Use default pricing (1.15x, rating 5) |
 | Watermark save fails | Log error, send alert |
 | Any critical failure | Send email alert via Resend |
 
-### Failure Alerts
+### Email Alerts
 
-Sent via Resend when consolidation fails:
+Sent via Resend for consolidation lifecycle events:
+- **Consolidation Completed**: Successful consolidation with stats (processed, errors, total)
+- **Consolidation Failed**: Error during consolidation, watermark NOT advanced
+- **Consolidation Skipped**: Workers failed and `force` not set
+
+Example failure alert:
 
 ```typescript
 {

@@ -88,7 +88,7 @@ Required environment variables (see `.env.example` for full list):
 | `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage for watermarks |
 | `AZURE_SERVICE_BUS_CONNECTION_STRING` | Azure Service Bus |
 | `HMAC_SECRETS` | JSON object of client secrets |
-| `RESEND_API_KEY` | Resend API key for failure alerts |
+| `RESEND_API_KEY` | Resend API key for alerts (worker + consolidator) |
 | `ALERT_EMAIL_TO` | Alert recipient email |
 | `ALERT_EMAIL_FROM` | Alert sender email |
 
@@ -213,13 +213,14 @@ npm run test -w @diamond/pricing-engine
 6. Batch upserts to `diamonds` table (100 per INSERT using UNNEST)
 7. Advances watermark **only on success**
 
-### Failure Handling
+### Failure Handling & Auto-Consolidation
 
 | Scenario | Behavior |
 |----------|----------|
-| Worker fails | Skip consolidation, don't advance watermark |
+| All workers succeed | Trigger consolidation immediately |
+| ≥70% workers succeed | Auto-start consolidation after 5-minute delay |
+| <70% workers succeed | Skip consolidation, send failure alert |
 | Consolidator fails | Send alert via Resend, don't advance watermark |
-| All workers succeed | Trigger consolidation, advance watermark |
 
 ## API Authentication
 
