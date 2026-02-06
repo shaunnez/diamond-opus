@@ -258,6 +258,15 @@ async function processConsolidation(
   await saveWatermark(watermark);
 
   log.info('Watermark advanced', { watermark });
+
+  sendAlert(
+    'Consolidation Completed',
+    `Run ${message.runId} consolidation completed successfully.\n\n` +
+      `Processed: ${totalProcessed}\n` +
+      `Errors: ${totalErrors}\n` +
+      `Total claimed: ${totalClaimed}\n\n` +
+      `Watermark has been advanced.`
+  ).catch(() => {});
 }
 
 async function handleConsolidateMessage(

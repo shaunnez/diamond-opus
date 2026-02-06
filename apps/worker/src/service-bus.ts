@@ -103,7 +103,7 @@ export async function sendWorkDone(message: WorkDoneMessage): Promise<void> {
   });
 }
 
-export async function sendConsolidate(message: ConsolidateMessage): Promise<void> {
+export async function sendConsolidate(message: ConsolidateMessage, delayMinutes?: number): Promise<void> {
   const sender = getConsolidateSender();
 
   // Create stable messageId for deduplication: one consolidation per run
@@ -113,6 +113,9 @@ export async function sendConsolidate(message: ConsolidateMessage): Promise<void
     body: message,
     contentType: 'application/json',
     messageId,
+    scheduledEnqueueTimeUtc: delayMinutes
+      ? new Date(Date.now() + delayMinutes * 60 * 1000)
+      : undefined,
     applicationProperties: {
       runId: message.runId,
       traceId: message.traceId,

@@ -20,6 +20,8 @@ import {
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_WAIT_MS,
   RATE_LIMIT_BASE_DELAY_MS,
+  AUTO_CONSOLIDATION_SUCCESS_THRESHOLD,
+  AUTO_CONSOLIDATION_DELAY_MINUTES,
   type WorkItemMessage,
   type WorkDoneMessage,
   type Logger,
@@ -52,6 +54,7 @@ import {
   sendWorkItem,
   closeConnections,
 } from "./service-bus.js";
+import { sendAlert } from "./alerts.js";
 
 const baseLogger = createLogger({ service: "worker" });
 const workerId = randomUUID();
@@ -352,18 +355,61 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
         failedWorkers,
       });
 
-      // Trigger consolidation if all workers completed successfully
+      // Trigger consolidation if all workers are done
       if (completedWorkers === expectedWorkers && failedWorkers === 0) {
+        // All workers completed successfully - trigger immediately
         log.info("All workers completed successfully, triggering consolidation");
         await sendConsolidate({
           type: "CONSOLIDATE",
           runId: workItem.runId,
           traceId: workItem.traceId,
         });
-      } else if (completedWorkers + failedWorkers === expectedWorkers) {
-        log.warn("All workers finished but some failed, skipping consolidation", {
-          failedWorkers,
-        });
+        sendAlert(
+          'Run Completed',
+          `Run ${workItem.runId} completed successfully.\n\n` +
+            `Workers: ${completedWorkers}/${expectedWorkers} succeeded\n` +
+            `Consolidation has been triggered.`
+        ).catch(() => {});
+      } else if (completedWorkers + failedWorkers >= expectedWorkers) {
+        // All workers done but some failed - check if we can auto-start
+        const successRate = completedWorkers / expectedWorkers;
+        if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
+          log.info("Auto-starting consolidation with partial success", {
+            successRate: Math.round(successRate * 100),
+            completedWorkers,
+            failedWorkers,
+            expectedWorkers,
+            delayMinutes: AUTO_CONSOLIDATION_DELAY_MINUTES,
+          });
+          await sendConsolidate({
+            type: "CONSOLIDATE",
+            runId: workItem.runId,
+            traceId: workItem.traceId,
+            force: true,
+          }, AUTO_CONSOLIDATION_DELAY_MINUTES);
+          sendAlert(
+            'Run Completed (Partial Success)',
+            `Run ${workItem.runId} finished with partial success.\n\n` +
+              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
+              `Failed workers: ${failedWorkers}\n\n` +
+              `Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
+          ).catch(() => {});
+        } else {
+          log.warn("All workers finished but success rate below threshold, skipping consolidation", {
+            successRate: Math.round(successRate * 100),
+            completedWorkers,
+            failedWorkers,
+            expectedWorkers,
+            threshold: `${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}%`,
+          });
+          sendAlert(
+            'Run Failed',
+            `Run ${workItem.runId} failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\n` +
+              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
+              `Failed workers: ${failedWorkers}\n\n` +
+              `Consolidation was NOT triggered. Manual intervention may be required.`
+          ).catch(() => {});
+        }
       }
     }
   } catch (error) {
@@ -410,6 +456,58 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     };
 
     await sendWorkDone(workDoneMessage);
+
+    // Check if all workers are done and auto-consolidation should be triggered.
+    // The 5-minute delay gives retries time to complete before consolidation starts.
+    try {
+      const { completedWorkers, expectedWorkers, failedWorkers } =
+        await incrementCompletedWorkers(workItem.runId);
+
+      if (completedWorkers + failedWorkers >= expectedWorkers) {
+        const successRate = completedWorkers / expectedWorkers;
+        if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
+          log.info("Auto-starting consolidation with partial success (from failure path)", {
+            successRate: Math.round(successRate * 100),
+            completedWorkers,
+            failedWorkers,
+            expectedWorkers,
+            delayMinutes: AUTO_CONSOLIDATION_DELAY_MINUTES,
+          });
+          await sendConsolidate({
+            type: "CONSOLIDATE",
+            runId: workItem.runId,
+            traceId: workItem.traceId,
+            force: true,
+          }, AUTO_CONSOLIDATION_DELAY_MINUTES);
+          sendAlert(
+            'Run Completed (Partial Success)',
+            `Run ${workItem.runId} finished with partial success.\n\n` +
+              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
+              `Failed workers: ${failedWorkers}\n\n` +
+              `Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
+          ).catch(() => {});
+        } else {
+          log.warn("All workers finished but success rate below threshold, skipping consolidation", {
+            successRate: Math.round(successRate * 100),
+            completedWorkers,
+            failedWorkers,
+            expectedWorkers,
+            threshold: `${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}%`,
+          });
+          sendAlert(
+            'Run Failed',
+            `Run ${workItem.runId} failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\n` +
+              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
+              `Failed workers: ${failedWorkers}\n\n` +
+              `Consolidation was NOT triggered. Manual intervention may be required.`
+          ).catch(() => {});
+        }
+      }
+    } catch (checkError) {
+      log.error("Failed to check auto-consolidation after worker failure", {
+        error: checkError instanceof Error ? checkError.message : String(checkError),
+      });
+    }
 
     // Re-throw so the message is retried by Service Bus
     throw error;
