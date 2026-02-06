@@ -47,8 +47,25 @@ export interface ConsolidationProgress {
   totalRawDiamonds: number;
   consolidatedCount: number;
   pendingCount: number;
+  failedCount: number;
   progressPercent: number;
   oldestPendingCreatedAt: Date | null;
+}
+
+export interface RunConsolidationStatus {
+  runId: string;
+  runType: RunType;
+  startedAt: Date;
+  completedAt: Date | null;
+  expectedWorkers: number;
+  completedWorkers: number;
+  failedWorkers: number;
+  consolidationStartedAt: Date | null;
+  consolidationCompletedAt: Date | null;
+  consolidationProcessed: number;
+  consolidationErrors: number;
+  consolidationTotal: number;
+  liveProgress: ConsolidationProgress | null;
 }
 
 export interface RunsFilter {
@@ -529,12 +546,14 @@ export async function getConsolidationProgress(runId: string): Promise<Consolida
     total_raw: string;
     consolidated_count: string;
     pending_count: string;
+    failed_count: string;
     oldest_pending: Date | null;
   }>(
     `SELECT
       COUNT(*) as total_raw,
       COUNT(*) FILTER (WHERE consolidated = true) as consolidated_count,
-      COUNT(*) FILTER (WHERE consolidated = false) as pending_count,
+      COUNT(*) FILTER (WHERE consolidated = false AND consolidation_status != 'failed') as pending_count,
+      COUNT(*) FILTER (WHERE consolidation_status = 'failed') as failed_count,
       MIN(created_at) FILTER (WHERE consolidated = false) as oldest_pending
      FROM raw_diamonds_nivoda
      WHERE run_id = $1`,
@@ -549,12 +568,14 @@ export async function getConsolidationProgress(runId: string): Promise<Consolida
   const totalRaw = parseInt(row.total_raw, 10);
   const consolidatedCount = parseInt(row.consolidated_count, 10);
   const pendingCount = parseInt(row.pending_count, 10);
+  const failedCount = parseInt(row.failed_count, 10);
 
   return {
     runId,
     totalRawDiamonds: totalRaw,
     consolidatedCount,
     pendingCount,
+    failedCount,
     progressPercent: totalRaw > 0 ? Math.round((consolidatedCount / totalRaw) * 100) : 0,
     oldestPendingCreatedAt: row.oldest_pending,
   };
@@ -589,6 +610,106 @@ export async function getOverallConsolidationStats(): Promise<{
     totalPending: pendingCount,
     progressPercent: totalRaw > 0 ? Math.round((consolidatedCount / totalRaw) * 100) : 0,
   };
+}
+
+// ============================================================================
+// Consolidation Status per Run (for dashboard)
+// ============================================================================
+
+export async function getRunsConsolidationStatus(limit = 10): Promise<RunConsolidationStatus[]> {
+  const result = await query<{
+    run_id: string;
+    run_type: string;
+    started_at: Date;
+    completed_at: Date | null;
+    expected_workers: number;
+    completed_workers_actual: string;
+    failed_workers_actual: string;
+    consolidation_started_at: Date | null;
+    consolidation_completed_at: Date | null;
+    consolidation_processed: number;
+    consolidation_errors: number;
+    consolidation_total: number;
+    total_raw: string;
+    consolidated_count: string;
+    pending_count: string;
+    failed_count: string;
+    oldest_pending: Date | null;
+  }>(
+    `SELECT
+      rm.run_id,
+      rm.run_type,
+      rm.started_at,
+      rm.completed_at,
+      rm.expected_workers,
+      COALESCE(
+        (SELECT COUNT(*) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id AND pp.completed = TRUE),
+        0
+      )::text as completed_workers_actual,
+      COALESCE(
+        (SELECT COUNT(*) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+        0
+      )::text as failed_workers_actual,
+      rm.consolidation_started_at,
+      rm.consolidation_completed_at,
+      COALESCE(rm.consolidation_processed, 0) as consolidation_processed,
+      COALESCE(rm.consolidation_errors, 0) as consolidation_errors,
+      COALESCE(rm.consolidation_total, 0) as consolidation_total,
+      COALESCE(raw_stats.total_raw, 0)::text as total_raw,
+      COALESCE(raw_stats.consolidated_count, 0)::text as consolidated_count,
+      COALESCE(raw_stats.pending_count, 0)::text as pending_count,
+      COALESCE(raw_stats.failed_count, 0)::text as failed_count,
+      raw_stats.oldest_pending
+     FROM run_metadata rm
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*) as total_raw,
+         COUNT(*) FILTER (WHERE consolidated = true) as consolidated_count,
+         COUNT(*) FILTER (WHERE consolidated = false AND consolidation_status != 'failed') as pending_count,
+         COUNT(*) FILTER (WHERE consolidation_status = 'failed') as failed_count,
+         MIN(created_at) FILTER (WHERE consolidated = false) as oldest_pending
+       FROM raw_diamonds_nivoda rdn
+       WHERE rdn.run_id = rm.run_id
+     ) raw_stats ON TRUE
+     ORDER BY rm.started_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+
+  return result.rows.map((row) => {
+    const totalRaw = parseInt(row.total_raw, 10);
+    const consolidatedCount = parseInt(row.consolidated_count, 10);
+    const pendingCount = parseInt(row.pending_count, 10);
+    const failedCount = parseInt(row.failed_count, 10);
+
+    return {
+      runId: row.run_id,
+      runType: row.run_type as RunType,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      expectedWorkers: row.expected_workers,
+      completedWorkers: parseInt(row.completed_workers_actual, 10),
+      failedWorkers: parseInt(row.failed_workers_actual, 10),
+      consolidationStartedAt: row.consolidation_started_at,
+      consolidationCompletedAt: row.consolidation_completed_at,
+      consolidationProcessed: row.consolidation_processed,
+      consolidationErrors: row.consolidation_errors,
+      consolidationTotal: row.consolidation_total,
+      liveProgress: totalRaw > 0
+        ? {
+            runId: row.run_id,
+            totalRawDiamonds: totalRaw,
+            consolidatedCount,
+            pendingCount,
+            failedCount,
+            progressPercent: Math.round((consolidatedCount / totalRaw) * 100),
+            oldestPendingCreatedAt: row.oldest_pending,
+          }
+        : null,
+    };
+  });
 }
 
 // ============================================================================
@@ -628,6 +749,8 @@ const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
   run_metadata: [
     'run_id', 'run_type', 'expected_workers', 'completed_workers', 'failed_workers',
     'watermark_before', 'watermark_after', 'started_at', 'completed_at',
+    'consolidation_started_at', 'consolidation_completed_at',
+    'consolidation_processed', 'consolidation_errors', 'consolidation_total',
   ],
   worker_runs: [
     'id', 'run_id', 'partition_id', 'worker_id', 'status',

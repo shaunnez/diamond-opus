@@ -1,6 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
-import { Layers, Database, Clock, CheckCircle } from 'lucide-react';
-import { getConsolidationStats, getRuns } from '../api/analytics';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Layers,
+  Database,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  RotateCcw,
+  XCircle,
+  Play,
+} from 'lucide-react';
+import {
+  getConsolidationStats,
+  getConsolidationStatus,
+  type RunConsolidationStatus,
+} from '../api/analytics';
+import { resumeConsolidation } from '../api/triggers';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -11,11 +26,58 @@ import {
   PageLoader,
   Alert,
   Badge,
-  StatusBadge,
+  Button,
+  ConfirmModal,
 } from '../components/ui';
-import { formatNumber, formatRelativeTime, truncateId } from '../utils/formatters';
+import {
+  formatNumber,
+  formatRelativeTime,
+  truncateId,
+} from '../utils/formatters';
+
+type ConsolidationOutcome = 'success' | 'partial' | 'running' | 'not_started' | 'failed';
+
+function getConsolidationOutcome(run: RunConsolidationStatus): ConsolidationOutcome {
+  if (!run.consolidationStartedAt) {
+    return 'not_started';
+  }
+  if (!run.consolidationCompletedAt) {
+    return 'running';
+  }
+  if (run.consolidationErrors > 0) {
+    if (run.consolidationProcessed === 0 && run.consolidationTotal > 0) {
+      return 'failed';
+    }
+    return 'partial';
+  }
+  return 'success';
+}
+
+function getOutcomeBadge(outcome: ConsolidationOutcome) {
+  switch (outcome) {
+    case 'success':
+      return <Badge variant="success">Completed</Badge>;
+    case 'partial':
+      return <Badge variant="warning">Partial</Badge>;
+    case 'running':
+      return <Badge variant="info">Running</Badge>;
+    case 'failed':
+      return <Badge variant="error">Failed</Badge>;
+    case 'not_started':
+      return <Badge variant="neutral">Not Started</Badge>;
+  }
+}
+
+function canResume(run: RunConsolidationStatus): boolean {
+  if (!run.liveProgress) return false;
+  const { pendingCount, failedCount } = run.liveProgress;
+  return pendingCount > 0 || failedCount > 0;
+}
 
 export function Consolidation() {
+  const queryClient = useQueryClient();
+  const [resumeRunId, setResumeRunId] = useState<string | null>(null);
+
   const {
     data: stats,
     isLoading: statsLoading,
@@ -28,13 +90,25 @@ export function Consolidation() {
     refetchInterval: 10000,
   });
 
-  const { data: recentRuns } = useQuery({
-    queryKey: ['consolidation-runs'],
-    queryFn: () => getRuns({ limit: 10 }),
-    refetchInterval: 30000,
+  const {
+    data: runStatuses,
+    isLoading: statusLoading,
+  } = useQuery({
+    queryKey: ['consolidation-status'],
+    queryFn: () => getConsolidationStatus(10),
+    refetchInterval: 10000,
   });
 
-  if (statsLoading) {
+  const resumeMutation = useMutation({
+    mutationFn: (runId: string) => resumeConsolidation(runId),
+    onSuccess: () => {
+      setResumeRunId(null);
+      queryClient.invalidateQueries({ queryKey: ['consolidation-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['consolidation-status'] });
+    },
+  });
+
+  if (statsLoading || statusLoading) {
     return <PageLoader />;
   }
 
@@ -51,6 +125,8 @@ export function Consolidation() {
     );
   }
 
+  const resumeTarget = runStatuses?.find((r) => r.runId === resumeRunId);
+
   return (
     <>
       <Header onRefresh={refetchStats} isRefreshing={statsFetching} />
@@ -65,7 +141,7 @@ export function Consolidation() {
               variant={
                 stats?.progressPercent === 100
                   ? 'success'
-                  : stats?.progressPercent ?? 0 > 80
+                  : (stats?.progressPercent ?? 0) > 80
                   ? 'primary'
                   : 'warning'
               }
@@ -108,70 +184,140 @@ export function Consolidation() {
           </div>
         </div>
 
-        {/* Recent Runs that may need consolidation */}
+        {/* Per-Run Consolidation Status */}
         <Card className="mt-6">
           <CardHeader
-            title="Recent Runs"
-            subtitle="Runs that may need consolidation attention"
+            title="Consolidation Status by Run"
+            subtitle="Shows consolidation outcome per run with resume capability"
           />
           <div className="mt-4 space-y-3">
-            {recentRuns?.data
-              .filter(
-                (run) =>
-                  run.status === 'completed' ||
-                  run.status === 'failed' ||
-                  run.status === 'partial'
-              )
-              .slice(0, 5)
-              .map((run) => (
-                <div
-                  key={run.runId}
-                  className="flex items-center justify-between p-4 bg-stone-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        run.status === 'completed'
-                          ? 'bg-success-100 text-success-600'
-                          : run.status === 'failed'
-                          ? 'bg-error-100 text-error-600'
-                          : 'bg-warning-100 text-warning-600'
-                      }`}
-                    >
-                      <Layers className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm text-stone-700">
-                          {truncateId(run.runId)}
-                        </span>
-                        <StatusBadge status={run.status} />
+            {runStatuses && runStatuses.length > 0 ? (
+              runStatuses.map((run) => {
+                const outcome = getConsolidationOutcome(run);
+                const progress = run.liveProgress;
+                const resumable = canResume(run);
+                const progressPercent = progress?.progressPercent ?? 0;
+
+                return (
+                  <div
+                    key={run.runId}
+                    className="p-4 bg-stone-50 rounded-lg"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div
+                          className={`p-2 rounded-lg shrink-0 ${
+                            outcome === 'success'
+                              ? 'bg-success-100 text-success-600'
+                              : outcome === 'partial'
+                              ? 'bg-warning-100 text-warning-600'
+                              : outcome === 'failed'
+                              ? 'bg-error-100 text-error-600'
+                              : outcome === 'running'
+                              ? 'bg-info-100 text-info-600'
+                              : 'bg-stone-200 text-stone-500'
+                          }`}
+                        >
+                          {outcome === 'success' ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : outcome === 'partial' ? (
+                            <AlertTriangle className="w-4 h-4" />
+                          ) : outcome === 'failed' ? (
+                            <XCircle className="w-4 h-4" />
+                          ) : outcome === 'running' ? (
+                            <Play className="w-4 h-4" />
+                          ) : (
+                            <Clock className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm text-stone-700">
+                              {truncateId(run.runId)}
+                            </span>
+                            <Badge variant={run.runType === 'full' ? 'info' : 'neutral'}>
+                              {run.runType}
+                            </Badge>
+                            {getOutcomeBadge(outcome)}
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1">
+                            Started {formatRelativeTime(run.startedAt)}
+                            {' | '}
+                            {run.completedWorkers}/{run.expectedWorkers} workers
+                            {run.failedWorkers > 0 && (
+                              <span className="text-error-600 font-medium">
+                                {' '}({run.failedWorkers} failed)
+                              </span>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-stone-500 mt-0.5">
-                        {formatNumber(run.totalRecordsProcessed)} records &bull;{' '}
-                        {formatRelativeTime(run.startedAt)}
-                      </p>
+
+                      {resumable && outcome !== 'running' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<RotateCcw className="w-3.5 h-3.5" />}
+                          onClick={() => setResumeRunId(run.runId)}
+                        >
+                          Resume
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-stone-600">
-                      {run.completedWorkers}/{run.expectedWorkers} workers
-                    </p>
-                    {run.failedWorkers > 0 && (
-                      <Badge variant="error" className="mt-1">
-                        {run.failedWorkers} failed
-                      </Badge>
+
+                    {progress && progress.totalRawDiamonds > 0 && (
+                      <div className="mt-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-2 bg-stone-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                progressPercent === 100
+                                  ? 'bg-success-500'
+                                  : outcome === 'running'
+                                  ? 'bg-info-500 animate-pulse'
+                                  : progressPercent > 0
+                                  ? 'bg-warning-500'
+                                  : 'bg-stone-300'
+                              }`}
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium text-stone-700 min-w-[4ch] text-right">
+                            {progressPercent}%
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-stone-500">
+                          <span>
+                            {formatNumber(progress.consolidatedCount)} consolidated
+                          </span>
+                          {progress.pendingCount > 0 && (
+                            <span>
+                              {formatNumber(progress.pendingCount)} pending
+                            </span>
+                          )}
+                          {progress.failedCount > 0 && (
+                            <span className="text-error-600">
+                              {formatNumber(progress.failedCount)} failed
+                            </span>
+                          )}
+                          {run.consolidationErrors > 0 && (
+                            <span className="text-error-600">
+                              {formatNumber(run.consolidationErrors)} errors during consolidation
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {(!progress || progress.totalRawDiamonds === 0) && (
+                      <p className="mt-2 text-xs text-stone-400">
+                        No raw diamonds found for this run
+                      </p>
                     )}
                   </div>
-                </div>
-              ))}
-            {(!recentRuns?.data ||
-              recentRuns.data.filter(
-                (r) =>
-                  r.status === 'completed' ||
-                  r.status === 'failed' ||
-                  r.status === 'partial'
-              ).length === 0) && (
+                );
+              })
+            ) : (
               <div className="text-center py-8 text-stone-500">
                 No recent runs to display
               </div>
@@ -193,15 +339,56 @@ export function Consolidation() {
             </li>
             <li>Pricing rules are applied during consolidation</li>
             <li>
-              After successful consolidation, the watermark is advanced to prevent
-              re-processing
+              After consolidation, the watermark is advanced to prevent re-processing
             </li>
             <li>
-              If workers fail, consolidation is skipped unless forced (to preserve
-              data integrity)
+              If consolidation completes partially, use the <strong>Resume</strong> button
+              to retry failed diamonds
             </li>
           </ul>
         </Alert>
+
+        {/* Resume Confirmation Modal */}
+        <ConfirmModal
+          isOpen={!!resumeRunId}
+          onClose={() => {
+            setResumeRunId(null);
+            resumeMutation.reset();
+          }}
+          onConfirm={() => {
+            if (resumeRunId) {
+              resumeMutation.mutate(resumeRunId);
+            }
+          }}
+          title="Resume Consolidation"
+          message={
+            resumeTarget
+              ? `This will reset ${formatNumber(
+                  (resumeTarget.liveProgress?.failedCount ?? 0) +
+                  (resumeTarget.liveProgress?.pendingCount ?? 0)
+                )} failed/pending diamonds back to pending and re-trigger consolidation for run ${truncateId(
+                  resumeTarget.runId
+                )}.`
+              : 'Resume consolidation for this run?'
+          }
+          confirmText="Resume"
+          loading={resumeMutation.isPending}
+        />
+
+        {resumeMutation.isError && (
+          <Alert variant="error" className="mt-4" title="Resume failed">
+            {resumeMutation.error instanceof Error
+              ? resumeMutation.error.message
+              : 'An error occurred while resuming consolidation.'}
+          </Alert>
+        )}
+
+        {resumeMutation.isSuccess && (
+          <Alert variant="success" className="mt-4" title="Resume triggered">
+            Consolidation has been re-triggered. The consolidator will process the
+            remaining diamonds. Check back in a few minutes for updated progress.
+          </Alert>
+        )}
       </PageContainer>
     </>
   );

@@ -26,9 +26,12 @@ import {
   claimUnconsolidatedRawDiamonds,
   resetStuckClaims,
   markAsConsolidated,
+  markAsFailed,
   upsertDiamondsBatch,
   completeRun,
   getRunMetadata,
+  markConsolidationStarted,
+  updateRunConsolidationStats,
   closePool,
   type DiamondInput,
   type ClaimedRawDiamond,
@@ -46,6 +49,7 @@ const CONSOLIDATOR_INSTANCE_ID = randomUUID();
 
 interface BatchResult {
   processedIds: string[];
+  failedIds: string[];
   errorCount: number;
 }
 
@@ -94,6 +98,7 @@ async function processBatch(
   log: Logger
 ): Promise<BatchResult> {
   const processedIds: string[] = [];
+  const failedIds: string[] = [];
   const diamonds: DiamondInput[] = [];
   let errorCount = 0;
 
@@ -108,6 +113,7 @@ async function processBatch(
       log.error('Error mapping raw diamond', error, {
         rawDiamondId: rawDiamond.id,
       });
+      failedIds.push(rawDiamond.id);
       errorCount++;
     }
   }
@@ -121,11 +127,12 @@ async function processBatch(
       log.error('Batch upsert failed', error, {
         batchSize: diamonds.length,
       });
-      return { processedIds: [], errorCount: rawDiamonds.length };
+      const allIds = rawDiamonds.map((d) => d.id);
+      return { processedIds: [], failedIds: allIds, errorCount: rawDiamonds.length };
     }
   }
 
-  return { processedIds, errorCount };
+  return { processedIds, failedIds, errorCount };
 }
 
 async function processConsolidation(
@@ -139,6 +146,9 @@ async function processConsolidation(
     upsertBatchSize: CONSOLIDATOR_UPSERT_BATCH_SIZE,
   });
 
+  // Record that consolidation has started for this run
+  await markConsolidationStarted(message.runId);
+
   // Reset any stuck claims from crashed/timed out consolidators
   const resetCount = await resetStuckClaims(CONSOLIDATOR_CLAIM_TTL_MINUTES);
   if (resetCount > 0) {
@@ -151,6 +161,7 @@ async function processConsolidation(
 
   let totalProcessed = 0;
   let totalErrors = 0;
+  let totalClaimed = 0;
 
   while (true) {
     // Claim batch exclusively - prevents duplicate processing across replicas
@@ -163,6 +174,7 @@ async function processConsolidation(
       break;
     }
 
+    totalClaimed += rawDiamonds.length;
     log.debug('Fetched batch', { batchSize: rawDiamonds.length });
 
     // Split into smaller chunks for batch upserts
@@ -177,6 +189,7 @@ async function processConsolidation(
 
     // Aggregate results
     const allProcessedIds = results.flatMap((r) => r.processedIds);
+    const allFailedIds = results.flatMap((r) => r.failedIds);
     const batchErrors = results.reduce((sum, r) => sum + r.errorCount, 0);
 
     totalProcessed += allProcessedIds.length;
@@ -187,10 +200,16 @@ async function processConsolidation(
       await markAsConsolidated(allProcessedIds);
     }
 
+    // Mark failed diamonds explicitly so they don't stay stuck in 'processing'
+    if (allFailedIds.length > 0) {
+      await markAsFailed(allFailedIds);
+    }
+
     log.info('Batch processed', {
       totalProcessed,
       totalErrors,
       batchProcessed: allProcessedIds.length,
+      batchFailed: allFailedIds.length,
       batchErrors,
       chunks: chunks.length,
     });
@@ -201,7 +220,14 @@ async function processConsolidation(
     }
   }
 
-  log.info('Consolidation completed', { totalProcessed, totalErrors });
+  // Record consolidation outcome
+  await updateRunConsolidationStats(message.runId, {
+    processed: totalProcessed,
+    errors: totalErrors,
+    total: totalClaimed,
+  });
+
+  log.info('Consolidation completed', { totalProcessed, totalErrors, totalClaimed });
 
   const now = new Date();
   await completeRun(message.runId, now);

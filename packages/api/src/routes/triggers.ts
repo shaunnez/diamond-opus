@@ -15,15 +15,18 @@ import {
   getFailedWorkerRuns,
   resetFailedWorker,
   getPartitionProgress,
+  resetFailedDiamonds,
 } from "@diamond/database";
 import { validateBody, badRequest, notFound } from "../middleware/index.js";
 import {
   triggerSchedulerSchema,
   triggerConsolidateSchema,
   retryWorkersSchema,
+  resumeConsolidateSchema,
   type TriggerSchedulerBody,
   type TriggerConsolidateBody,
   type RetryWorkersBody,
+  type ResumeConsolidateBody,
 } from "../validators/index.js";
 
 const router = Router();
@@ -594,6 +597,107 @@ router.get(
             started_at: w.startedAt,
             completed_at: w.completedAt,
           })),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================================================
+// Resume Consolidation
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/triggers/resume-consolidation:
+ *   post:
+ *     summary: Resume consolidation for a run that partially completed
+ *     description: |
+ *       Resets failed/stuck diamonds back to pending and re-triggers consolidation.
+ *       Use this when a consolidation run completed partially (e.g., 73%) and you
+ *       want to retry the failed diamonds.
+ *     tags:
+ *       - Triggers
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - run_id
+ *             properties:
+ *               run_id:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       200:
+ *         description: Consolidation resume triggered
+ *       404:
+ *         description: Run not found
+ *       401:
+ *         description: Unauthorized
+ *       503:
+ *         description: Service Bus not configured
+ */
+router.post(
+  "/resume-consolidation",
+  validateBody(resumeConsolidateSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = req.body as ResumeConsolidateBody;
+      const traceId = generateTraceId();
+
+      // Verify run exists
+      const runMetadata = await getRunMetadata(body.run_id);
+      if (!runMetadata) {
+        throw notFound("Run not found");
+      }
+
+      // Reset failed/stuck diamonds so they can be reprocessed
+      const resetCount = await resetFailedDiamonds(body.run_id);
+
+      // Check Service Bus availability
+      const client = getServiceBusClient();
+      if (!client) {
+        res.status(503).json({
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message: "Service Bus not configured.",
+          },
+          manual_command: `npm run consolidator:trigger -- ${body.run_id} --force`,
+          diamonds_reset: resetCount,
+        });
+        return;
+      }
+
+      // Send consolidation message with force=true (we're explicitly resuming)
+      const message: ConsolidateMessage = {
+        type: "CONSOLIDATE",
+        runId: body.run_id,
+        traceId,
+        force: true,
+      };
+
+      await sendConsolidateMessage(message);
+
+      res.json({
+        data: {
+          message: "Consolidation resume triggered successfully",
+          run_id: body.run_id,
+          trace_id: traceId,
+          diamonds_reset: resetCount,
+          run_metadata: {
+            run_type: runMetadata.runType,
+            expected_workers: runMetadata.expectedWorkers,
+            completed_workers: runMetadata.completedWorkers,
+            failed_workers: runMetadata.failedWorkers,
+          },
         },
       });
     } catch (error) {

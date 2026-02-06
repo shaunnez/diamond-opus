@@ -8,6 +8,7 @@ import {
   getFeedStats,
   getConsolidationProgress,
   getOverallConsolidationStats,
+  getRunsConsolidationStatus,
   executeQuery,
   isAllowedTable,
   type RunsFilter,
@@ -274,6 +275,43 @@ router.get('/consolidation', async (_req: Request, res: Response, next: NextFunc
   try {
     const stats = await getOverallConsolidationStats();
     res.json({ data: stats });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v2/analytics/consolidation/status:
+ *   get:
+ *     summary: Get consolidation status for recent runs
+ *     description: |
+ *       Returns per-run consolidation status including recorded outcome stats
+ *       and live progress counts from raw_diamonds_nivoda. Used by the
+ *       dashboard to show which runs completed fully and which can be resumed.
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           maximum: 50
+ *     responses:
+ *       200:
+ *         description: Consolidation status for recent runs
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/consolidation/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 50);
+    const statuses = await getRunsConsolidationStatus(limit);
+    res.json({ data: statuses });
   } catch (error) {
     next(error);
   }

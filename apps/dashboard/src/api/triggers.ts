@@ -117,3 +117,29 @@ export async function getFailedWorkers(runId: string): Promise<FailedWorkersResp
   const response = await api.get<{ data: FailedWorkersResponse }>(`/triggers/failed-workers/${runId}`);
   return response.data.data;
 }
+
+// Resume consolidation types
+export interface ResumeConsolidateResponse {
+  message: string;
+  run_id: string;
+  trace_id: string;
+  diamonds_reset: number;
+  run_metadata: {
+    run_type: 'full' | 'incremental';
+    expected_workers: number;
+    completed_workers: number;
+    failed_workers: number;
+  };
+}
+
+// Resume consolidation for a partially completed run
+export async function resumeConsolidation(runId: string): Promise<ResumeConsolidateResponse> {
+  const response = await api.post<{ data: ResumeConsolidateResponse } | { error: unknown; manual_command: string }>(
+    '/triggers/resume-consolidation',
+    { run_id: runId }
+  );
+  if ('error' in response.data) {
+    throw new Error((response.data.error as { message: string }).message);
+  }
+  return response.data.data;
+}
