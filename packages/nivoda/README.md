@@ -31,6 +31,14 @@ NIVODA_USERNAME=user@example.com
 NIVODA_PASSWORD=secret
 ```
 
+Optional environment variables:
+
+```bash
+# Exclude fields that cause GraphQL enum validation errors on Nivoda staging API
+# Disables: clarity, floInt, floCol, labgrown_type
+NIVODA_DISABLE_STAGING_FIELDS=true
+```
+
 ## Usage
 
 ### NivodaAdapter
