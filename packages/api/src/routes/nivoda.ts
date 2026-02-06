@@ -61,58 +61,56 @@ router.post(
         throw badRequest("offer_id is required");
       }
 
-      const adapter = new NivodaAdapter();
-      const result = await adapter.createHold(offer_id);
-
       // Track in Supabase - look up diamond by offer_id
-      const diamond = await getDiamondByOfferId(offer_id) as Diamond | null;
+      const diamond = (await getDiamondByOfferId(offer_id)) as Diamond | null;
+
       if (diamond) {
+        const adapter = new NivodaAdapter();
+
+        const result = await adapter.createHold(diamond.id);
+
         await createHoldHistory(
           diamond.id,
           diamond.feed,
           diamond.offerId,
           result.id,
           result.denied,
-          result.until ? new Date(result.until) : undefined
+          result.until ? new Date(result.until) : undefined,
         );
 
         if (!result.denied) {
-          await updateDiamondAvailability(diamond.id, 'on_hold', result.id);
+          await updateDiamondAvailability(diamond.id, "on_hold", result.id);
+          res.json({
+            data: {
+              hold_id: result.id,
+              denied: result.denied,
+              until: result.until,
+              message: "Hold placed successfully",
+            },
+          });
+        } else {
+          res.status(400).json({
+            error: {
+              code: "HOLD_DENIED",
+              message: "Hold request was denied by Nivoda",
+            },
+            data: {
+              hold_id: result.id,
+              denied: true,
+            },
+          });
         }
       }
-
-      if (result.denied) {
-        res.status(400).json({
-          error: {
-            code: "HOLD_DENIED",
-            message: "Hold request was denied by Nivoda",
-          },
-          data: {
-            hold_id: result.id,
-            denied: true,
-          },
-        });
-        return;
-      }
-
-      res.json({
-        data: {
-          hold_id: result.id,
-          denied: result.denied,
-          until: result.until,
-          message: "Hold placed successfully",
-        },
-      });
     } catch (error) {
       insertErrorLog(
-        'api',
+        "api",
         `Hold failed: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
-        { operation: 'hold', offer_id: req.body.offer_id },
+        { operation: "hold", offer_id: req.body.offer_id },
       ).catch(() => {});
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -163,29 +161,29 @@ router.post(
         return;
       }
 
-      if (hold.status !== 'active') {
+      if (hold.status !== "active") {
         throw badRequest(`Hold is already ${hold.status}`);
       }
 
       // Update hold status in DB
-      await updateHoldStatus(hold_id, 'released');
+      await updateHoldStatus(hold_id, "released");
 
       // Restore diamond availability if we have the diamond
       if (hold.diamondId) {
-        await updateDiamondAvailability(hold.diamondId, 'available', undefined);
+        await updateDiamondAvailability(hold.diamondId, "available", undefined);
       }
 
       res.json({
         data: {
           hold_id: hold_id,
-          status: 'released',
+          status: "released",
           message: "Hold cancelled successfully",
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -247,7 +245,7 @@ router.post(
       }
 
       // Look up diamond for tracking
-      const diamond = await getDiamondByOfferId(offer_id) as Diamond | null;
+      const diamond = (await getDiamondByOfferId(offer_id)) as Diamond | null;
       const idempotencyKey = `nivoda-order-${offer_id}-${Date.now()}`;
 
       // Create pending purchase record
@@ -258,10 +256,10 @@ router.post(
           diamond.feed,
           diamond.offerId,
           idempotencyKey,
-          'pending',
+          "pending",
           undefined,
           reference,
-          comments
+          comments,
         );
         purchaseId = record.id;
       }
@@ -275,14 +273,14 @@ router.post(
             customer_comment: comments,
             customer_order_number: reference,
             return_option: return_option || false,
-          }
+          },
         ]);
 
         // Update purchase record to confirmed
         if (purchaseId) {
-          await updatePurchaseStatus(purchaseId, 'confirmed', result);
+          await updatePurchaseStatus(purchaseId, "confirmed", result);
           if (diamond) {
-            await updateDiamondAvailability(diamond.id, 'sold');
+            await updateDiamondAvailability(diamond.id, "sold");
           }
         }
 
@@ -295,20 +293,20 @@ router.post(
       } catch (orderError) {
         // Update purchase record to failed
         if (purchaseId) {
-          await updatePurchaseStatus(purchaseId, 'failed', null);
+          await updatePurchaseStatus(purchaseId, "failed", null);
         }
         throw orderError;
       }
     } catch (error) {
       insertErrorLog(
-        'api',
+        "api",
         `Order failed: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
-        { operation: 'order', offer_id: req.body.offer_id },
+        { operation: "order", offer_id: req.body.offer_id },
       ).catch(() => {});
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -471,7 +469,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -567,7 +565,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -625,7 +623,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export default router;
