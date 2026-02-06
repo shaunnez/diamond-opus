@@ -13,6 +13,7 @@ import {
   isAllowedTable,
   getErrorLogs,
   getErrorLogServices,
+  clearErrorLogs,
   getHoldHistoryList,
   getPurchaseHistoryList,
   type RunsFilter,
@@ -594,6 +595,38 @@ router.get('/error-logs/services', async (_req: Request, res: Response, next: Ne
   try {
     const services = await getErrorLogServices();
     res.json({ data: services });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v2/analytics/error-logs:
+ *   delete:
+ *     summary: Clear error logs, optionally filtered by service
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: service
+ *         schema:
+ *           type: string
+ *         description: Filter by service name
+ *     responses:
+ *       200:
+ *         description: Number of deleted error logs
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete('/error-logs', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = req.query.service as string | undefined;
+    const deleted = await clearErrorLogs(service);
+    res.json({ deleted });
   } catch (error) {
     next(error);
   }

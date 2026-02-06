@@ -21,6 +21,7 @@ import {
   Badge,
   Alert,
   ConfirmModal,
+  useToast,
 } from '../components/ui';
 
 const DIAMOND_SHAPES = [
@@ -52,6 +53,7 @@ const emptyFormData: RuleFormData = {
 
 export function PricingRules() {
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRule, setEditingRule] = useState<PricingRule | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
@@ -68,6 +70,10 @@ export function PricingRules() {
       queryClient.invalidateQueries({ queryKey: ['pricing-rules'] });
       setShowCreateModal(false);
       setFormData(emptyFormData);
+      addToast({ variant: 'success', title: 'Pricing rule created' });
+    },
+    onError: (error) => {
+      addToast({ variant: 'error', title: 'Failed to create rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
     },
   });
 
@@ -78,6 +84,10 @@ export function PricingRules() {
       queryClient.invalidateQueries({ queryKey: ['pricing-rules'] });
       setEditingRule(null);
       setFormData(emptyFormData);
+      addToast({ variant: 'success', title: 'Pricing rule updated' });
+    },
+    onError: (error) => {
+      addToast({ variant: 'error', title: 'Failed to update rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
     },
   });
 
@@ -86,6 +96,10 @@ export function PricingRules() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pricing-rules'] });
       setDeletingRuleId(null);
+      addToast({ variant: 'success', title: 'Pricing rule deleted' });
+    },
+    onError: (error) => {
+      addToast({ variant: 'error', title: 'Failed to delete rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
     },
   });
 

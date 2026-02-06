@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Filter, X } from 'lucide-react';
-import { getErrorLogs, getErrorLogServices, type ErrorLogsFilter, type ErrorLog } from '../api/analytics';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Filter, X, Trash2 } from 'lucide-react';
+import { getErrorLogs, getErrorLogServices, clearErrorLogs, type ErrorLogsFilter, type ErrorLog } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -13,6 +13,8 @@ import {
   Badge,
   PageLoader,
   Alert,
+  ConfirmModal,
+  useToast,
 } from '../components/ui';
 import { formatDateShort } from '../utils/formatters';
 
@@ -27,12 +29,15 @@ function ServiceBadge({ service }: { service: string }) {
 }
 
 export function ErrorLogs() {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [filters, setFilters] = useState<ErrorLogsFilter>({
     page: 1,
     limit: 50,
   });
   const [showFilters, setShowFilters] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['error-logs', filters],
@@ -47,6 +52,27 @@ export function ErrorLogs() {
     queryFn: () => getErrorLogServices(),
     refetchOnMount: false,
     refetchOnWindowFocus: false,
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () => clearErrorLogs(filters.service),
+    onSuccess: (deleted) => {
+      queryClient.invalidateQueries({ queryKey: ['error-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['error-log-services'] });
+      setShowClearModal(false);
+      addToast({
+        variant: 'success',
+        title: 'Error logs cleared',
+        message: `${deleted} log${deleted !== 1 ? 's' : ''} deleted`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to clear error logs',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
   });
 
   const handleFilterChange = (key: keyof ErrorLogsFilter, value: string | undefined) => {
@@ -136,9 +162,21 @@ export function ErrorLogs() {
                 </Button>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-stone-500">
-              {data?.pagination.total ?? 0} total errors
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs sm:text-sm text-stone-500">
+                {data?.pagination.total ?? 0} total errors
+              </p>
+              {(data?.pagination.total ?? 0) > 0 && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 className="w-4 h-4" />}
+                  onClick={() => setShowClearModal(true)}
+                >
+                  {filters.service ? `Clear ${filters.service}` : 'Clear All'}
+                </Button>
+              )}
+            </div>
           </div>
 
           {showFilters && (
@@ -234,6 +272,22 @@ export function ErrorLogs() {
             );
           })()
         )}
+
+        {/* Clear Confirmation Modal */}
+        <ConfirmModal
+          isOpen={showClearModal}
+          onClose={() => setShowClearModal(false)}
+          onConfirm={() => clearMutation.mutate()}
+          title="Clear Error Logs"
+          message={
+            filters.service
+              ? `Are you sure you want to delete all "${filters.service}" error logs? This cannot be undone.`
+              : 'Are you sure you want to delete all error logs? This cannot be undone.'
+          }
+          confirmText="Clear Logs"
+          variant="danger"
+          loading={clearMutation.isPending}
+        />
       </PageContainer>
     </>
   );

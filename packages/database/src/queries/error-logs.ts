@@ -101,3 +101,19 @@ export async function getErrorLogServices(): Promise<string[]> {
   );
   return result.rows.map((r) => r.service);
 }
+
+/**
+ * Clear error logs, optionally filtered by service.
+ * Returns the number of deleted rows.
+ */
+export async function clearErrorLogs(service?: string): Promise<number> {
+  if (service) {
+    const result = await query(
+      `DELETE FROM error_logs WHERE service = $1`,
+      [service],
+    );
+    return result.rowCount ?? 0;
+  }
+  const result = await query(`DELETE FROM error_logs`);
+  return result.rowCount ?? 0;
+}

@@ -35,6 +35,7 @@ import {
   PageLoader,
   Alert,
   Modal,
+  useToast,
 } from '../components/ui';
 import {
   formatNumber,
@@ -47,6 +48,7 @@ import {
 export function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [editWatermark, setEditWatermark] = useState(false);
   const [watermarkDate, setWatermarkDate] = useState('');
 
@@ -103,6 +105,14 @@ export function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['watermark'] });
       refetchWatermark();
       setEditWatermark(false);
+      addToast({ variant: 'success', title: 'Watermark updated' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to update watermark',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
     },
   });
 
@@ -203,8 +213,10 @@ export function Dashboard() {
           <StatCard
             title="Last Sync"
             value={
-              summary?.lastSuccessfulRun
-                ? formatRelativeTime(summary.lastSuccessfulRun.completedAt)
+              watermark?.lastRunCompletedAt
+                ? formatRelativeTime(watermark.lastRunCompletedAt)
+                : watermark?.lastUpdatedAt
+                ? formatRelativeTime(watermark.lastUpdatedAt)
                 : 'Never'
             }
             icon={<Clock className="w-5 h-5" />}

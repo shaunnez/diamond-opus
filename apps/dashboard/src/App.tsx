@@ -16,6 +16,7 @@ import { Orders } from './pages/Orders';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
+import { ToastProvider } from './components/ui';
 
 function ProtectedRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -61,12 +62,14 @@ function ProtectedRoutes() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/*" element={<ProtectedRoutes />} />
-        </Routes>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/*" element={<ProtectedRoutes />} />
+          </Routes>
+        </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
