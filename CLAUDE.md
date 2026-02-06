@@ -147,7 +147,7 @@ Nivoda Response:
 - **No local Postgres** - Supabase only via `DATABASE_URL`
 - All prices stored in **dollars** as DECIMAL(12,2)
 - Soft deletes: `status = 'deleted'` and `deleted_at` timestamp
-- Connection pool: min 2, max 15 connections
+- Connection pool: configurable via PG_POOL_MAX (default 2), PG_IDLE_TIMEOUT_MS, PG_CONN_TIMEOUT_MS
 
 ### Nivoda API
 
@@ -182,7 +182,7 @@ The scheduler uses adaptive density scanning to partition work:
 
 - **Dense zone** ($0-$20,000): Fixed $100 steps, most diamonds here
 - **Sparse zone** ($20,000+): Adaptive stepping based on actual density
-- **Max workers**: 30 for full runs, 10 for incremental
+- **Max workers**: 1000 for full runs, 10 for incremental
 - **Min records per worker**: 1,000 to avoid overhead
 
 ## Authentication
@@ -239,7 +239,7 @@ CONSOLIDATOR_CONCURRENCY = 2           // Concurrent batch upserts (env: CONSOLI
 CONSOLIDATOR_CLAIM_TTL_MINUTES = 30    // Stuck claim recovery timeout
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
-HEATMAP_MAX_WORKERS = 30               // Max parallel workers
+HEATMAP_MAX_WORKERS = 1000             // Max parallel workers (incremental capped to 10)
 
 // Nivoda query date filtering
 FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z'  // Start date for full runs

@@ -111,9 +111,9 @@ The job:
 
 ```
 src/
-├── index.ts          # Entry point
+├── index.ts          # Entry point and orchestration
 ├── heatmap.ts        # Density scanning algorithm
-├── partitioner.ts    # Work item creation
+├── service-bus.ts    # Service Bus message publishing
 └── watermark.ts      # Azure Blob watermark operations
 ```
 

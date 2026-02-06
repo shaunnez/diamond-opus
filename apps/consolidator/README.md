@@ -26,7 +26,7 @@ Instead of individual INSERTs, diamonds are upserted in batches using PostgreSQL
 // Configuration (packages/shared/src/constants.ts)
 CONSOLIDATOR_BATCH_SIZE = 2000;        // Raw diamonds fetched per cycle
 CONSOLIDATOR_UPSERT_BATCH_SIZE = 100;  // Diamonds per batch INSERT
-CONSOLIDATOR_CONCURRENCY = 5;          // Concurrent batch upserts
+CONSOLIDATOR_CONCURRENCY = 2;          // Concurrent batch upserts (env: CONSOLIDATOR_CONCURRENCY)
 ```
 
 **Performance comparison (500k records):**
@@ -79,7 +79,7 @@ FOR UPDATE SKIP LOCKED;  -- Other replicas skip these rows
          │
          ▼
 ┌─────────────────────────────────────────┐
-│ Batch Processing (concurrency: 10)      │
+│ Batch Processing (concurrency: 2)       │
 │ ┌─────────────┐  ┌─────────────┐        │
 │ │ Batch 1     │  │ Batch 2     │  ...   │
 │ │ 1000 items  │  │ 1000 items  │        │
@@ -112,14 +112,14 @@ FOR UPDATE SKIP LOCKED;  -- Other replicas skip these rows
 // Configuration (from packages/shared/src/constants.ts)
 CONSOLIDATOR_BATCH_SIZE = 2000;        // Raw diamonds fetched per cycle
 CONSOLIDATOR_UPSERT_BATCH_SIZE = 100;  // Diamonds per batch INSERT
-CONSOLIDATOR_CONCURRENCY = 5;          // Concurrent batch upserts (respects 30 conn pool)
+CONSOLIDATOR_CONCURRENCY = 2;          // Concurrent batch upserts (env: CONSOLIDATOR_CONCURRENCY)
 ```
 
 **Example run (500k diamonds, 3 replicas):**
 - 500,000 raw diamonds ÷ 3 replicas = ~167k per replica
 - 167k ÷ 2000 batch = 84 fetch cycles per replica
 - 2000 ÷ 100 = 20 batch upserts per cycle
-- 20 ÷ 5 concurrency = 4 sequential rounds per cycle
+- 20 ÷ 2 concurrency = 10 sequential rounds per cycle
 - **Total: ~1-2 minutes with 3 replicas**
 
 ## Configuration
@@ -183,12 +183,11 @@ custom_scale_rule {
 
 ```
 src/
-├── index.ts          # Entry point and message handler
-├── processor.ts      # Batch processing orchestration
-├── transformer.ts    # Nivoda → Diamond mapping
-├── pricer.ts         # Pricing rule application
+├── index.ts          # Entry point, message handler, and batch processing
+├── service-bus.ts    # Service Bus message handling
+├── trigger.ts        # Manual consolidation trigger
 ├── watermark.ts      # Watermark advancement
-└── alerter.ts        # Failure notification
+└── alerts.ts         # Failure notification via Resend
 ```
 
 ## Consolidate Message
@@ -219,8 +218,8 @@ interface ConsolidateMessage {
   color: item.diamond.color,
   clarity: item.diamond.clarity,
 
-  // Pricing (in cents)
-  supplier_price_cents: item.price * 100,
+  // Pricing (in dollars)
+  priceModelPrice: item.price,
 
   // Availability mapping
   availability: mapAvailability(item.availability),
@@ -369,5 +368,5 @@ Typical metrics (with batch optimizations):
 | Memory usage | 300-600MB | 300-600MB |
 
 **Connection pool usage:**
-- 5 concurrent batch upserts × 1 connection each = 5 connections
-- Safe for Supabase 30-connection pool (leaves room for other services)
+- 2 concurrent batch upserts × 1 connection each = 2 connections per replica
+- Concurrency should not exceed PG_POOL_MAX (default 2)

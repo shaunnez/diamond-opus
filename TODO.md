@@ -1,20 +1,21 @@
 # TODO - Future Enhancements
 
-This document tracks areas for improvement and future enhancements identified during code review.
+This document tracks areas for improvement and future enhancements.
 
 ## High Priority
 
 ### API Security
 
 - [ ] **Add rate limiting** - Implement IP-based or API-key-based rate limiting to prevent abuse
+  - Rate limit constants already exist in `packages/shared/src/constants.ts`
+  - Need to wire up middleware in `packages/api/src/middleware/`
   - Consider using `express-rate-limit` package
   - Different limits for search vs. mutation operations
-  - Location: `packages/api/src/middleware/`
 
-- [ ] **Add request validation** - Strengthen input validation on all endpoints
+- [ ] **Strengthen request validation** - More comprehensive input validation
   - Zod schemas exist but could be more comprehensive
   - Validate diamond IDs are valid UUIDs
-  - Location: `packages/api/src/schemas/`
+  - Location: `packages/api/src/validators/`
 
 ### Pipeline Reliability
 
@@ -42,10 +43,9 @@ This document tracks areas for improvement and future enhancements identified du
   - Integrate with Azure Application Insights
   - Location: `packages/shared/src/`
 
-- [ ] **Add structured alerting** - Expand alerting beyond email
+- [ ] **Expand alerting beyond email** - Additional notification channels
   - Slack/Teams integration for failures
   - PagerDuty for critical issues
-  - Dashboard with run history
 
 ## Medium Priority
 
@@ -56,21 +56,9 @@ This document tracks areas for improvement and future enhancements identified du
   - Reduce API calls on incremental runs
   - Location: `apps/scheduler/src/heatmap.ts`
 
-- [ ] **Consolidator concurrency tuning** - Auto-tune based on system load
-  - Currently fixed at 10 concurrent batches
+- [ ] **Auto-tune consolidator concurrency** - Dynamic based on system load
+  - Currently configurable via `CONSOLIDATOR_CONCURRENCY` env var (default 2)
   - Monitor CPU/memory and adjust dynamically
-  - Location: `apps/consolidator/src/processor.ts`
-
-- [ ] **Database connection pooling** - Optimize pool settings
-  - Current: min 2, max 15
-  - Add connection health checks
-  - Consider PgBouncer for high load
-  - Location: `packages/database/src/client.ts`
-
-- [ ] **Batch insert optimization** - Use COPY for large inserts
-  - Current: Individual upserts
-  - Bulk operations for raw diamond ingestion
-  - Location: `apps/worker/src/inserter.ts`
 
 ### Code Quality
 
@@ -87,14 +75,9 @@ This document tracks areas for improvement and future enhancements identified du
 - [ ] **Improve error messages** - More actionable error responses
   - Include troubleshooting hints
   - Link to documentation
-  - Location: `packages/api/src/middleware/error.ts`
+  - Location: `packages/api/src/middleware/error-handler.ts`
 
 ### Feature Additions
-
-- [ ] **Diamond comparison endpoint** - Compare multiple diamonds
-  - Side-by-side comparison API
-  - Calculate value scores
-  - Location: `packages/api/src/routes/diamonds.ts`
 
 - [ ] **Price history tracking** - Track price changes over time
   - Store historical prices in separate table
@@ -104,7 +87,6 @@ This document tracks areas for improvement and future enhancements identified du
 - [ ] **Webhook notifications** - Notify clients of inventory changes
   - Register webhook URLs per API client
   - Push notifications on diamond availability changes
-  - Location: `packages/api/src/`
 
 - [ ] **GraphQL API** - Alternative to REST
   - More flexible queries for clients
@@ -117,30 +99,18 @@ This document tracks areas for improvement and future enhancements identified du
 
 - [ ] **Local development setup** - Docker Compose for full stack
   - Local Service Bus emulator (Azurite)
-  - Local PostgreSQL
+  - Local PostgreSQL option
   - One-command startup
 
 - [ ] **API SDK generation** - Auto-generate client libraries
   - TypeScript SDK from OpenAPI spec
   - Python client
-  - Location: `packages/api/src/swagger/`
-
-- [ ] **Documentation site** - Generate docs from code
-  - TypeDoc for API documentation
-  - Docusaurus or similar for guides
-  - Host on GitHub Pages
 
 ### Infrastructure
 
 - [ ] **Multi-region deployment** - Geo-redundancy
   - Active-passive failover
   - Database replication
-  - CDN for API responses
-
-- [ ] **Cost optimization** - Reduce Azure spend
-  - Reserved instances for production
-  - Spot instances for workers
-  - Storage lifecycle policies
 
 - [ ] **Secrets management** - Azure Key Vault integration
   - Remove secrets from environment variables
@@ -157,38 +127,30 @@ This document tracks areas for improvement and future enhancements identified du
 - [ ] **Log retention policy** - Manage log storage
   - Configure Log Analytics retention
   - Archive old logs to cold storage
-  - Reduce costs
 
 ## Technical Debt
-
-### Code Improvements
 
 - [ ] **Centralize error handling** - Consistent error types
   - Create custom error classes
   - Standardize error codes across packages
-  - Location: `packages/shared/src/errors/`
-
-- [ ] **Extract common patterns** - Reduce duplication
-  - Retry logic used in multiple places
-  - Pagination handling
-  - Service Bus message handling
+  - Location: `packages/shared/src/`
 
 - [ ] **Type safety improvements** - Stricter TypeScript
   - Enable `noUncheckedIndexedAccess`
   - Remove `any` types where possible
   - Add runtime type validation with Zod
 
-### Documentation
+- [ ] **Remove deprecated counter columns** - After validation period
+  - `run_metadata.completed_workers` and `failed_workers` columns no longer maintained
+  - Counts now computed from `partition_progress` table
+  - Apply `sql/migrations/005_remove_counter_columns.sql` when confident
+  - See `IMPLEMENTATION_SUMMARY.md` for context
 
-- [ ] **API examples** - More code examples
-  - Python integration examples
-  - JavaScript/TypeScript examples
-  - Postman collection
-
-- [ ] **Architecture decision records** - Document decisions
-  - Why two-stage pipeline?
-  - Why heatmap partitioning?
-  - Why cents for pricing?
+- [ ] **Clean up historical documentation** - Archive resolved design docs
+  - `WORKER_CONTINUATION_PATTERN.md` - Pattern is implemented, doc is reference only
+  - `IMPLEMENTATION_SUMMARY.md` - Dashboard sync fix is deployed
+  - `SYNC_ISSUE_ANALYSIS.md` - Analysis is resolved
+  - `instructions.md` - Original creation prompt, not needed in repo
 
 ## Completed
 
@@ -196,20 +158,18 @@ This document tracks areas for improvement and future enhancements identified du
 - [x] Update CLAUDE.md with build commands
 - [x] Document all packages with READMEs
 - [x] Document all apps with READMEs
-- [x] Split CI/CD workflows
+- [x] Split CI/CD workflows (now consolidated into ci-affected-staging.yaml)
 - [x] Azure cost optimization
 - [x] Worker retry consolidation
+- [x] Worker continuation pattern (one page per message)
+- [x] Bulk upsert for raw diamonds (UNNEST-based batch inserts)
+- [x] Consolidator claim pattern with FOR UPDATE SKIP LOCKED
+- [x] Dashboard sync fix (partition_progress as single source of truth)
+- [x] Rate limit constants defined
+- [x] Per-service database pool configuration (PG_POOL_MAX env var)
+- [x] Dashboard admin UI with run management, analytics, triggers
 
 ---
-
-## How to Contribute
-
-1. Pick an item from the list
-2. Create a feature branch: `git checkout -b feature/description`
-3. Implement the change
-4. Add tests if applicable
-5. Update documentation
-6. Create a pull request
 
 ## Priority Guidelines
 

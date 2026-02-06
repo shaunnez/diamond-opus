@@ -21,7 +21,8 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint . --ext .ts",
     "swagger": "npm run swagger -w @diamond/api",
-    "typecheck": "tsc --noEmit -p tsconfig.check.json"
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
+    "docs:generate": "bash scripts/generate-docs.sh"
   },
   "devDependencies": {
     "@types/node": "^20.19.31",

@@ -120,9 +120,8 @@ scaling_rule {
 
 ```
 src/
-├── index.ts          # Entry point and message handler
-├── processor.ts      # Diamond fetching logic
-├── inserter.ts       # Database insert operations
+├── index.ts          # Entry point, message handler, and processing logic
+├── service-bus.ts    # Service Bus message publishing (continuations)
 └── retry.ts          # Manual retry functionality
 ```
 

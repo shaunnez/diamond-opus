@@ -48,8 +48,8 @@ import type {
 import {
   RECORDS_PER_WORKER,        // 5000 - Target records per worker
   WORKER_PAGE_SIZE,          // 30 - Pagination size for Nivoda
-  CONSOLIDATOR_BATCH_SIZE,   // 1000 - Diamonds per batch
-  CONSOLIDATOR_CONCURRENCY,  // 10 - Parallel processing
+  CONSOLIDATOR_BATCH_SIZE,   // 2000 - Raw diamonds fetched per cycle
+  CONSOLIDATOR_CONCURRENCY,  // 2 - Concurrent batch upserts (env-configurable)
   NIVODA_MAX_LIMIT,          // 50 - Nivoda API limit
   TOKEN_LIFETIME_MS,         // 6 hours
   TOKEN_EXPIRY_BUFFER_MS,    // 5 minutes
