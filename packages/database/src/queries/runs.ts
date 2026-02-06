@@ -166,6 +166,34 @@ export async function completeRun(runId: string, watermarkAfter?: Date): Promise
   );
 }
 
+export async function markConsolidationStarted(runId: string): Promise<void> {
+  await query(
+    `UPDATE run_metadata
+     SET consolidation_started_at = NOW(),
+         consolidation_completed_at = NULL,
+         consolidation_processed = 0,
+         consolidation_errors = 0,
+         consolidation_total = 0
+     WHERE run_id = $1`,
+    [runId]
+  );
+}
+
+export async function updateRunConsolidationStats(
+  runId: string,
+  stats: { processed: number; errors: number; total: number }
+): Promise<void> {
+  await query(
+    `UPDATE run_metadata
+     SET consolidation_completed_at = NOW(),
+         consolidation_processed = $2,
+         consolidation_errors = $3,
+         consolidation_total = $4
+     WHERE run_id = $1`,
+    [runId, stats.processed, stats.errors, stats.total]
+  );
+}
+
 export async function createWorkerRun(
   runId: string,
   partitionId: string,

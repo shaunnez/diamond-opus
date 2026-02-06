@@ -151,6 +151,58 @@ export async function resetStuckClaims(ttlMinutes: number): Promise<number> {
   return parseInt(result.rows[0]?.count ?? '0', 10);
 }
 
+/**
+ * Marks diamonds as failed after an unrecoverable error during mapping/upsert.
+ * These diamonds won't be retried automatically but can be resumed via
+ * the resume-consolidation endpoint which resets them to 'pending'.
+ */
+export async function markAsFailed(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  await query(
+    `UPDATE raw_diamonds_nivoda
+     SET consolidation_status = 'failed',
+         updated_at = NOW()
+     WHERE id = ANY($1)`,
+    [ids]
+  );
+}
+
+/**
+ * Resets failed diamonds back to pending so they can be retried.
+ * Used by the resume-consolidation flow.
+ *
+ * @returns Number of rows reset
+ */
+export async function resetFailedDiamonds(runId?: string): Promise<number> {
+  const result = await query<{ count: string }>(
+    runId
+      ? `WITH reset AS (
+          UPDATE raw_diamonds_nivoda
+          SET consolidation_status = 'pending',
+              claimed_at = NULL,
+              claimed_by = NULL
+          WHERE consolidated = FALSE
+            AND consolidation_status IN ('failed', 'processing')
+            AND run_id = $1
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text as count FROM reset`
+      : `WITH reset AS (
+          UPDATE raw_diamonds_nivoda
+          SET consolidation_status = 'pending',
+              claimed_at = NULL,
+              claimed_by = NULL
+          WHERE consolidated = FALSE
+            AND consolidation_status IN ('failed', 'processing')
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text as count FROM reset`,
+    runId ? [runId] : []
+  );
+  return parseInt(result.rows[0]?.count ?? '0', 10);
+}
+
 export async function getUnconsolidatedCount(): Promise<number> {
   const result = await query<{ count: string }>(
     `SELECT COUNT(*) as count FROM raw_diamonds_nivoda WHERE consolidated = FALSE`

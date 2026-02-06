@@ -68,8 +68,25 @@ export interface ConsolidationProgress {
   totalRawDiamonds: number;
   consolidatedCount: number;
   pendingCount: number;
+  failedCount: number;
   progressPercent: number;
   oldestPendingCreatedAt: string | null;
+}
+
+export interface RunConsolidationStatus {
+  runId: string;
+  runType: 'full' | 'incremental';
+  startedAt: string;
+  completedAt: string | null;
+  expectedWorkers: number;
+  completedWorkers: number;
+  failedWorkers: number;
+  consolidationStartedAt: string | null;
+  consolidationCompletedAt: string | null;
+  consolidationProcessed: number;
+  consolidationErrors: number;
+  consolidationTotal: number;
+  liveProgress: ConsolidationProgress | null;
 }
 
 export interface ConsolidationStats {
@@ -136,6 +153,11 @@ export async function getConsolidationStats(): Promise<ConsolidationStats> {
 
 export async function getConsolidationProgress(runId: string): Promise<ConsolidationProgress> {
   const response = await api.get<{ data: ConsolidationProgress }>(`/analytics/consolidation/${runId}`);
+  return response.data.data;
+}
+
+export async function getConsolidationStatus(limit = 10): Promise<RunConsolidationStatus[]> {
+  const response = await api.get<{ data: RunConsolidationStatus[] }>(`/analytics/consolidation/status?limit=${limit}`);
   return response.data.data;
 }
 

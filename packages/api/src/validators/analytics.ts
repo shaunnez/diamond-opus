@@ -55,3 +55,9 @@ export const retryWorkersSchema = z.object({
 });
 
 export type RetryWorkersBody = z.infer<typeof retryWorkersSchema>;
+
+export const resumeConsolidateSchema = z.object({
+  run_id: z.string().uuid(),
+});
+
+export type ResumeConsolidateBody = z.infer<typeof resumeConsolidateSchema>;
