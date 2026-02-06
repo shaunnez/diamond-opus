@@ -15,6 +15,10 @@ export const CONSOLIDATOR_CONCURRENCY = parseInt(
 );
 /** TTL in minutes for stuck claim recovery. Claims older than this are reset to pending. */
 export const CONSOLIDATOR_CLAIM_TTL_MINUTES = 30;
+/** Minimum success rate (0-1) for auto-starting consolidation when some workers fail */
+export const AUTO_CONSOLIDATION_SUCCESS_THRESHOLD = 0.70;
+/** Delay in minutes before auto-starting consolidation on partial success */
+export const AUTO_CONSOLIDATION_DELAY_MINUTES = 5;
 export const NIVODA_MAX_LIMIT = 50;
 
 export const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 hours

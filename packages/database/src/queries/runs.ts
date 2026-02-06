@@ -84,7 +84,7 @@ export async function getRunMetadata(runId: string): Promise<RunMetadata | null>
       ) as completed_workers_actual,
       COALESCE(
         (SELECT COUNT(*) FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE AND pp.completed = FALSE),
         0
       ) as failed_workers_actual
      FROM run_metadata rm
@@ -126,7 +126,7 @@ export async function getRunWorkerCounts(
       ) as completed_count,
       COALESCE(
         (SELECT COUNT(*) FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE AND pp.completed = FALSE),
         0
       ) as failed_count
      FROM run_metadata rm
