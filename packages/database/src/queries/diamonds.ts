@@ -366,8 +366,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       SELECT * FROM UNNEST(
         $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[],
         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
-        $11::text[], $12::boolean[], $13::boolean[], $14::bigint[], $15::bigint[],
-        $16::bigint[], $17::numeric[], $18::integer[], $19::text[], $20::text[],
+        $11::text[], $12::boolean[], $13::boolean[], $14::numeric[], $15::numeric[],
+        $16::numeric[], $17::numeric[], $18::integer[], $19::text[], $20::text[],
         $21::text[], $22::text[], $23::text[], $24::text[], $25::text[],
         $26::text[], $27::jsonb[], $28::jsonb[], $29::text[], $30::text[],
         $31::text[], $32::timestamptz[]
