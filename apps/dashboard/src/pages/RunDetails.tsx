@@ -50,6 +50,8 @@ export function RunDetails() {
     enabled: !!runId,
     refetchInterval: (query) =>
       query.state.data?.run?.status === 'running' ? 5000 : false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const consolidateMutation = useMutation({

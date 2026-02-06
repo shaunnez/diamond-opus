@@ -36,7 +36,7 @@ function mapRowToErrorLog(row: ErrorLogRow): ErrorLog {
 }
 
 /**
- * Insert an error log entry. Truncates error_message to 255 chars.
+ * Insert an error log entry.
  * This is fire-and-forget safe — callers should catch and ignore failures
  * to avoid masking the original error.
  */
@@ -46,13 +46,11 @@ export async function insertErrorLog(
   stackTrace?: string,
   context?: Record<string, unknown>,
 ): Promise<void> {
-  const trimmedMessage = errorMessage.slice(0, 255);
-  const trimmedStack = stackTrace?.slice(0, 2000);
-
   await query(
     `INSERT INTO error_logs (service, error_message, stack_trace, context)
-     VALUES ($1, $2, $3, $4)`,
-    [trimmedMessage ? service : service, trimmedMessage, trimmedStack ?? null, context ? JSON.stringify(context) : null],
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (error_message) DO NOTHING`,
+    [service, errorMessage, stackTrace ?? null, context ? JSON.stringify(context) : null],
   );
 }
 

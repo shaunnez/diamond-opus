@@ -43,6 +43,8 @@ export function Dashboard() {
     queryKey: ['dashboard-summary'],
     queryFn: getDashboardSummary,
     refetchInterval: 30000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -53,6 +55,8 @@ export function Dashboard() {
     queryKey: ['recent-runs'],
     queryFn: () => getRuns({ limit: 5 }),
     refetchInterval: 30000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -62,6 +66,8 @@ export function Dashboard() {
     queryKey: ['recent-failed-workers'],
     queryFn: () => getRecentFailedWorkers(10),
     refetchInterval: 30000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const handleRefresh = () => {

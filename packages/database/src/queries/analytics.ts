@@ -98,7 +98,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     query<{ count: string }>(
       `SELECT COUNT(DISTINCT feed) as count FROM diamonds WHERE status = 'active'`
     ),
-    // Last successful run (completed with no failures) - compute from partition_progress
+    // Last successful run (completed with no failures) - compute from worker_runs
     query<{
       run_id: string;
       run_type: string;
@@ -119,11 +119,11 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
         ) as failed_count_actual
        FROM run_metadata rm
        WHERE rm.completed_at IS NOT NULL
-       HAVING COALESCE(
-         (SELECT COUNT(*) FROM worker_runs wr
-          WHERE wr.run_id = rm.run_id AND wr.status = 'failed'),
-         0
-       ) = 0
+         AND COALESCE(
+           (SELECT COUNT(*) FROM worker_runs wr
+            WHERE wr.run_id = rm.run_id AND wr.status = 'failed'),
+           0
+         ) = 0
        ORDER BY rm.completed_at DESC LIMIT 1`
     ),
     // Recent runs count (last 7 days) - compute actual failed/completed from worker_runs
