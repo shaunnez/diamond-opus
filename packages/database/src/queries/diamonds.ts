@@ -287,9 +287,9 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const supplierStoneIds: string[] = [];
   const offerIds: string[] = [];
   const shapes: string[] = [];
-  const carats: number[] = [];
-  const colors: string[] = [];
-  const clarities: string[] = [];
+  const carats: (number | null)[] = [];
+  const colors: (string | null)[] = [];
+  const clarities: (string | null)[] = [];
   const cuts: (string | null)[] = [];
   const polishes: (string | null)[] = [];
   const symmetries: (string | null)[] = [];
@@ -321,9 +321,9 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     supplierStoneIds.push(d.supplierStoneId);
     offerIds.push(d.offerId);
     shapes.push(d.shape);
-    carats.push(d.carats);
-    colors.push(d.color);
-    clarities.push(d.clarity);
+    carats.push(d.carats ?? null);
+    colors.push(d.color ?? null);
+    clarities.push(d.clarity ?? null);
     cuts.push(d.cut ?? null);
     polishes.push(d.polish ?? null);
     symmetries.push(d.symmetry ?? null);

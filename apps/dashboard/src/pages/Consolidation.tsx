@@ -88,6 +88,8 @@ export function Consolidation() {
     queryKey: ['consolidation-stats'],
     queryFn: getConsolidationStats,
     refetchInterval: 10000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -97,6 +99,8 @@ export function Consolidation() {
     queryKey: ['consolidation-status'],
     queryFn: () => getConsolidationStatus(10),
     refetchInterval: 10000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const resumeMutation = useMutation({

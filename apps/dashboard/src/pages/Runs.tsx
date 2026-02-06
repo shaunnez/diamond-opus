@@ -37,6 +37,8 @@ export function Runs() {
     queryKey: ['runs', filters],
     queryFn: () => getRuns(filters),
     refetchInterval: filters.status === 'running' ? 5000 : 30000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const handleFilterChange = (key: keyof RunsFilter, value: string | undefined) => {

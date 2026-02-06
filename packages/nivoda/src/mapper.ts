@@ -160,8 +160,8 @@ export function mapNivodaItemToDiamond(
   const { certificate } = diamond;
 
   const priceModelPrice = item.price;
-  const carats = certificate.carats;
-  const pricePerCarat = priceModelPrice / carats;
+  const carats = certificate.carats ?? undefined;
+  const pricePerCarat = carats ? priceModelPrice / carats : 0;
 
   return {
     feed: "nivoda",
@@ -169,8 +169,8 @@ export function mapNivodaItemToDiamond(
     offerId: item.id,
     shape: certificate.shape,
     carats,
-    color: certificate.color,
-    clarity: certificate.clarity,
+    color: certificate.color ?? undefined,
+    clarity: certificate.clarity ?? undefined,
     cut: certificate.cut ?? undefined,
     polish: certificate.polish ?? undefined,
     symmetry: certificate.symmetry ?? undefined,

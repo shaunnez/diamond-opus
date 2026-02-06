@@ -21,11 +21,11 @@ export class PricingEngine {
     rule: PricingRule,
     diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
   ): boolean {
-    if (rule.caratMin !== undefined && diamond.carats < rule.caratMin) {
+    if (rule.caratMin !== undefined && (diamond.carats === undefined || diamond.carats < rule.caratMin)) {
       return false;
     }
 
-    if (rule.caratMax !== undefined && diamond.carats > rule.caratMax) {
+    if (rule.caratMax !== undefined && (diamond.carats === undefined || diamond.carats > rule.caratMax)) {
       return false;
     }
 
@@ -71,7 +71,7 @@ export class PricingEngine {
     const rating = matchedRule?.rating;
 
     const retailPrice = Math.round(diamond.priceModelPrice * markupRatio * 100) / 100;
-    const pricePerCarat = Math.round((diamond.priceModelPrice / diamond.carats) * 100) / 100;
+    const pricePerCarat = diamond.carats ? Math.round((diamond.priceModelPrice / diamond.carats) * 100) / 100 : 0;
 
     return {
       priceModelPrice: diamond.priceModelPrice,

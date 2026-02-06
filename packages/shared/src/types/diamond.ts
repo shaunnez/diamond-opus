@@ -58,9 +58,9 @@ export interface Diamond {
   supplierStoneId: string;
   offerId: string;
   shape: string;
-  carats: number;
-  color: string;
-  clarity: string;
+  carats?: number;
+  color?: string;
+  clarity?: string;
   cut?: string;
   polish?: string;
   symmetry?: string;

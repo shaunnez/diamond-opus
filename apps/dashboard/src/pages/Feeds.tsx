@@ -15,6 +15,8 @@ export function Feeds() {
     queryKey: ['feed-stats'],
     queryFn: getFeedStats,
     refetchInterval: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {

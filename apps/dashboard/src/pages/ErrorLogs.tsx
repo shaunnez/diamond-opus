@@ -38,11 +38,15 @@ export function ErrorLogs() {
     queryKey: ['error-logs', filters],
     queryFn: () => getErrorLogs(filters),
     refetchInterval: 30000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const { data: services } = useQuery({
     queryKey: ['error-log-services'],
     queryFn: () => getErrorLogServices(),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const handleFilterChange = (key: keyof ErrorLogsFilter, value: string | undefined) => {
