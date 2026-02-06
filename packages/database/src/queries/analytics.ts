@@ -96,15 +96,15 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     }>(
       `SELECT rm.*,
         COALESCE(
-          (SELECT COUNT(*) FROM partition_progress pp
-           WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+          (SELECT COUNT(*) FROM worker_runs wr
+           WHERE wr.run_id = rm.run_id AND wr.status = 'failed'),
           0
         ) as failed_count_actual
        FROM run_metadata rm
        WHERE rm.completed_at IS NOT NULL
        HAVING COALESCE(
-         (SELECT COUNT(*) FROM partition_progress pp
-          WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+         (SELECT COUNT(*) FROM worker_runs wr
+          WHERE wr.run_id = rm.run_id AND wr.status = 'failed'),
          0
        ) = 0
        ORDER BY rm.completed_at DESC LIMIT 1`
@@ -113,21 +113,21 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     query<{ status: string; count: string }>(
       `SELECT
         CASE
-          WHEN rm.completed_at IS NULL AND COALESCE(pp_stats.failed_count, 0) = 0 THEN 'running'
-          WHEN rm.completed_at IS NOT NULL AND COALESCE(pp_stats.failed_count, 0) = 0 THEN 'completed'
-          WHEN COALESCE(pp_stats.failed_count, 0) > 0
-               AND COALESCE(pp_stats.completed_count, 0) + COALESCE(pp_stats.failed_count, 0) >= rm.expected_workers THEN 'failed'
+          WHEN rm.completed_at IS NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'running'
+          WHEN rm.completed_at IS NOT NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'completed'
+          WHEN COALESCE(wr_stats.failed_count, 0) > 0
+               AND COALESCE(wr_stats.completed_count, 0) + COALESCE(wr_stats.failed_count, 0) >= rm.expected_workers THEN 'failed'
           ELSE 'partial'
         END as status,
         COUNT(*) as count
        FROM run_metadata rm
        LEFT JOIN LATERAL (
          SELECT
-           COUNT(*) FILTER (WHERE pp.completed = TRUE) as completed_count,
-           COUNT(*) FILTER (WHERE pp.failed = TRUE) as failed_count
-         FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id
-       ) pp_stats ON TRUE
+           COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_count,
+           COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_count
+         FROM worker_runs wr
+         WHERE wr.run_id = rm.run_id
+       ) wr_stats ON TRUE
        WHERE rm.started_at > NOW() - INTERVAL '7 days'
        GROUP BY 1`
     ),
@@ -254,13 +254,13 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       `SELECT
         rm.*,
         COALESCE(
-          (SELECT COUNT(*) FROM partition_progress pp
-           WHERE pp.run_id = rm.run_id AND pp.completed = TRUE),
+          (SELECT COUNT(*) FROM worker_runs wr2
+           WHERE wr2.run_id = rm.run_id AND wr2.status = 'completed'),
           0
         ) as completed_workers_actual,
         COALESCE(
-          (SELECT COUNT(*) FROM partition_progress pp
-           WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
+          (SELECT COUNT(*) FROM worker_runs wr2
+           WHERE wr2.run_id = rm.run_id AND wr2.status = 'failed'),
           0
         ) as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records
@@ -362,12 +362,11 @@ export async function getRunDetails(runId: string): Promise<{
       total_records: string;
     }>(
       `SELECT
-        COALESCE(COUNT(*) FILTER (WHERE pp.completed = TRUE), 0) as completed_count,
-        COALESCE(COUNT(*) FILTER (WHERE pp.failed = TRUE), 0) as failed_count,
+        COALESCE(COUNT(*) FILTER (WHERE wr.status = 'completed'), 0) as completed_count,
+        COALESCE(COUNT(*) FILTER (WHERE wr.status = 'failed'), 0) as failed_count,
         COALESCE(SUM(wr.records_processed), 0) as total_records
-       FROM partition_progress pp
-       LEFT JOIN worker_runs wr ON pp.run_id = wr.run_id AND pp.partition_id = wr.partition_id
-       WHERE pp.run_id = $1`,
+       FROM worker_runs wr
+       WHERE wr.run_id = $1`,
       [runId]
     ),
   ]);

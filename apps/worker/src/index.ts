@@ -216,6 +216,18 @@ async function processWorkItemPage(
     // Last page (partial page), mark partition as completed
     log.info("Last page processed, marking partition as completed");
 
+    // First advance the offset to reflect the final processed position
+    const updated = await updatePartitionOffset(
+      workItem.runId,
+      workItem.partitionId,
+      workItem.offset,
+      newOffset
+    );
+
+    if (!updated) {
+      log.warn("Failed to update final partition offset (already updated or offset mismatch)");
+    }
+
     const marked = await completePartition(
       workItem.runId,
       workItem.partitionId,
