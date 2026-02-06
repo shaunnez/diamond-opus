@@ -18,6 +18,15 @@ export const DIAMONDS_COUNT_QUERY = gql`
   }
 `;
 
+/**
+ * When NIVODA_DISABLE_STAGING_FIELDS=true, excludes fields that cause
+ * GraphQL enum validation errors on the Nivoda staging API:
+ * - clarity (DiamondClarity enum)
+ * - floInt/floCol (DiamondFluorescence enum)
+ * - labgrown_type (LabgrownType enum)
+ */
+const disableStagingFields = process.env.NIVODA_DISABLE_STAGING_FIELDS === 'true';
+
 export const DIAMONDS_BY_QUERY = gql`
   query DiamondsByQuery(
     $token: String!
@@ -77,7 +86,7 @@ export const DIAMONDS_BY_QUERY = gql`
               shape
               fullShape
               carats
-              clarity
+              ${disableStagingFields ? '# clarity excluded - DiamondClarity enum issue on staging' : 'clarity'}
               cut
               polish
               symmetry
@@ -92,11 +101,11 @@ export const DIAMONDS_BY_QUERY = gql`
               pavAngle
               pavHeight
               pavDepth
-              floInt
-              floCol
+              ${disableStagingFields ? '# floInt excluded - DiamondFluorescence enum issue on staging' : 'floInt'}
+              ${disableStagingFields ? '# floCol excluded - DiamondFluorescence enum issue on staging' : 'floCol'}
               verified
               labgrown
-              labgrown_type
+              ${disableStagingFields ? '# labgrown_type excluded - LabgrownType enum issue on staging' : 'labgrown_type'}
               treated
               girdle
               culetSize
