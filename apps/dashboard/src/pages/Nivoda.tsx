@@ -169,8 +169,8 @@ export function Nivoda() {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-2xl font-semibold text-stone-900">Nivoda Operations</h1>
-            <p className="text-stone-600 mt-1">
+            <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Nivoda Operations</h1>
+            <p className="text-stone-600 dark:text-stone-400 mt-1">
               Search diamonds directly from Nivoda, place holds, and create orders
             </p>
           </div>
@@ -238,7 +238,7 @@ export function Nivoda() {
 
               {/* Shapes */}
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Shapes</label>
+                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">Shapes</label>
                 <div className="flex flex-wrap gap-2">
                   {DIAMOND_SHAPES.map((shape) => (
                     <button
@@ -248,7 +248,7 @@ export function Nivoda() {
                       className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                         selectedShapes.includes(shape)
                           ? 'bg-primary-100 border-primary-300 text-primary-700'
-                          : 'bg-white border-stone-200 text-stone-600 hover:border-primary-300'
+                          : 'bg-white border-stone-200 text-stone-600 dark:text-stone-400 hover:border-primary-300'
                       }`}
                     >
                       {shape}
@@ -259,7 +259,7 @@ export function Nivoda() {
 
               {/* Lab Grown */}
               <div className="flex items-center gap-6">
-                <span className="text-sm font-medium text-stone-700">Diamond Type:</span>
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Diamond Type:</span>
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
@@ -268,7 +268,7 @@ export function Nivoda() {
                     onChange={() => setLabGrown('any')}
                     className="text-primary-600"
                   />
-                  <span className="text-sm text-stone-600">All</span>
+                  <span className="text-sm text-stone-600 dark:text-stone-400">All</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -278,7 +278,7 @@ export function Nivoda() {
                     onChange={() => setLabGrown('false')}
                     className="text-primary-600"
                   />
-                  <span className="text-sm text-stone-600">Natural</span>
+                  <span className="text-sm text-stone-600 dark:text-stone-400">Natural</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -288,7 +288,7 @@ export function Nivoda() {
                     onChange={() => setLabGrown('true')}
                     className="text-primary-600"
                   />
-                  <span className="text-sm text-stone-600">Lab Grown</span>
+                  <span className="text-sm text-stone-600 dark:text-stone-400">Lab Grown</span>
                 </label>
               </div>
 

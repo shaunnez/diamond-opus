@@ -46,9 +46,9 @@ export function Feeds() {
       render: (s: FeedStats) => (
         <div className="flex items-center gap-3">
           <div className="p-2 bg-stone-100 rounded-lg">
-            <Building2 className="w-4 h-4 text-stone-600" />
+            <Building2 className="w-4 h-4 text-stone-600 dark:text-stone-400" />
           </div>
-          <span className="font-medium text-stone-900">{s.feed}</span>
+          <span className="font-medium text-stone-900 dark:text-stone-100">{s.feed}</span>
         </div>
       ),
     },
@@ -81,7 +81,7 @@ export function Feeds() {
       key: 'priceRange',
       header: 'Price Range',
       render: (s: FeedStats) => (
-        <span className="text-stone-600">
+        <span className="text-stone-600 dark:text-stone-400">
           {formatCurrency(s.minPrice)} - {formatCurrency(s.maxPrice)}
         </span>
       ),
@@ -107,7 +107,7 @@ export function Feeds() {
               </div>
               <div>
                 <p className="text-sm text-stone-500">Total Feeds</p>
-                <p className="text-2xl font-semibold text-stone-900">
+                <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                   {formatNumber(data?.length ?? 0)}
                 </p>
               </div>
@@ -120,7 +120,7 @@ export function Feeds() {
               </div>
               <div>
                 <p className="text-sm text-stone-500">Total Diamonds</p>
-                <p className="text-2xl font-semibold text-stone-900">
+                <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                   {formatNumber(totalDiamonds)}
                 </p>
               </div>
@@ -133,7 +133,7 @@ export function Feeds() {
               </div>
               <div>
                 <p className="text-sm text-stone-500">Available</p>
-                <p className="text-2xl font-semibold text-stone-900">
+                <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                   {formatNumber(totalAvailable)}
                 </p>
               </div>
@@ -174,7 +174,7 @@ export function Feeds() {
                 return (
                   <div key={feed.feed}>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-stone-700 font-medium">
+                      <span className="text-stone-700 dark:text-stone-300 font-medium">
                         {feed.feed}
                       </span>
                       <span className="text-stone-500">

@@ -184,7 +184,7 @@ export function RunDetails() {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-xs text-stone-600 font-medium min-w-[3ch] text-right">
+            <span className="text-xs text-stone-600 dark:text-stone-300 font-medium min-w-[3ch] text-right">
               {Math.round(progress)}%
             </span>
           </div>
@@ -251,7 +251,7 @@ export function RunDetails() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <h2 className="text-lg sm:text-xl font-semibold text-stone-900 font-mono break-all">
+                <h2 className="text-lg sm:text-xl font-semibold text-stone-900 dark:text-stone-100 font-mono break-all">
                   {truncateId(run.runId, 12)}
                 </h2>
                 <RunTypeBadge type={run.runType} />
@@ -298,7 +298,7 @@ export function RunDetails() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-6 pt-6 border-t border-stone-200">
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Duration</p>
-              <p className="text-base sm:text-lg font-semibold text-stone-900">
+              <p className="text-base sm:text-lg font-semibold text-stone-900 dark:text-stone-100">
                 {displayDuration}
               </p>
               {estimatedTimeRemaining && (
@@ -309,7 +309,7 @@ export function RunDetails() {
             </div>
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Records</p>
-              <p className="text-base sm:text-lg font-semibold text-stone-900">
+              <p className="text-base sm:text-lg font-semibold text-stone-900 dark:text-stone-100">
                 {totalExpectedRecords > 0
                   ? `${formatNumber(run.totalRecordsProcessed)} / ${formatNumber(totalExpectedRecords)}`
                   : formatNumber(run.totalRecordsProcessed)
@@ -323,7 +323,7 @@ export function RunDetails() {
             </div>
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Expected</p>
-              <p className="text-base sm:text-lg font-semibold text-stone-900">
+              <p className="text-base sm:text-lg font-semibold text-stone-900 dark:text-stone-100">
                 {run.expectedWorkers}
               </p>
             </div>
@@ -337,7 +337,7 @@ export function RunDetails() {
               <p className="text-xs sm:text-sm text-stone-500">Failed</p>
               <p
                 className={`text-base sm:text-lg font-semibold ${
-                  run.failedWorkers > 0 ? 'text-error-600' : 'text-stone-900'
+                  run.failedWorkers > 0 ? 'text-error-600 dark:text-error-400' : 'text-stone-900 dark:text-stone-100'
                 }`}
               >
                 {run.failedWorkers}
@@ -348,7 +348,7 @@ export function RunDetails() {
           {/* Progress Bars */}
           <div className="mt-6 space-y-4">
             <div>
-              <p className="text-xs font-medium text-stone-700 mb-2">Worker Progress</p>
+              <p className="text-xs font-medium text-stone-700 dark:text-stone-300 mb-2">Worker Progress</p>
               <WorkerProgress
                 completed={run.completedWorkers}
                 failed={run.failedWorkers}
@@ -357,7 +357,7 @@ export function RunDetails() {
             </div>
             {totalExpectedRecords > 0 && (
               <div>
-                <p className="text-xs font-medium text-stone-700 mb-2">Record Progress</p>
+                <p className="text-xs font-medium text-stone-700 dark:text-stone-300 mb-2">Record Progress</p>
                 <RecordProgress
                   processed={run.totalRecordsProcessed}
                   total={totalExpectedRecords}
@@ -465,7 +465,7 @@ export function RunDetails() {
           }
         >
           <div className="space-y-4">
-            <p className="text-stone-600">
+            <p className="text-stone-600 dark:text-stone-400">
               {hasFailedWorkers
                 ? 'This run has failed workers. You can force consolidation to process only the completed data.'
                 : 'This will process all raw diamonds from this run and update the canonical diamonds table.'
@@ -482,10 +482,10 @@ export function RunDetails() {
                     className="mt-0.5 w-4 h-4 text-primary-600 border-stone-300 rounded focus:ring-primary-500"
                   />
                   <div className="flex-1">
-                    <span className="text-sm font-medium text-stone-900">
+                    <span className="text-sm font-medium text-stone-900 dark:text-stone-100">
                       Force consolidation
                     </span>
-                    <p className="text-xs text-stone-600 mt-1">
+                    <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
                       Process completed workers even though some workers failed. Failed partitions will be skipped.
                     </p>
                   </div>

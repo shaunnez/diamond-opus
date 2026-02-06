@@ -86,8 +86,8 @@ export function Heatmap() {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-2xl font-semibold text-stone-900">Heatmap Scanner</h1>
-            <p className="text-stone-600 mt-1">
+            <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Heatmap Scanner</h1>
+            <p className="text-stone-600 dark:text-stone-400 mt-1">
               Analyze diamond inventory density by price range to optimize worker partitioning
             </p>
           </div>
@@ -130,7 +130,7 @@ export function Heatmap() {
 
             <div className="mt-4 flex items-center gap-6">
               <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-stone-700">Diamond Type:</span>
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Diamond Type:</span>
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
@@ -139,7 +139,7 @@ export function Heatmap() {
                     onChange={() => setLabGrown(undefined)}
                     className="text-primary-600"
                   />
-                  <span className="text-sm text-stone-600">All</span>
+                  <span className="text-sm text-stone-600 dark:text-stone-400">All</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -149,7 +149,7 @@ export function Heatmap() {
                     onChange={() => setLabGrown(false)}
                     className="text-primary-600"
                   />
-                  <span className="text-sm text-stone-600">Natural</span>
+                  <span className="text-sm text-stone-600 dark:text-stone-400">Natural</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -159,7 +159,7 @@ export function Heatmap() {
                     onChange={() => setLabGrown(true)}
                     className="text-primary-600"
                   />
-                  <span className="text-sm text-stone-600">Lab Grown</span>
+                  <span className="text-sm text-stone-600 dark:text-stone-400">Lab Grown</span>
                 </label>
               </div>
             </div>
@@ -202,7 +202,7 @@ export function Heatmap() {
                     </div>
                     <div>
                       <p className="text-sm text-stone-500">Total Records</p>
-                      <p className="text-2xl font-semibold text-stone-900">
+                      <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                         {formatNumber(result.total_records)}
                       </p>
                     </div>
@@ -216,7 +216,7 @@ export function Heatmap() {
                     </div>
                     <div>
                       <p className="text-sm text-stone-500">Worker Partitions</p>
-                      <p className="text-2xl font-semibold text-stone-900">
+                      <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                         {result.worker_count}
                       </p>
                     </div>
@@ -230,7 +230,7 @@ export function Heatmap() {
                     </div>
                     <div>
                       <p className="text-sm text-stone-500">API Calls</p>
-                      <p className="text-2xl font-semibold text-stone-900">
+                      <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                         {result.stats.api_calls}
                       </p>
                     </div>
@@ -244,7 +244,7 @@ export function Heatmap() {
                     </div>
                     <div>
                       <p className="text-sm text-stone-500">Scan Duration</p>
-                      <p className="text-2xl font-semibold text-stone-900">
+                      <p className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
                         {formatDuration(result.stats.scan_duration_ms)}
                       </p>
                     </div>
@@ -274,7 +274,7 @@ export function Heatmap() {
                             }}
                           />
                           <div className="absolute inset-0 flex items-center px-3">
-                            <span className="text-xs font-medium text-stone-700">
+                            <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
                               {formatNumber(band.count)} diamonds
                             </span>
                           </div>
@@ -342,16 +342,16 @@ export function Heatmap() {
                         const percentage = (partition.total_records / result.total_records) * 100;
                         return (
                           <tr key={partition.partition_id} className="hover:bg-stone-50">
-                            <td className="px-4 py-3 text-sm font-mono text-stone-900">
+                            <td className="px-4 py-3 text-sm font-mono text-stone-900 dark:text-stone-100">
                               {partition.partition_id}
                             </td>
-                            <td className="px-4 py-3 text-sm text-stone-600">
+                            <td className="px-4 py-3 text-sm text-stone-600 dark:text-stone-400">
                               {formatPrice(partition.min_price)} - {formatPrice(partition.max_price)}
                             </td>
-                            <td className="px-4 py-3 text-sm text-right text-stone-900 font-medium">
+                            <td className="px-4 py-3 text-sm text-right text-stone-900 dark:text-stone-100 font-medium">
                               {formatNumber(partition.total_records)}
                             </td>
-                            <td className="px-4 py-3 text-sm text-right text-stone-600">
+                            <td className="px-4 py-3 text-sm text-right text-stone-600 dark:text-stone-400">
                               {percentage.toFixed(1)}%
                             </td>
                             <td className="px-4 py-3">
@@ -397,13 +397,13 @@ export function Heatmap() {
                     <tbody className="divide-y divide-stone-200">
                       {result.density_map.map((chunk, index) => (
                         <tr key={index} className="hover:bg-stone-50">
-                          <td className="px-4 py-2 text-sm font-mono text-stone-600">
+                          <td className="px-4 py-2 text-sm font-mono text-stone-600 dark:text-stone-400">
                             {formatPrice(chunk.min_price)}
                           </td>
-                          <td className="px-4 py-2 text-sm font-mono text-stone-600">
+                          <td className="px-4 py-2 text-sm font-mono text-stone-600 dark:text-stone-400">
                             {formatPrice(chunk.max_price)}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right text-stone-900">
+                          <td className="px-4 py-2 text-sm text-right text-stone-900 dark:text-stone-100">
                             {formatNumber(chunk.count)}
                           </td>
                           <td className="px-4 py-2">

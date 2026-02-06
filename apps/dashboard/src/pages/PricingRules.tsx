@@ -150,8 +150,8 @@ export function PricingRules() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-stone-900">Price Models</h1>
-              <p className="text-stone-600 mt-1">
+              <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Price Models</h1>
+              <p className="text-stone-600 dark:text-stone-400 mt-1">
                 Manage pricing rules for diamond markup and rating
               </p>
             </div>
@@ -244,7 +244,7 @@ export function PricingRules() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="inline-flex items-center gap-1 text-sm font-medium text-stone-900">
+                          <span className="inline-flex items-center gap-1 text-sm font-medium text-stone-900 dark:text-stone-100">
                             <DollarSign className="w-4 h-4 text-success-500" />
                             {formatMarkup(rule.markup_ratio)}
                           </span>
@@ -296,7 +296,7 @@ export function PricingRules() {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-stone-200">
-                <h2 className="text-xl font-semibold text-stone-900">
+                <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
                   {editingRule ? 'Edit Pricing Rule' : 'Create Pricing Rule'}
                 </h2>
               </div>
@@ -342,7 +342,7 @@ export function PricingRules() {
 
                 {/* Shapes */}
                 <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-2">
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
                     Shapes (leave empty to match all)
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -354,7 +354,7 @@ export function PricingRules() {
                         className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                           formData.shapes.includes(shape)
                             ? 'bg-primary-100 border-primary-300 text-primary-700'
-                            : 'bg-white border-stone-200 text-stone-600 hover:border-primary-300'
+                            : 'bg-white border-stone-200 text-stone-600 dark:text-stone-400 hover:border-primary-300'
                         }`}
                       >
                         {shape}

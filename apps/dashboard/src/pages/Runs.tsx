@@ -77,7 +77,7 @@ export function Runs() {
       key: 'workers',
       header: 'Workers',
       render: (run: RunWithStats) => (
-        <div className="w-32">
+        <div className="w-40 sm:w-32">
           <WorkerProgress
             completed={run.completedWorkers}
             failed={run.failedWorkers}

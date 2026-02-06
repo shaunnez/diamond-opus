@@ -104,7 +104,7 @@ export function Triggers() {
                   <Play className="w-6 h-6 text-primary-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-600 dark:text-stone-400">
                     The scheduler will partition the workload and queue work items for
                     workers to process.
                   </p>
@@ -165,7 +165,7 @@ export function Triggers() {
                     <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
                       <div className="flex items-center gap-2 mb-2">
                         <Terminal className="w-4 h-4 text-stone-500" />
-                        <span className="text-sm font-medium text-stone-700">
+                        <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
                           Run manually instead:
                         </span>
                       </div>
@@ -175,7 +175,7 @@ export function Triggers() {
                         </code>
                         <button
                           onClick={() => navigator.clipboard.writeText(schedulerMutation.error instanceof SchedulerTriggerError ? schedulerMutation.error.manualCommand : '')}
-                          className="p-2 text-stone-500 hover:text-stone-700 transition-colors"
+                          className="p-2 text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-300 transition-colors"
                           title="Copy to clipboard"
                         >
                           <Copy className="w-4 h-4" />
@@ -205,7 +205,7 @@ export function Triggers() {
                   <Layers className="w-6 h-6 text-success-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-600 dark:text-stone-400">
                     Consolidation processes raw diamonds and updates the canonical
                     diamonds table with pricing rules applied.
                   </p>
@@ -266,7 +266,7 @@ export function Triggers() {
                   <RefreshCw className="w-6 h-6 text-warning-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-600 dark:text-stone-400">
                     Failed workers can be retried using their stored work item payload.
                     They will be re-queued and picked up by available workers.
                   </p>
@@ -311,7 +311,7 @@ export function Triggers() {
 
                   {failedWorkersData && failedWorkersData.workers.length > 0 && (
                     <div className="p-4 bg-stone-50 rounded-lg">
-                      <p className="text-sm font-medium text-stone-700 mb-2">
+                      <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
                         Failed Workers ({failedWorkersData.total_failed}):
                       </p>
                       <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -349,13 +349,13 @@ export function Triggers() {
             />
             <div className="mt-4 space-y-4">
               <div>
-                <p className="text-sm font-medium text-stone-700 mb-1">Run Scheduler:</p>
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">Run Scheduler:</p>
                 <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
                   npm run dev:scheduler
                 </code>
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-700 mb-1">
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
                   Trigger Consolidation:
                 </p>
                 <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
@@ -363,7 +363,7 @@ export function Triggers() {
                 </code>
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-700 mb-1">
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
                   Retry Failed Workers:
                 </p>
                 <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
@@ -371,7 +371,7 @@ export function Triggers() {
                 </code>
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-700 mb-1">
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
                   List Failed Workers:
                 </p>
                 <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
