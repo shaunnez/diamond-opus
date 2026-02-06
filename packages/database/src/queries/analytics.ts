@@ -126,27 +126,31 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
        ) = 0
        ORDER BY rm.completed_at DESC LIMIT 1`
     ),
-    // Recent runs count (last 7 days) - compute actual failed/completed from partition_progress
+    // Recent runs count (last 7 days) - compute actual failed/completed from worker_runs
     query<{ status: string; count: string }>(
-      `SELECT
-        CASE
-          WHEN rm.completed_at IS NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'running'
-          WHEN rm.completed_at IS NOT NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'completed'
-          WHEN COALESCE(wr_stats.failed_count, 0) > 0
-               AND COALESCE(wr_stats.completed_count, 0) + COALESCE(wr_stats.failed_count, 0) >= rm.expected_workers THEN 'failed'
-          ELSE 'partial'
-        END as status,
-        COUNT(*) as count
-       FROM run_metadata rm
-       LEFT JOIN LATERAL (
+      `WITH run_statuses AS (
          SELECT
-           COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_count,
-           COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_count
-         FROM worker_runs wr
-         WHERE wr.run_id = rm.run_id
-       ) wr_stats ON TRUE
-       WHERE rm.started_at > NOW() - INTERVAL '7 days'
-       GROUP BY 1`
+           rm.run_id,
+           CASE
+             WHEN rm.completed_at IS NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'running'
+             WHEN rm.completed_at IS NOT NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'completed'
+             WHEN COALESCE(wr_stats.failed_count, 0) > 0
+                  AND COALESCE(wr_stats.completed_count, 0) + COALESCE(wr_stats.failed_count, 0) >= rm.expected_workers THEN 'failed'
+             ELSE 'partial'
+           END as status
+         FROM run_metadata rm
+         LEFT JOIN LATERAL (
+           SELECT
+             COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_count,
+             COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_count
+           FROM worker_runs wr
+           WHERE wr.run_id = rm.run_id
+         ) wr_stats ON TRUE
+         WHERE rm.started_at > NOW() - INTERVAL '7 days'
+       )
+       SELECT status, COUNT(*) as count
+       FROM run_statuses
+       GROUP BY status`
     ),
     // Diamonds by availability
     query<{ availability: string; count: string }>(
