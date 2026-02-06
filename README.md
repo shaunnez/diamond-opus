@@ -17,7 +17,7 @@ The system is designed for reliability with watermark-based incremental sync, fa
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Scheduler  │────▶│ Service Bus │────▶│   Workers   │
-│  (2 AM UTC) │     │  (Azure)    │     │  (1-30)     │
+│  (2 AM UTC) │     │  (Azure)    │     │  (1-1000)   │
 └─────────────┘     └─────────────┘     └─────────────┘
        │                                      │
        │ watermark                           │ raw data
@@ -32,16 +32,18 @@ The system is designed for reliability with watermark-based incremental sync, fa
                     │  (priced)   │     │             │
                     └─────────────┘     └─────────────┘
                           │
-                          ▼
-                    ┌─────────────┐
-                    │  REST API   │
-                    │   :3000     │
-                    └─────────────┘
+                    ┌─────┴─────┐
+                    │           │
+              ┌─────▼───┐ ┌────▼──────┐
+              │REST API │ │ Dashboard │
+              │  :3000  │ │   :5173   │
+              └─────────┘ └───────────┘
 ```
 
 ### Key Features
 
 - **Heatmap-based partitioning**: Adaptive price-range partitioning ensures balanced workload distribution
+- **Continuation pattern**: Workers process one page per message for reliability
 - **Failure-tolerant**: Worker failures prevent consolidation and watermark advancement
 - **Incremental sync**: Watermark tracks last successful sync for efficient updates
 - **Rule-based pricing**: Database-driven pricing rules with priority-based matching
@@ -71,17 +73,26 @@ cp .env.example .env.local
 # Edit .env.local with your credentials
 ```
 
-Required environment variables:
+Required environment variables (see `.env.example` for full list):
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Supabase PostgreSQL connection string |
+| `DATABASE_HOST` | Supabase PostgreSQL host |
+| `DATABASE_PORT` | PostgreSQL port (default: 5432) |
+| `DATABASE_NAME` | Database name |
+| `DATABASE_USERNAME` | Database user |
+| `DATABASE_PASSWORD` | Database password |
 | `NIVODA_ENDPOINT` | Nivoda GraphQL API URL |
 | `NIVODA_USERNAME` | Nivoda account email |
 | `NIVODA_PASSWORD` | Nivoda account password |
 | `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage for watermarks |
 | `AZURE_SERVICE_BUS_CONNECTION_STRING` | Azure Service Bus |
 | `HMAC_SECRETS` | JSON object of client secrets |
+| `RESEND_API_KEY` | Resend API key for failure alerts |
+| `ALERT_EMAIL_TO` | Alert recipient email |
+| `ALERT_EMAIL_FROM` | Alert sender email |
+
+> Alternatively, set `DATABASE_URL` as a single connection string instead of individual DB vars.
 
 ### 3. Initialize Database
 
@@ -173,9 +184,6 @@ npm run test
 
 # Specific package
 npm run test -w @diamond/pricing-engine
-
-# Watch mode
-npm run test:watch
 ```
 
 ## Two-Stage Pipeline
@@ -185,23 +193,25 @@ npm run test:watch
 1. **Scheduler** runs at 2 AM UTC (or manually)
 2. Reads watermark from Azure Blob Storage
 3. Performs **heatmap scan** to analyze inventory density
-4. Creates price-range partitions (up to 30 workers)
+4. Creates price-range partitions (up to 1000 for full runs, 10 for incremental)
 5. Sends `WorkItemMessage` to Service Bus queue
 
-**Workers** (1-30 instances):
+**Workers** use a **continuation pattern** (one page per message):
 - Consume work items from queue
-- Fetch diamonds from Nivoda GraphQL API
-- Write raw JSON to `raw_diamonds_nivoda` table
-- Report completion; last worker triggers consolidation
+- Fetch one page of diamonds from Nivoda GraphQL API
+- Write raw JSON to `raw_diamonds_nivoda` table via bulk upsert
+- Enqueue next page as a new message (or report done on last page)
+- Last successful worker triggers consolidation
 
 ### Stage 2: Consolidation
 
 1. **Consolidator** receives trigger message
 2. Validates all workers completed successfully
-3. Maps raw Nivoda data to canonical diamond schema
-4. Applies pricing rules (markup, rating)
-5. Upserts to `diamonds` table
-6. Advances watermark **only on success**
+3. Claims raw diamonds using `FOR UPDATE SKIP LOCKED` (multi-replica safe)
+4. Maps raw Nivoda data to canonical diamond schema
+5. Applies pricing rules (markup, rating)
+6. Batch upserts to `diamonds` table (100 per INSERT using UNNEST)
+7. Advances watermark **only on success**
 
 ### Failure Handling
 
@@ -244,6 +254,11 @@ curl -H "X-API-Key: your-api-key" http://localhost:3000/api/v2/diamonds
 | `POST` | `/api/v2/diamonds/:id/hold` | Create hold |
 | `POST` | `/api/v2/diamonds/:id/purchase` | Create purchase |
 | `POST` | `/api/v2/diamonds/:id/availability` | Update availability |
+| `GET` | `/api/v2/analytics/*` | Run analytics and dashboard data |
+| `POST` | `/api/v2/triggers/*` | Pipeline trigger endpoints |
+| `GET/POST` | `/api/v2/pricing-rules` | Pricing rules management |
+| `GET` | `/api/v2/heatmap` | Heatmap data |
+| `GET/POST` | `/api/v2/nivoda/*` | Nivoda proxy endpoints |
 
 Swagger UI available at `http://localhost:3000/api-docs` when API is running.
 
@@ -259,6 +274,7 @@ The admin dashboard provides a web UI for monitoring and managing the diamond pi
 - **Worker Retry**: View failed workers, retry individual partitions
 - **Diamond Query**: Search and browse the diamond inventory
 - **Supplier Analytics**: View supplier performance metrics
+- **Pricing Rules**: View and manage pricing rules
 
 ### Running the Dashboard
 
@@ -323,31 +339,20 @@ GitHub Actions workflows:
 Push to main
     │
     ▼
-CI (build, test, typecheck)
+ci-affected-staging.yaml
     │
-    ▼
-Deploy Staging (if CI passes)
-    │
+    ├──▶ Detect affected apps/packages
+    ├──▶ Build, test, typecheck (affected only)
     ├──▶ Build Docker images with SHA tag
-    │
+    ├──▶ Apply Terraform (if infra changed, preserves image tags)
     └──▶ Update Container Apps via Azure CLI
-
-Infrastructure changes (terraform/**)
-    │
-    ▼
-Infrastructure workflow
-    │
-    ├──▶ Get current image tag from running containers
-    │
-    └──▶ Terraform plan/apply (preserves image tags)
 ```
 
 ### Manual Deployment
 
 ```bash
-# Option 1: Trigger GitHub Actions
-gh workflow run "Deploy Staging" --ref main
-gh workflow run "Infrastructure" -f environment=staging -f action=apply
+# Option 1: Trigger full build/deploy via GitHub Actions
+gh workflow run "Full Build Deploy (Manual Fallback)" --ref main
 
 # Option 2: Manual CLI deployment
 IMAGE_TAG=$(git rev-parse --short HEAD)
@@ -364,11 +369,6 @@ done
 az containerapp update --name diamond-staging-api --resource-group $RG --image $ACR/diamond-api:$IMAGE_TAG
 az containerapp update --name diamond-staging-worker --resource-group $RG --image $ACR/diamond-worker:$IMAGE_TAG
 az containerapp update --name diamond-staging-consolidator --resource-group $RG --image $ACR/diamond-consolidator:$IMAGE_TAG
-
-# Apply Terraform (for infrastructure changes)
-cd infrastructure/terraform/environments/staging
-terraform plan -var="image_tag=$IMAGE_TAG"
-terraform apply -var="image_tag=$IMAGE_TAG"
 ```
 
 ## Troubleshooting
@@ -376,7 +376,7 @@ terraform apply -var="image_tag=$IMAGE_TAG"
 | Issue | Solution |
 |-------|----------|
 | Workers not processing | Check Service Bus queue depth in Azure Portal |
-| Consolidation skipped | Check `run_metadata` table for `failed_workers > 0` |
+| Consolidation skipped | Check `partition_progress` table for failed partitions |
 | Wrong prices | Verify `pricing_rules` priority ordering |
 | API returning 401 | Verify API key hash, check `api_keys.last_used_at` |
 | Watermark not advancing | Check consolidator logs for errors |
@@ -393,7 +393,7 @@ Each package has its own README with detailed documentation:
 - [apps/scheduler/README.md](apps/scheduler/README.md) - Job partitioning
 - [apps/worker/README.md](apps/worker/README.md) - Data ingestion
 - [apps/consolidator/README.md](apps/consolidator/README.md) - Transformation
-- [apps/dashboard/README.md](apps/dashboard/README.md) - Admin dashboard
+- [docs/DIAMOND_OPUS.md](docs/DIAMOND_OPUS.md) - Consolidated technical documentation
 
 ## License
 
