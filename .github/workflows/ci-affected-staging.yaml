@@ -1,0 +1,478 @@
+###############################################################################
+# CI Affected Staging
+#
+# Change-based CI/CD pipeline that detects which apps and infrastructure are
+# affected by a commit, then builds, tests, pushes Docker images, applies
+# Terraform, and deploys only what changed.
+#
+# Replaces the full-rebuild workflow (main.yml) for automated CI.
+# main.yml is retained as a manual-only fallback (workflow_dispatch).
+###############################################################################
+
+name: CI Affected Staging
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: diamond-affected-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  TF_VERSION: "1.6.0"
+
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Detect which apps and infrastructure are affected by this change
+  # ---------------------------------------------------------------------------
+  detect_changes:
+    name: Detect Affected Changes
+    runs-on: ubuntu-latest
+
+    outputs:
+      affected_apps: ${{ steps.affected.outputs.affected_apps }}
+      terraform_changed: ${{ steps.affected.outputs.terraform_changed }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for accurate diffs
+
+      - name: Determine affected apps and terraform changes
+        id: affected
+        run: |
+          # ---------------------------------------------------------------
+          # Resolve the base commit for the diff
+          # ---------------------------------------------------------------
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            # First push to a new branch has all-zero base
+            if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              # Fall back to diffing against parent commit
+              BASE_SHA=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+              if [ -z "$BASE_SHA" ]; then
+                echo "First commit on branch — treating all apps as affected"
+                echo 'affected_apps=["api","scheduler","worker","consolidator","dashboard"]' >> $GITHUB_OUTPUT
+                echo "terraform_changed=true" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            fi
+          fi
+
+          echo "Base: $BASE_SHA"
+          echo "Head: ${{ github.sha }}"
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "${{ github.sha }}" 2>/dev/null || true)
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changed files detected"
+            echo 'affected_apps=[]' >> $GITHUB_OUTPUT
+            echo "terraform_changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo "---"
+
+          # ---------------------------------------------------------------
+          # Dependency map (derived from package.json dependencies):
+          #
+          #   packages/shared      -> api, scheduler, worker, consolidator
+          #   packages/database    -> api, scheduler, worker, consolidator
+          #   packages/nivoda      -> api, scheduler, worker, consolidator
+          #   packages/pricing-engine -> consolidator
+          #   packages/api         -> api
+          #   apps/scheduler       -> scheduler
+          #   apps/worker          -> worker
+          #   apps/consolidator    -> consolidator
+          #   apps/dashboard       -> dashboard (standalone, no @diamond deps)
+          # ---------------------------------------------------------------
+
+          declare -A AFFECTED
+
+          # Helper: if any changed file matches the pattern, mark the listed apps
+          check_path() {
+            local pattern="$1"
+            shift
+            if echo "$CHANGED_FILES" | grep -qE "$pattern"; then
+              for app in "$@"; do
+                AFFECTED[$app]=1
+              done
+            fi
+          }
+
+          # --- Shared packages fan out to all backend apps ---
+          check_path "^packages/shared/" api scheduler worker consolidator
+          check_path "^packages/database/" api scheduler worker consolidator
+          check_path "^packages/nivoda/" api scheduler worker consolidator
+
+          # --- Pricing engine only affects consolidator ---
+          check_path "^packages/pricing-engine/" consolidator
+
+          # --- API package affects the API app ---
+          check_path "^packages/api/" api
+
+          # --- App-specific source changes ---
+          check_path "^apps/scheduler/" scheduler
+          check_path "^apps/worker/" worker
+          check_path "^apps/consolidator/" consolidator
+          check_path "^apps/dashboard/" dashboard
+
+          # --- Dockerfile changes affect the corresponding app ---
+          check_path "^docker/Dockerfile\.api" api
+          check_path "^docker/Dockerfile\.scheduler" scheduler
+          check_path "^docker/Dockerfile\.worker" worker
+          check_path "^docker/Dockerfile\.consolidator" consolidator
+          check_path "^docker/Dockerfile\.dashboard" dashboard
+          check_path "^docker/nginx\.dashboard\.conf" dashboard
+
+          # --- Root config changes affect all apps ---
+          check_path "^package\.json$" api scheduler worker consolidator dashboard
+          check_path "^package-lock\.json$" api scheduler worker consolidator dashboard
+          check_path "^tsconfig" api scheduler worker consolidator dashboard
+
+          # --- Workflow file changes trigger full rebuild ---
+          check_path "^\.github/workflows/ci-affected-staging\.yaml" api scheduler worker consolidator dashboard
+
+          # ---------------------------------------------------------------
+          # Build the JSON array of affected apps (deterministic order)
+          # ---------------------------------------------------------------
+          APPS_JSON="[]"
+          for app in api scheduler worker consolidator dashboard; do
+            if [ "${AFFECTED[$app]}" = "1" ]; then
+              APPS_JSON=$(echo "$APPS_JSON" | jq -c ". + [\"$app\"]")
+            fi
+          done
+
+          # ---------------------------------------------------------------
+          # Check for Terraform changes
+          # ---------------------------------------------------------------
+          TERRAFORM_CHANGED="false"
+          if echo "$CHANGED_FILES" | grep -qE "^infrastructure/terraform/"; then
+            TERRAFORM_CHANGED="true"
+          fi
+
+          echo "affected_apps=$APPS_JSON" >> $GITHUB_OUTPUT
+          echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "---"
+          echo "Affected apps: $APPS_JSON"
+          echo "Terraform changed: $TERRAFORM_CHANGED"
+
+  # ---------------------------------------------------------------------------
+  # 2. Build and test (only if apps are affected)
+  # ---------------------------------------------------------------------------
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.affected_apps != '[]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
+
+  # ---------------------------------------------------------------------------
+  # 3. Docker build and push (dynamic matrix from affected apps, push only)
+  # ---------------------------------------------------------------------------
+  docker_build_and_push:
+    name: Docker Build and Push (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    needs:
+      - detect_changes
+      - build_and_test
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.detect_changes.outputs.affected_apps != '[]'
+    environment: staging
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.detect_changes.outputs.affected_apps) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get commit SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/diamond-${{ matrix.app }}
+          tags: |
+            type=sha,format=short,prefix=
+            type=raw,value=staging
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.${{ matrix.app }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # 4. Terraform plan/apply (only if infrastructure files changed)
+  #
+  # Does NOT depend on build_and_test — infrastructure changes are independent
+  # of application code. Does NOT run just to roll image tags.
+  # ---------------------------------------------------------------------------
+  terraform_staging:
+    name: Terraform Apply Staging
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.detect_changes.outputs.terraform_changed == 'true'
+    environment: staging
+
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: Azure/login@v2.3.0
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Format Check
+        run: terraform fmt -recursive
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+        run: |
+          terraform plan \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="image_tag=${GITHUB_SHA::7}" \
+            -var="environment_tag=${{ secrets.ENVIRONMENT_TAG }}" \
+            -out=tfplan \
+            -no-color
+
+      - name: Terraform Apply
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Verify Consolidator Scale Rules
+        run: |
+          echo "=== POST APPLY VERIFICATION ==="
+          az containerapp show \
+            --name "diamond-staging-consolidator" \
+            --resource-group "diamond-staging-rg" \
+            --query "{
+              name: name,
+              minReplicas: properties.template.scale.minReplicas,
+              maxReplicas: properties.template.scale.maxReplicas,
+              scaleRules: properties.template.scale.rules
+            }" \
+            -o json
+
+          SCALE_RULES=$(az containerapp show --name "diamond-staging-consolidator" --resource-group "diamond-staging-rg" --query "properties.template.scale.rules" -o json 2>/dev/null || echo "")
+          if echo "$SCALE_RULES" | grep -qi "servicebus"; then
+            echo "Service Bus scale rule present"
+          else
+            echo "WARNING Service Bus scale rule not found"
+            echo "$SCALE_RULES"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # 5. Deploy only affected images to staging
+  #
+  # Waits for Docker images to be pushed. If Terraform ran, waits for it too.
+  # If Terraform was skipped (no infra changes), deploys proceed anyway.
+  # If Terraform failed, deployment is blocked to avoid deploying to broken infra.
+  # ---------------------------------------------------------------------------
+  deploy_images_staging:
+    name: Deploy Affected Images to Staging
+    runs-on: ubuntu-latest
+    needs:
+      - detect_changes
+      - docker_build_and_push
+      - terraform_staging
+    # always() is required so this job runs even when terraform_staging is skipped.
+    # We still gate on: not a PR, Docker succeeded, Terraform did not fail.
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      needs.docker_build_and_push.result == 'success' &&
+      needs.terraform_staging.result != 'failure'
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: Azure/login@v2.3.0
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
+
+      - name: Deploy Affected Container Apps and Jobs
+        env:
+          RESOURCE_GROUP: diamond-staging-rg
+          ACR_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ github.sha }}
+          AFFECTED_APPS: ${{ needs.detect_changes.outputs.affected_apps }}
+        run: |
+          IMAGE_TAG="${IMAGE_TAG::7}"
+
+          # Check if an app is in the affected list
+          is_affected() {
+            echo "$AFFECTED_APPS" | jq -e --arg app "$1" 'index($app) != null' > /dev/null 2>&1
+          }
+
+          # Deploy a Container App image
+          deploy_app() {
+            local name=$1
+            local container_name=$2
+            local image=$3
+
+            if az containerapp show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating $name -> $image"
+              az containerapp update \
+                --name "$name" \
+                --resource-group "$RESOURCE_GROUP" \
+                --container-name "$container_name" \
+                --image "$image"
+            else
+              echo "WARNING: $name does not exist, Terraform must create it first"
+            fi
+          }
+
+          # Deploy affected Container Apps
+          for app in api worker consolidator dashboard; do
+            if is_affected "$app"; then
+              deploy_app "diamond-staging-$app" "$app" "$ACR_SERVER/diamond-$app:$IMAGE_TAG"
+            else
+              echo "Skipping $app (not affected)"
+            fi
+          done
+
+          # Deploy scheduler job if affected
+          if is_affected "scheduler"; then
+            if az containerapp job show --name "diamond-staging-scheduler" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating scheduler job -> $ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+              az containerapp job update \
+                --name "diamond-staging-scheduler" \
+                --resource-group "$RESOURCE_GROUP" \
+                --container-name "scheduler" \
+                --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+            else
+              echo "WARNING: Scheduler job not found, Terraform must create it first"
+            fi
+          else
+            echo "Skipping scheduler (not affected)"
+          fi
+
+      - name: Diagnose Consolidator Scale Rules
+        if: contains(needs.detect_changes.outputs.affected_apps, 'consolidator')
+        run: |
+          echo "=== CONSOLIDATOR DIAGNOSTICS ==="
+          az containerapp show \
+            --name "diamond-staging-consolidator" \
+            --resource-group "diamond-staging-rg" \
+            --query "{
+              name: name,
+              minReplicas: properties.template.scale.minReplicas,
+              maxReplicas: properties.template.scale.maxReplicas,
+              scaleRules: properties.template.scale.rules,
+              cpu: properties.template.containers[0].resources.cpu,
+              memory: properties.template.containers[0].resources.memory,
+              image: properties.template.containers[0].image
+            }" \
+            -o json || echo "Failed to get consolidator details"
