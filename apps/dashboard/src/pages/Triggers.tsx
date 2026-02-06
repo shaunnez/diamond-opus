@@ -14,10 +14,13 @@ import {
   Checkbox,
   Badge,
   ConfirmModal,
+  useToast,
 } from '../components/ui';
 import { truncateId, formatRelativeTime } from '../utils/formatters';
 
 export function Triggers() {
+  const { addToast } = useToast();
+
   // Scheduler state
   const [schedulerRunType, setSchedulerRunType] = useState<'full' | 'incremental'>('incremental');
   const [showSchedulerModal, setShowSchedulerModal] = useState(false);
@@ -47,7 +50,17 @@ export function Triggers() {
   // Mutations
   const schedulerMutation = useMutation({
     mutationFn: () => triggerScheduler(schedulerRunType),
-    onSuccess: () => setShowSchedulerModal(false),
+    onSuccess: () => {
+      setShowSchedulerModal(false);
+      addToast({ variant: 'success', title: `${schedulerRunType === 'full' ? 'Full' : 'Incremental'} run triggered` });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to trigger scheduler',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
   });
 
   const consolidateMutation = useMutation({
@@ -56,6 +69,14 @@ export function Triggers() {
       setShowConsolidateModal(false);
       setSelectedRunForConsolidate('');
       setForceConsolidate(false);
+      addToast({ variant: 'success', title: 'Consolidation triggered' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to trigger consolidation',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
     },
   });
 
@@ -64,6 +85,14 @@ export function Triggers() {
     onSuccess: () => {
       setShowRetryModal(false);
       setSelectedRunForRetry('');
+      addToast({ variant: 'success', title: 'Failed workers retried' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to retry workers',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
     },
   });
 

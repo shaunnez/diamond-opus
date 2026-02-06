@@ -11,6 +11,7 @@ import {
   Select,
   Input,
   Alert,
+  useToast,
 } from '../components/ui';
 import { formatNumber, formatDuration } from '../utils/formatters';
 
@@ -34,6 +35,7 @@ function formatPrice(price: number): string {
 }
 
 export function Heatmap() {
+  const { addToast } = useToast();
   const [mode, setMode] = useState<'single-pass' | 'two-pass'>('single-pass');
   const [minPrice, setMinPrice] = useState('0');
   const [maxPrice, setMaxPrice] = useState('100000');
@@ -43,12 +45,40 @@ export function Heatmap() {
 
   const runMutation = useMutation({
     mutationFn: (options: RunHeatmapOptions) => runHeatmap(options),
-    onSuccess: (data) => setResult(data),
+    onSuccess: (data) => {
+      setResult(data);
+      addToast({
+        variant: 'success',
+        title: 'Heatmap scan complete',
+        message: `Found ${data.total_records.toLocaleString()} records across ${data.worker_count} partitions`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Heatmap scan failed',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
   });
 
   const previewMutation = useMutation({
     mutationFn: (options: RunHeatmapOptions) => previewHeatmap(options),
-    onSuccess: (data) => setResult(data),
+    onSuccess: (data) => {
+      setResult(data);
+      addToast({
+        variant: 'success',
+        title: 'Preview complete',
+        message: `Found ${data.total_records.toLocaleString()} records across ${data.worker_count} partitions`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Preview failed',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
   });
 
   const handleRun = (isPreview: boolean) => {

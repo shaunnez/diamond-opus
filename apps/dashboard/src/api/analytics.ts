@@ -211,6 +211,12 @@ export async function getErrorLogServices(): Promise<string[]> {
   return response.data.data;
 }
 
+export async function clearErrorLogs(service?: string): Promise<number> {
+  const params = service ? { service } : {};
+  const response = await api.delete<{ deleted: number }>('/analytics/error-logs', { params });
+  return response.data.deleted;
+}
+
 // Watermark
 export interface Watermark {
   lastUpdatedAt: string;

@@ -27,6 +27,7 @@ import {
   Badge,
   Alert,
   ConfirmModal,
+  useToast,
 } from '../components/ui';
 import { formatNumber } from '../utils/formatters';
 
@@ -54,6 +55,8 @@ function formatPrice(price: number): string {
 }
 
 export function Nivoda() {
+  const { addToast } = useToast();
+
   // Search state
   const [searchOptions, setSearchOptions] = useState<NivodaSearchOptions>({
     price_min: undefined,
@@ -106,6 +109,14 @@ export function Nivoda() {
       setShowHoldModal(false);
       setSelectedDiamond(null);
       searchQuery.refetch();
+      addToast({ variant: 'success', title: 'Hold placed successfully' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to place hold',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
     },
   });
 
@@ -113,7 +124,7 @@ export function Nivoda() {
     mutationFn: () =>
       createOrder({
         offer_id: selectedDiamond!.offer_id,
-        // destination_id: destinationId,
+        destination_id: destinationId || undefined,
         reference: orderReference || undefined,
       }),
     onSuccess: () => {
@@ -122,15 +133,46 @@ export function Nivoda() {
       setDestinationId('');
       setOrderReference('');
       searchQuery.refetch();
+      addToast({ variant: 'success', title: 'Order created successfully' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to create order',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
     },
   });
 
   const handleSearch = () => {
-    searchQuery.refetch();
+    searchQuery.refetch().then((result) => {
+      if (result.data) {
+        addToast({
+          variant: 'success',
+          title: 'Search complete',
+          message: `Found ${formatNumber(result.data.total_count)} diamonds`,
+        });
+      }
+      if (result.error) {
+        addToast({
+          variant: 'error',
+          title: 'Search failed',
+          message: result.error instanceof Error ? result.error.message : 'An unknown error occurred',
+        });
+      }
+    });
   };
 
   const handleGetCount = () => {
-    countQuery.refetch();
+    countQuery.refetch().then((result) => {
+      if (result.error) {
+        addToast({
+          variant: 'error',
+          title: 'Count failed',
+          message: result.error instanceof Error ? result.error.message : 'An unknown error occurred',
+        });
+      }
+    });
   };
 
   const handleShapeToggle = (shape: string) => {
@@ -474,7 +516,7 @@ export function Nivoda() {
               setShowHoldModal(false);
               setSelectedDiamond(null);
             }}
-            onConfirm={() => selectedDiamond && holdMutation.mutate(selectedDiamond.diamond.id)}
+            onConfirm={() => selectedDiamond && holdMutation.mutate(selectedDiamond.offer_id)}
             title="Place Hold"
             message={
               selectedDiamond
@@ -488,17 +530,17 @@ export function Nivoda() {
           {/* Order Modal */}
           {showOrderModal && selectedDiamond && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-                <div className="p-6 border-b border-stone-200">
-                  <h2 className="text-xl font-semibold text-stone-900">Create Order</h2>
+              <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl max-w-md w-full">
+                <div className="p-6 border-b border-stone-200 dark:border-stone-700">
+                  <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-100">Create Order</h2>
                 </div>
                 <div className="p-6 space-y-4">
-                  <div className="p-4 bg-stone-50 rounded-lg">
-                    <p className="font-medium text-stone-900">
+                  <div className="p-4 bg-stone-50 dark:bg-stone-700 rounded-lg">
+                    <p className="font-medium text-stone-900 dark:text-stone-100">
                       {selectedDiamond.diamond.certificate.shape}{' '}
                       {selectedDiamond.diamond.certificate.carats}ct
                     </p>
-                    <p className="text-sm text-stone-500">
+                    <p className="text-sm text-stone-500 dark:text-stone-400">
                       {selectedDiamond.diamond.certificate.color} /{' '}
                       {selectedDiamond.diamond.certificate.clarity}
                     </p>
@@ -512,7 +554,6 @@ export function Nivoda() {
                     value={destinationId}
                     onChange={(e) => setDestinationId(e.target.value)}
                     placeholder="Enter your Nivoda destination ID"
-                    required
                   />
 
                   <Input
@@ -529,16 +570,8 @@ export function Nivoda() {
                         : 'Failed to create order'}
                     </Alert>
                   )}
-
-                  {holdMutation.error && (
-                    <Alert variant="error">
-                      {holdMutation.error instanceof Error
-                        ? holdMutation.error.message
-                        : 'Failed to place hold'}
-                    </Alert>
-                  )}
                 </div>
-                <div className="p-6 border-t border-stone-200 flex justify-end gap-3">
+                <div className="p-6 border-t border-stone-200 dark:border-stone-700 flex justify-end gap-3">
                   <Button
                     variant="secondary"
                     onClick={() => {
@@ -553,7 +586,7 @@ export function Nivoda() {
                   <Button
                     variant="primary"
                     onClick={() => orderMutation.mutate()}
-                    disabled={ orderMutation.isPending}
+                    disabled={orderMutation.isPending}
                     icon={<ShoppingCart className="w-4 h-4" />}
                   >
                     {orderMutation.isPending ? 'Creating...' : 'Create Order'}

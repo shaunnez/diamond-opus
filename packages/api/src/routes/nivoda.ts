@@ -10,6 +10,7 @@ import {
   updatePurchaseStatus,
   getHoldById,
   updateHoldStatus,
+  insertErrorLog,
 } from "@diamond/database";
 import type { Diamond } from "@diamond/shared";
 
@@ -103,6 +104,12 @@ router.post(
         },
       });
     } catch (error) {
+      insertErrorLog(
+        'api',
+        `Hold failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+        { operation: 'hold', offer_id: req.body.offer_id },
+      ).catch(() => {});
       next(error);
     }
   }
@@ -293,6 +300,12 @@ router.post(
         throw orderError;
       }
     } catch (error) {
+      insertErrorLog(
+        'api',
+        `Order failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+        { operation: 'order', offer_id: req.body.offer_id },
+      ).catch(() => {});
       next(error);
     }
   }

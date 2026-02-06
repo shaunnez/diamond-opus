@@ -12,6 +12,7 @@ import {
   Alert,
   Pagination,
   ConfirmModal,
+  useToast,
 } from '../components/ui';
 import { formatRelativeTime, truncateId } from '../utils/formatters';
 
@@ -33,6 +34,7 @@ function HoldStatusBadge({ status, denied }: { status: string; denied: boolean }
 
 export function Holds() {
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [page, setPage] = useState(1);
   const [cancellingHold, setCancellingHold] = useState<HoldHistoryItem | null>(null);
   const limit = 20;
@@ -49,6 +51,14 @@ export function Holds() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holds'] });
       setCancellingHold(null);
+      addToast({ variant: 'success', title: 'Hold cancelled successfully' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to cancel hold',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
     },
   });
 
