@@ -81,7 +81,7 @@ export function ErrorLogs() {
       header: 'Error',
       render: (log: ErrorLog) => (
         <div className="max-w-xl">
-          <p className="text-sm text-stone-900 font-mono break-all line-clamp-2">{log.errorMessage}</p>
+          <p className="text-sm text-stone-900 dark:text-stone-100 font-mono break-all line-clamp-2">{log.errorMessage}</p>
           {log.context && Object.keys(log.context).length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {Object.entries(log.context).map(([key, value]) => (
@@ -196,7 +196,7 @@ export function ErrorLogs() {
               <Card className="mt-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-stone-900">Error Details</h3>
+                    <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Error Details</h3>
                     <Button variant="ghost" size="sm" onClick={() => setExpandedRow(null)}>
                       Close
                     </Button>

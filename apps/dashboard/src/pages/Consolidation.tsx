@@ -150,7 +150,7 @@ export function Consolidation() {
                   : 'warning'
               }
             />
-            <p className="text-lg font-semibold text-stone-900 mt-4">
+            <p className="text-lg font-semibold text-stone-900 dark:text-stone-100 mt-4">
               Consolidation Progress
             </p>
             <p className="text-sm text-stone-500">
@@ -236,7 +236,7 @@ export function Consolidation() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-sm text-stone-700">
+                            <span className="font-mono text-sm text-stone-700 dark:text-stone-300">
                               {truncateId(run.runId)}
                             </span>
                             <Badge variant={run.runType === 'full' ? 'info' : 'neutral'}>
@@ -286,7 +286,7 @@ export function Consolidation() {
                               style={{ width: `${progressPercent}%` }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-stone-700 min-w-[4ch] text-right">
+                          <span className="text-sm font-medium text-stone-700 dark:text-stone-300 min-w-[4ch] text-right">
                             {progressPercent}%
                           </span>
                         </div>
