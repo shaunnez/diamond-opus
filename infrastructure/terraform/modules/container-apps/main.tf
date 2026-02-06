@@ -316,6 +316,22 @@ resource "azurerm_container_app" "worker" {
         secret_name = "nivoda-password"
       }
 
+      # Email alerts for run completion/failure notifications
+      env {
+        name        = "RESEND_API_KEY"
+        secret_name = "resend-api-key"
+      }
+
+      env {
+        name  = "ALERT_EMAIL_TO"
+        value = var.alert_email_to
+      }
+
+      env {
+        name  = "ALERT_EMAIL_FROM"
+        value = var.alert_email_from
+      }
+
       # Database pooling configuration - keep low for high replica count scaling
       env {
         name  = "PG_POOL_MAX"
@@ -388,6 +404,11 @@ resource "azurerm_container_app" "worker" {
   secret {
     name  = "nivoda-password"
     value = var.nivoda_password
+  }
+
+  secret {
+    name  = "resend-api-key"
+    value = var.resend_api_key
   }
 
   secret {

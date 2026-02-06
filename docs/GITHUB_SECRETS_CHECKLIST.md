@@ -61,9 +61,9 @@ For environment-specific secrets, configure in the `staging` environment.
 
 | Secret Name | Description | TF Variable | Used By |
 |-------------|-------------|-------------|---------|
-| `RESEND_API_KEY` | Resend API key for email alerts | `resend_api_key` | Consolidator |
-| `ALERT_EMAIL_TO` | Email address for receiving alerts | `alert_email_to` | Consolidator |
-| `ALERT_EMAIL_FROM` | Email address for sending alerts | `alert_email_from` | Consolidator |
+| `RESEND_API_KEY` | Resend API key for email alerts | `resend_api_key` | Worker, Consolidator |
+| `ALERT_EMAIL_TO` | Email address for receiving alerts | `alert_email_to` | Worker, Consolidator |
+| `ALERT_EMAIL_FROM` | Email address for sending alerts | `alert_email_from` | Worker, Consolidator |
 
 ### Database Configuration (3 secrets)
 
@@ -96,6 +96,7 @@ For environment-specific secrets, configure in the `staging` environment.
 - `AZURE_STORAGE_CONNECTION_STRING` (auto from Terraform)
 - `AZURE_SERVICE_BUS_CONNECTION_STRING` (auto from Terraform)
 - `NIVODA_ENDPOINT`, `NIVODA_USERNAME`, `NIVODA_PASSWORD`
+- `RESEND_API_KEY`, `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`
 
 ### Consolidator Container
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
