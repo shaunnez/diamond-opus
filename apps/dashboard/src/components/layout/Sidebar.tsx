@@ -12,6 +12,7 @@ import {
   BarChart3,
   DollarSign,
   ShoppingCart,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Heatmap', href: '/heatmap', icon: BarChart3 },
   { name: 'Nivoda', href: '/nivoda', icon: ShoppingCart },
   { name: 'Price Models', href: '/pricing-rules', icon: DollarSign },
+  { name: 'Error Logs', href: '/error-logs', icon: AlertTriangle },
 ];
 
 interface SidebarProps {

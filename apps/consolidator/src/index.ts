@@ -32,6 +32,7 @@ import {
   getRunMetadata,
   markConsolidationStarted,
   updateRunConsolidationStats,
+  insertErrorLog,
   closePool,
   type DiamondInput,
   type ClaimedRawDiamond,
@@ -110,9 +111,12 @@ async function processBatch(
       diamonds.push(pricedDiamond);
       processedIds.push(rawDiamond.id);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
       log.error('Error mapping raw diamond', error, {
         rawDiamondId: rawDiamond.id,
       });
+      insertErrorLog('consolidator', msg, stack, { rawDiamondId: rawDiamond.id }).catch(() => {});
       failedIds.push(rawDiamond.id);
       errorCount++;
     }
@@ -124,9 +128,12 @@ async function processBatch(
       await upsertDiamondsBatch(diamonds);
     } catch (error) {
       // If batch fails, all diamonds in this batch are considered failed
+      const msg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
       log.error('Batch upsert failed', error, {
         batchSize: diamonds.length,
       });
+      insertErrorLog('consolidator', msg, stack, { batchSize: diamonds.length }).catch(() => {});
       const allIds = rawDiamonds.map((d) => d.id);
       return { processedIds: [], failedIds: allIds, errorCount: rawDiamonds.length };
     }
@@ -287,7 +294,13 @@ async function handleConsolidateMessage(
     await processConsolidation(message, log);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     log.error('Consolidation failed', error);
+
+    insertErrorLog('consolidator', errorMessage, errorStack, {
+      runId: message.runId,
+      traceId: message.traceId,
+    }).catch(() => {});
 
     await sendAlert(
       'Consolidation Failed',

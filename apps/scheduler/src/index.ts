@@ -34,7 +34,7 @@ import {
 
 console.log('[scheduler] @diamond/shared imported successfully');
 
-import { createRunMetadata, closePool, acquireRateLimitToken } from "@diamond/database";
+import { createRunMetadata, closePool, acquireRateLimitToken, insertErrorLog } from "@diamond/database";
 
 console.log('[scheduler] @diamond/database imported successfully');
 
@@ -242,6 +242,9 @@ async function main(): Promise<void> {
     await run();
   } catch (error) {
     logger.error("Scheduler failed", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    insertErrorLog('scheduler', errorMessage, errorStack).catch(() => {});
     process.exitCode = 1;
   } finally {
     console.log('[scheduler] Cleaning up connections...');
