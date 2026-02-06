@@ -115,6 +115,29 @@ export function RunDetails() {
     ? formatLiveDuration(run.startedAt)
     : formatDuration(run.durationMs);
 
+  // Calculate estimated time remaining for running jobs
+  const getEstimatedTimeRemaining = (): string | null => {
+    if (run.status !== 'running' || totalExpectedRecords === 0 || run.totalRecordsProcessed === 0) {
+      return null;
+    }
+
+    const elapsedMs = Date.now() - new Date(run.startedAt).getTime();
+    const elapsedSeconds = elapsedMs / 1000;
+    const processingRate = run.totalRecordsProcessed / elapsedSeconds; // records per second
+    const remainingRecords = totalExpectedRecords - run.totalRecordsProcessed;
+
+    if (processingRate === 0) {
+      return null;
+    }
+
+    const estimatedSecondsRemaining = remainingRecords / processingRate;
+    const estimatedMs = estimatedSecondsRemaining * 1000;
+
+    return formatDuration(estimatedMs);
+  };
+
+  const estimatedTimeRemaining = getEstimatedTimeRemaining();
+
   const getWorkerProgress = (worker: WorkerRun): number | null => {
     if (!worker.workItemPayload || typeof worker.workItemPayload.totalRecords !== 'number') {
       return null;
@@ -278,6 +301,11 @@ export function RunDetails() {
               <p className="text-base sm:text-lg font-semibold text-stone-900">
                 {displayDuration}
               </p>
+              {estimatedTimeRemaining && (
+                <p className="text-xs text-stone-500 mt-0.5">
+                  ~{estimatedTimeRemaining} remaining
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Records</p>
@@ -287,6 +315,11 @@ export function RunDetails() {
                   : formatNumber(run.totalRecordsProcessed)
                 }
               </p>
+              {totalExpectedRecords > 0 && (
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {Math.round((run.totalRecordsProcessed / totalExpectedRecords) * 100)}% complete
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Expected</p>
@@ -366,8 +399,8 @@ export function RunDetails() {
             {sortedWorkers.map((worker) => (
               <div
                 key={worker.id}
-                title={`${worker.partitionId}: ${worker.status}${
-                  worker.errorMessage ? ` - ${worker.errorMessage}` : ''
+                title={`Partition ${worker.partitionId}\nStatus: ${worker.status}${
+                  worker.errorMessage ? `\nError: ${worker.errorMessage}` : ''
                 }`}
                 className={`w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center cursor-help ${
                   worker.status === 'completed'

@@ -55,6 +55,15 @@ const logger = createLogger({ service: "scheduler" });
 
 console.log('[scheduler] Logger created, defining run function...');
 
+// Cap error messages to prevent overly long stack traces in database
+const MAX_ERROR_MESSAGE_LENGTH = 1000;
+function capErrorMessage(message: string): string {
+  if (message.length <= MAX_ERROR_MESSAGE_LENGTH) {
+    return message;
+  }
+  return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
+}
+
 async function run(): Promise<void> {
   const traceId = generateTraceId();
   const log = logger.child({ traceId });
@@ -242,7 +251,8 @@ async function main(): Promise<void> {
     await run();
   } catch (error) {
     logger.error("Scheduler failed", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const rawErrorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = capErrorMessage(rawErrorMessage);
     const errorStack = error instanceof Error ? error.stack : undefined;
     insertErrorLog('scheduler', errorMessage, errorStack).catch(() => {});
     process.exitCode = 1;
