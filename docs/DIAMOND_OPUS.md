@@ -1,6 +1,10 @@
 # Diamond Opus - Technical Documentation
 
-> Curated documentation for Notion. See also `DIAMOND_OPUS_FULL.md` for the full concatenated version.
+> **This file was manually curated by Claude Code.** To regenerate it, ask Claude Code to
+> "review and regenerate docs/DIAMOND_OPUS.md from the package READMEs".
+>
+> For the auto-generated full concatenation of all READMEs, run `npm run docs:generate`
+> (outputs to `DIAMOND_OPUS_FULL.md`).
 
 ---
 
