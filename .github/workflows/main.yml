@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, scheduler, worker, consolidator, dashboard]
+        app: [api, scheduler, worker, consolidator, demo-feed-api, dashboard]
 
     steps:
       - name: Checkout
@@ -257,6 +257,7 @@ jobs:
           deploy_app "diamond-staging-api" "api" "$ACR_SERVER/diamond-api:$IMAGE_TAG"
           deploy_app "diamond-staging-worker" "worker" "$ACR_SERVER/diamond-worker:$IMAGE_TAG"
           deploy_app "diamond-staging-consolidator" "consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG"
+          deploy_app "diamond-staging-demo-feed-api" "demo-feed-api" "$ACR_SERVER/diamond-demo-feed-api:$IMAGE_TAG"
           deploy_app "diamond-staging-dashboard" "dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG"
 
           if az containerapp job show --name "diamond-staging-scheduler" --resource-group "$RESOURCE_GROUP" &>/dev/null; then

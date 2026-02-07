@@ -332,6 +332,12 @@ resource "azurerm_container_app" "worker" {
         value = var.alert_email_from
       }
 
+      # Demo feed API URL for DemoFeedAdapter
+      env {
+        name  = "DEMO_FEED_API_URL"
+        value = "https://${azurerm_container_app.demo_feed_api.ingress[0].fqdn}"
+      }
+
       # Database pooling configuration - keep low for high replica count scaling
       env {
         name  = "PG_POOL_MAX"
@@ -659,6 +665,12 @@ resource "azurerm_container_app_job" "scheduler" {
         secret_name = "nivoda-password"
       }
 
+      # Demo feed API URL for DemoFeedAdapter
+      env {
+        name  = "DEMO_FEED_API_URL"
+        value = "https://${azurerm_container_app.demo_feed_api.ingress[0].fqdn}"
+      }
+
       # Database pooling configuration
       env {
         name  = "PG_POOL_MAX"
@@ -731,6 +743,120 @@ resource "azurerm_container_app_job" "scheduler" {
   secret {
     name  = "nivoda-password"
     value = var.nivoda_password
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+}
+
+# Demo Feed API Container App (HTTP, internal ingress - serves mock diamond data)
+resource "azurerm_container_app" "demo_feed_api" {
+  name                         = "${var.app_name_prefix}-demo-feed-api"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = var.demo_feed_api_min_replicas
+    max_replicas = var.demo_feed_api_max_replicas
+
+    container {
+      name   = "demo-feed-api"
+      image  = "${var.container_registry_login_server}/diamond-demo-feed-api:${var.image_tag}"
+      cpu    = var.demo_feed_api_cpu
+      memory = var.demo_feed_api_memory
+
+      env {
+        name  = "DEMO_FEED_API_PORT"
+        value = "4000"
+      }
+
+      env {
+        name        = "DATABASE_HOST"
+        secret_name = "database-host"
+      }
+
+      env {
+        name        = "DATABASE_PORT"
+        secret_name = "database-port"
+      }
+
+      env {
+        name        = "DATABASE_NAME"
+        secret_name = "database-name"
+      }
+
+      env {
+        name        = "DATABASE_USERNAME"
+        secret_name = "database-username"
+      }
+
+      env {
+        name        = "DATABASE_PASSWORD"
+        secret_name = "database-password"
+      }
+
+      env {
+        name  = "PG_POOL_MAX"
+        value = "2"
+      }
+
+      env {
+        name  = "PG_IDLE_TIMEOUT_MS"
+        value = "30000"
+      }
+
+      env {
+        name  = "PG_CONN_TIMEOUT_MS"
+        value = "5000"
+      }
+    }
+  }
+
+  ingress {
+    external_enabled = false
+    target_port      = 4000
+    transport        = "http"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "database-host"
+    value = var.database_host
+  }
+
+  secret {
+    name  = "database-port"
+    value = var.database_port
+  }
+
+  secret {
+    name  = "database-name"
+    value = var.database_name
+  }
+
+  secret {
+    name  = "database-username"
+    value = var.database_username
+  }
+
+  secret {
+    name  = "database-password"
+    value = var.database_password
   }
 
   secret {

@@ -365,6 +365,31 @@ variable "scheduler_memory" {
   default     = "0.5Gi"
 }
 
+## Demo Feed API Resources
+variable "demo_feed_api_cpu" {
+  description = "CPU allocation for demo feed API container"
+  type        = number
+  default     = 0.25
+}
+
+variable "demo_feed_api_memory" {
+  description = "Memory allocation for demo feed API container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "demo_feed_api_min_replicas" {
+  description = "Minimum replicas for demo feed API"
+  type        = number
+  default     = 0
+}
+
+variable "demo_feed_api_max_replicas" {
+  description = "Maximum replicas for demo feed API"
+  type        = number
+  default     = 1
+}
+
 ## Dashboard Resources
 variable "dashboard_cpu" {
   description = "CPU allocation for dashboard container"

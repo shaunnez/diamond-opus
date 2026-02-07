@@ -72,7 +72,7 @@ jobs:
               BASE_SHA=$(git rev-parse HEAD~1 2>/dev/null || echo "")
               if [ -z "$BASE_SHA" ]; then
                 echo "First commit on branch — treating all apps as affected"
-                echo 'affected_apps=["api","scheduler","worker","consolidator","dashboard"]' >> $GITHUB_OUTPUT
+                echo 'affected_apps=["api","scheduler","worker","consolidator","demo-feed-api","dashboard"]' >> $GITHUB_OUTPUT
                 echo "terraform_changed=true" >> $GITHUB_OUTPUT
                 exit 0
               fi
@@ -98,15 +98,18 @@ jobs:
           # ---------------------------------------------------------------
           # Dependency map (derived from package.json dependencies):
           #
-          #   packages/shared      -> api, scheduler, worker, consolidator
-          #   packages/database    -> api, scheduler, worker, consolidator
-          #   packages/nivoda      -> api, scheduler, worker, consolidator
+          #   packages/shared        -> api, scheduler, worker, consolidator, demo-feed-api
+          #   packages/database      -> api, scheduler, worker, consolidator, demo-feed-api
+          #   packages/feed-registry -> scheduler, worker, consolidator
+          #   packages/nivoda        -> api, scheduler, worker, consolidator
+          #   packages/demo-feed     -> scheduler, worker, consolidator
           #   packages/pricing-engine -> consolidator
-          #   packages/api         -> api
-          #   apps/scheduler       -> scheduler
-          #   apps/worker          -> worker
-          #   apps/consolidator    -> consolidator
-          #   apps/dashboard       -> dashboard (standalone, no @diamond deps)
+          #   packages/api           -> api
+          #   apps/scheduler         -> scheduler
+          #   apps/worker            -> worker
+          #   apps/consolidator      -> consolidator
+          #   apps/demo-feed-api     -> demo-feed-api
+          #   apps/dashboard         -> dashboard (standalone, no @diamond deps)
           # ---------------------------------------------------------------
 
           declare -A AFFECTED
@@ -123,9 +126,11 @@ jobs:
           }
 
           # --- Shared packages fan out to all backend apps ---
-          check_path "^packages/shared/" api scheduler worker consolidator
-          check_path "^packages/database/" api scheduler worker consolidator
+          check_path "^packages/shared/" api scheduler worker consolidator demo-feed-api
+          check_path "^packages/database/" api scheduler worker consolidator demo-feed-api
+          check_path "^packages/feed-registry/" scheduler worker consolidator
           check_path "^packages/nivoda/" api scheduler worker consolidator
+          check_path "^packages/demo-feed/" scheduler worker consolidator
 
           # --- Pricing engine only affects consolidator ---
           check_path "^packages/pricing-engine/" consolidator
@@ -137,6 +142,7 @@ jobs:
           check_path "^apps/scheduler/" scheduler
           check_path "^apps/worker/" worker
           check_path "^apps/consolidator/" consolidator
+          check_path "^apps/demo-feed-api/" demo-feed-api
           check_path "^apps/dashboard/" dashboard
 
           # --- Dockerfile changes affect the corresponding app ---
@@ -144,22 +150,23 @@ jobs:
           check_path "^docker/Dockerfile\.scheduler" scheduler
           check_path "^docker/Dockerfile\.worker" worker
           check_path "^docker/Dockerfile\.consolidator" consolidator
+          check_path "^docker/Dockerfile\.demo-feed-api" demo-feed-api
           check_path "^docker/Dockerfile\.dashboard" dashboard
           check_path "^docker/nginx\.dashboard\.conf" dashboard
 
           # --- Root config changes affect all apps ---
-          check_path "^package\.json$" api scheduler worker consolidator dashboard
-          check_path "^package-lock\.json$" api scheduler worker consolidator dashboard
-          check_path "^tsconfig" api scheduler worker consolidator dashboard
+          check_path "^package\.json$" api scheduler worker consolidator demo-feed-api dashboard
+          check_path "^package-lock\.json$" api scheduler worker consolidator demo-feed-api dashboard
+          check_path "^tsconfig" api scheduler worker consolidator demo-feed-api dashboard
 
           # --- Workflow file changes trigger full rebuild ---
-          check_path "^\.github/workflows/ci-affected-staging\.yaml" api scheduler worker consolidator dashboard
+          check_path "^\.github/workflows/ci-affected-staging\.yaml" api scheduler worker consolidator demo-feed-api dashboard
 
           # ---------------------------------------------------------------
           # Build the JSON array of affected apps (deterministic order)
           # ---------------------------------------------------------------
           APPS_JSON="[]"
-          for app in api scheduler worker consolidator dashboard; do
+          for app in api scheduler worker consolidator demo-feed-api dashboard; do
             if [ "${AFFECTED[$app]}" = "1" ]; then
               APPS_JSON=$(echo "$APPS_JSON" | jq -c ". + [\"$app\"]")
             fi
@@ -435,7 +442,7 @@ jobs:
           }
 
           # Deploy affected Container Apps
-          for app in api worker consolidator dashboard; do
+          for app in api worker consolidator demo-feed-api dashboard; do
             if is_affected "$app"; then
               deploy_app "diamond-staging-$app" "$app" "$ACR_SERVER/diamond-$app:$IMAGE_TAG"
             else

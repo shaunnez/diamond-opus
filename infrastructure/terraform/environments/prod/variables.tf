@@ -338,6 +338,29 @@ variable "consolidator_max_replicas" {
   }
 }
 
+## Demo Feed API Scaling
+variable "demo_feed_api_min_replicas" {
+  description = "Minimum demo feed API replicas"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.demo_feed_api_min_replicas >= 0
+    error_message = "demo_feed_api_min_replicas must be >= 0"
+  }
+}
+
+variable "demo_feed_api_max_replicas" {
+  description = "Maximum demo feed API replicas (must be >= demo_feed_api_min_replicas)"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.demo_feed_api_max_replicas >= 1
+    error_message = "demo_feed_api_max_replicas must be >= 1"
+  }
+}
+
 ## Dashboard Scaling
 variable "dashboard_min_replicas" {
   description = "Minimum dashboard replicas"

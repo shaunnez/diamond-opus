@@ -143,6 +143,10 @@ module "container_apps" {
   dashboard_cpu         = var.dashboard_cpu
   dashboard_memory      = var.dashboard_memory
 
+  # Scaling - demo feed API
+  demo_feed_api_min_replicas = var.demo_feed_api_min_replicas
+  demo_feed_api_max_replicas = var.demo_feed_api_max_replicas
+
   # Scaling - dashboard
   dashboard_min_replicas = var.dashboard_min_replicas
   dashboard_max_replicas = var.dashboard_max_replicas

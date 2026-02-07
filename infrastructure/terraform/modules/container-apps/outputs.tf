@@ -43,6 +43,16 @@ output "scheduler_job_name" {
   value       = var.enable_scheduler ? azurerm_container_app_job.scheduler[0].name : null
 }
 
+output "demo_feed_api_fqdn" {
+  description = "Fully qualified domain name of the demo feed API (internal)"
+  value       = azurerm_container_app.demo_feed_api.ingress[0].fqdn
+}
+
+output "demo_feed_api_name" {
+  description = "Name of the demo feed API container app"
+  value       = azurerm_container_app.demo_feed_api.name
+}
+
 output "dashboard_fqdn" {
   description = "Fully qualified domain name of the dashboard app"
   value       = azurerm_container_app.dashboard.ingress[0].fqdn
