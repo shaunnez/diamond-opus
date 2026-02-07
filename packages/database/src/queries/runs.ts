@@ -4,6 +4,7 @@ import { resetPartitionForRetry } from './partition-progress.js';
 
 interface RunMetadataRow {
   run_id: string;
+  feed: string;
   run_type: string;
   expected_workers: number;
   completed_workers: number;
@@ -30,6 +31,7 @@ interface WorkerRunRow {
 function mapRowToRunMetadata(row: RunMetadataRow): RunMetadata {
   return {
     runId: row.run_id,
+    feed: row.feed ?? 'nivoda',
     runType: row.run_type as RunType,
     expectedWorkers: row.expected_workers,
     completedWorkers: row.completed_workers,
@@ -59,13 +61,14 @@ function mapRowToWorkerRun(row: WorkerRunRow): WorkerRun {
 export async function createRunMetadata(
   runType: RunType,
   expectedWorkers: number,
-  watermarkBefore?: Date
+  watermarkBefore?: Date,
+  feed: string = 'nivoda',
 ): Promise<RunMetadata> {
   const result = await query<RunMetadataRow>(
-    `INSERT INTO run_metadata (run_type, expected_workers, watermark_before)
-     VALUES ($1, $2, $3)
+    `INSERT INTO run_metadata (feed, run_type, expected_workers, watermark_before)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [runType, expectedWorkers, watermarkBefore]
+    [feed, runType, expectedWorkers, watermarkBefore]
   );
   return mapRowToRunMetadata(result.rows[0]!);
 }
