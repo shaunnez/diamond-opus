@@ -6,22 +6,28 @@ WORKDIR /app
 COPY package*.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
+COPY packages/feed-registry/package.json ./packages/feed-registry/
 COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/demo-feed/package.json ./packages/demo-feed/
 COPY packages/pricing-engine/package.json ./packages/pricing-engine/
 COPY packages/api/package.json ./packages/api/
 COPY apps/scheduler/package.json ./apps/scheduler/
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/consolidator/package.json ./apps/consolidator/
+COPY apps/demo-feed-api/package.json ./apps/demo-feed-api/
+COPY apps/demo-feed-seed/package.json ./apps/demo-feed-seed/
 
 RUN npm ci
 
 COPY tsconfig.json ./
 COPY packages/shared ./packages/shared
 COPY packages/database ./packages/database
+COPY packages/feed-registry ./packages/feed-registry
 COPY packages/nivoda ./packages/nivoda
+COPY packages/demo-feed ./packages/demo-feed
 COPY apps/scheduler ./apps/scheduler
 
-RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && npm run build -w @diamond/nivoda && npm run build -w @diamond/scheduler
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && npm run build -w @diamond/feed-registry && npm run build -w @diamond/nivoda && npm run build -w @diamond/demo-feed && npm run build -w @diamond/scheduler
 
 FROM node:20-alpine
 
@@ -32,18 +38,24 @@ ENV NODE_ENV=production
 COPY package*.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
+COPY packages/feed-registry/package.json ./packages/feed-registry/
 COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/demo-feed/package.json ./packages/demo-feed/
 COPY packages/pricing-engine/package.json ./packages/pricing-engine/
 COPY packages/api/package.json ./packages/api/
 COPY apps/scheduler/package.json ./apps/scheduler/
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/consolidator/package.json ./apps/consolidator/
+COPY apps/demo-feed-api/package.json ./apps/demo-feed-api/
+COPY apps/demo-feed-seed/package.json ./apps/demo-feed-seed/
 
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/feed-registry/dist ./packages/feed-registry/dist
 COPY --from=builder /app/packages/nivoda/dist ./packages/nivoda/dist
+COPY --from=builder /app/packages/demo-feed/dist ./packages/demo-feed/dist
 COPY --from=builder /app/apps/scheduler/dist ./apps/scheduler/dist
 
 CMD ["node", "apps/scheduler/dist/index.js"]
