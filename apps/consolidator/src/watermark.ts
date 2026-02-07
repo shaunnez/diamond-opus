@@ -17,13 +17,13 @@ function getBlobServiceClient(): BlobServiceClient {
   return blobServiceClient;
 }
 
-export async function saveWatermark(watermark: Watermark): Promise<void> {
+export async function saveWatermark(watermark: Watermark, blobName: string = WATERMARK_BLOB_NAME): Promise<void> {
   const client = getBlobServiceClient();
   const containerClient = client.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
 
   await containerClient.createIfNotExists();
 
-  const blobClient = containerClient.getBlockBlobClient(WATERMARK_BLOB_NAME);
+  const blobClient = containerClient.getBlockBlobClient(blobName);
   const content = JSON.stringify(watermark);
 
   await blobClient.upload(content, content.length, {

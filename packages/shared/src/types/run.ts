@@ -4,6 +4,7 @@ export type WorkerStatus = 'running' | 'completed' | 'failed';
 
 export interface RunMetadata {
   runId: string;
+  feed: string;
   runType: RunType;
   expectedWorkers: number;
   completedWorkers: number;

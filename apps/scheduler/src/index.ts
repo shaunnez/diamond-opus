@@ -15,11 +15,9 @@ if (process.env.NODE_ENV !== 'production') {
 console.log('[scheduler] Starting module initialization...');
 
 import {
-  DIAMOND_SHAPES,
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
   MAX_SCHEDULER_RECORDS,
-  WORKER_PAGE_SIZE,
   RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_WAIT_MS,
@@ -38,9 +36,9 @@ import { createRunMetadata, closePool, acquireRateLimitToken, insertErrorLog } f
 
 console.log('[scheduler] @diamond/database imported successfully');
 
-import { NivodaAdapter, scanHeatmap, type NivodaQuery, type HeatmapConfig } from "@diamond/nivoda";
+import { scanHeatmap, type HeatmapConfig } from "@diamond/feed-registry";
 
-console.log('[scheduler] @diamond/nivoda imported successfully');
+console.log('[scheduler] @diamond/feed-registry imported successfully');
 
 import { getWatermark } from "./watermark.js";
 
@@ -49,6 +47,10 @@ console.log('[scheduler] watermark module imported successfully');
 import { sendWorkItems, closeConnections } from "./service-bus.js";
 
 console.log('[scheduler] service-bus module imported successfully');
+
+import { createFeedRegistry } from "./feeds.js";
+
+console.log('[scheduler] feeds module imported successfully');
 console.log('[scheduler] All imports complete, creating logger...');
 
 const logger = createLogger({ service: "scheduler" });
@@ -68,10 +70,21 @@ async function run(): Promise<void> {
   const traceId = generateTraceId();
   const log = logger.child({ traceId });
 
+  // Determine which feed to run
+  const feedId = process.env.FEED ?? 'nivoda';
+  log.info("Feed selected", { feedId });
+
+  // Resolve feed adapter from registry
+  const registry = createFeedRegistry();
+  const adapter = registry.get(feedId);
+
+  log.info("Initializing feed adapter", { feedId });
+  await adapter.initialize();
+
   log.info("Starting scheduler run function");
 
-  log.info("Fetching watermark from Azure Storage...");
-  const watermark = await getWatermark();
+  log.info("Fetching watermark from Azure Storage...", { blobName: adapter.watermarkBlobName });
+  const watermark = await getWatermark(adapter.watermarkBlobName);
   log.info("Watermark fetched", {
     hasWatermark: !!watermark,
     watermarkData: watermark ? {
@@ -100,7 +113,7 @@ async function run(): Promise<void> {
   }
 
   // Calculate the run's time window (updatedTo is fixed at run start for consistency)
-  log.info("Calculating date range for Nivoda queries...");
+  log.info("Calculating date range for queries...");
   const now = new Date();
   const updatedTo = now.toISOString();
 
@@ -109,11 +122,9 @@ async function run(): Promise<void> {
   // Calculate updatedFrom based on run type
   let updatedFrom: string;
   if (runType === "full") {
-    // Full run: capture all historical data from a safe start date
     log.info("Full run: using FULL_RUN_START_DATE", { FULL_RUN_START_DATE });
     updatedFrom = FULL_RUN_START_DATE;
   } else if (watermark?.lastUpdatedAt) {
-    // Incremental run: use watermark with safety buffer
     log.info("Incremental run: calculating from watermark with safety buffer", {
       watermarkLastUpdatedAt: watermark.lastUpdatedAt,
       safetyBufferMinutes: INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES,
@@ -123,18 +134,16 @@ async function run(): Promise<void> {
     updatedFrom = new Date(watermarkTime.getTime() - safetyBufferMs).toISOString();
     log.info("Incremental updatedFrom calculated", { updatedFrom });
   } else {
-    // Edge case: incremental requested but no watermark exists
-    // Fall back to full run behavior
     log.warn("Incremental run requested but no watermark found, falling back to full run date range");
     updatedFrom = FULL_RUN_START_DATE;
   }
 
-  // For backwards compatibility, also keep watermarkBefore for run metadata
   const watermarkBefore = watermark
     ? new Date(watermark.lastUpdatedAt)
     : undefined;
 
   log.info("Run configuration determined", {
+    feedId,
     runType,
     updatedFrom,
     updatedTo,
@@ -142,42 +151,11 @@ async function run(): Promise<void> {
     explicitRunTypeSet: !!explicitRunType,
   });
 
-  // Configure rate limiter for heatmap scanning
-  log.info("Configuring rate limiter...");
-  const rateLimitConfig = {
-    maxRequestsPerWindow: RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
-    windowDurationMs: RATE_LIMIT_WINDOW_MS,
-    maxWaitMs: RATE_LIMIT_MAX_WAIT_MS,
-    baseDelayMs: RATE_LIMIT_BASE_DELAY_MS,
-  };
-  log.info("Rate limiter configured", { rateLimitConfig });
-
-  const acquireRateLimit = () => acquireRateLimitToken("nivoda_global", rateLimitConfig);
-
-  // Create adapter with rate limiting but no desync delay (scheduler runs sequentially)
-  log.info("Creating Nivoda adapter...");
-  const adapter = new NivodaAdapter(undefined, undefined, undefined, {
-    enableDesyncDelay: false,
-    rateLimiter: acquireRateLimit,
-  });
-  log.info("Nivoda adapter created");
-
-  // Base query includes date range filter for consistent heatmap counts
-  // This ensures partition sizes match actual filtered results
-  const baseQuery: NivodaQuery = {
-    shapes: [...DIAMOND_SHAPES],
-    sizes: { from: 0.5, to: 10 },
-    updated: { from: updatedFrom, to: updatedTo },
-  };
-  log.info("Base query constructed", {
-    shapesCount: baseQuery.shapes?.length,
-    sizes: baseQuery.sizes,
-    updated: baseQuery.updated,
-  });
+  // Build the base query using the feed adapter
+  const baseQuery = adapter.buildBaseQuery(updatedFrom, updatedTo);
+  log.info("Base query constructed", { baseQuery });
 
   // Configure heatmap based on run type
-  // Incremental runs may have much less data, so we can use fewer workers
-  // MAX_SCHEDULER_RECORDS env var allows capping total records (useful for staging)
   const maxTotalRecords = parseInt(process.env.MAX_SCHEDULER_RECORDS || '', 10) || MAX_SCHEDULER_RECORDS;
 
   const heatmapConfig: HeatmapConfig = {
@@ -186,6 +164,7 @@ async function run(): Promise<void> {
       : HEATMAP_MAX_WORKERS,
     minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
     maxTotalRecords,
+    ...adapter.heatmapConfig,
   };
 
   if (maxTotalRecords > 0) {
@@ -211,14 +190,16 @@ async function run(): Promise<void> {
     runType,
     heatmapResult.workerCount,
     watermarkBefore,
+    feedId,
   );
 
   const runLog = log.child({ runId: runMetadata.runId });
-  runLog.info("Run created", { expectedWorkers: heatmapResult.workerCount });
+  runLog.info("Run created", { expectedWorkers: heatmapResult.workerCount, feed: feedId });
 
   const workItems: WorkItemMessage[] = heatmapResult.partitions.map(
     (partition) => ({
       type: "WORK_ITEM" as const,
+      feed: feedId,
       runId: runMetadata.runId,
       traceId,
       partitionId: partition.partitionId,
@@ -227,10 +208,8 @@ async function run(): Promise<void> {
       totalRecords: partition.totalRecords,
       offsetStart: 0,
       offsetEnd: partition.totalRecords,
-      // Continuation pattern: start at offset 0 with page size 30
       offset: 0,
-      limit: WORKER_PAGE_SIZE,
-      // Pass the same date range used in heatmap for consistent filtering
+      limit: adapter.workerPageSize,
       updatedFrom,
       updatedTo,
     })

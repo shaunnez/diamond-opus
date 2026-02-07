@@ -13,6 +13,8 @@
     "@azure/service-bus": "^7.9.3",
     "@azure/storage-blob": "^12.17.0",
     "@diamond/database": "*",
+    "@diamond/demo-feed": "*",
+    "@diamond/feed-registry": "*",
     "@diamond/nivoda": "*",
     "@diamond/shared": "*"
   },

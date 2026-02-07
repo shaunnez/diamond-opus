@@ -37,16 +37,20 @@ import {
   type DiamondInput,
   type ClaimedRawDiamond,
 } from '@diamond/database';
-import { mapRawPayloadToDiamond } from '@diamond/nivoda';
+import type { FeedAdapter } from '@diamond/feed-registry';
 import { PricingEngine } from '@diamond/pricing-engine';
 import { receiveConsolidateMessage, closeConnections } from './service-bus.js';
 import { saveWatermark } from './watermark.js';
 import { sendAlert } from './alerts.js';
+import { createFeedRegistry } from './feeds.js';
 
 const baseLogger = createLogger({ service: 'consolidator' });
 
 // Stable instance ID for this consolidator process - used to track claim ownership
 const CONSOLIDATOR_INSTANCE_ID = randomUUID();
+
+// Create the feed registry once at startup - adapters are reused across messages
+const feedRegistry = createFeedRegistry();
 
 // Cap error messages to prevent overly long stack traces in database
 const MAX_ERROR_MESSAGE_LENGTH = 1000;
@@ -105,6 +109,7 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 async function processBatch(
   rawDiamonds: ClaimedRawDiamond[],
   pricingEngine: PricingEngine,
+  adapter: FeedAdapter,
   log: Logger
 ): Promise<BatchResult> {
   const processedIds: string[] = [];
@@ -115,7 +120,7 @@ async function processBatch(
   // Phase 1: Map and price all diamonds (CPU-bound, fast)
   for (const rawDiamond of rawDiamonds) {
     try {
-      const baseDiamond = mapRawPayloadToDiamond(rawDiamond.payload);
+      const baseDiamond = adapter.mapRawToDiamond(rawDiamond.payload);
       const pricedDiamond = pricingEngine.applyPricing(baseDiamond);
       diamonds.push(pricedDiamond);
       processedIds.push(rawDiamond.id);
@@ -155,10 +160,13 @@ async function processBatch(
 
 async function processConsolidation(
   message: ConsolidateMessage,
+  adapter: FeedAdapter,
   log: Logger
 ): Promise<void> {
   log.info('Starting consolidation', {
     instanceId: CONSOLIDATOR_INSTANCE_ID,
+    feed: adapter.feedId,
+    rawTable: adapter.rawTableName,
     concurrency: CONSOLIDATOR_CONCURRENCY,
     batchSize: CONSOLIDATOR_BATCH_SIZE,
     upsertBatchSize: CONSOLIDATOR_UPSERT_BATCH_SIZE,
@@ -168,7 +176,7 @@ async function processConsolidation(
   await markConsolidationStarted(message.runId);
 
   // Reset any stuck claims from crashed/timed out consolidators
-  const resetCount = await resetStuckClaims(CONSOLIDATOR_CLAIM_TTL_MINUTES);
+  const resetCount = await resetStuckClaims(CONSOLIDATOR_CLAIM_TTL_MINUTES, adapter.rawTableName);
   if (resetCount > 0) {
     log.info('Reset stuck claims', { count: resetCount, ttlMinutes: CONSOLIDATOR_CLAIM_TTL_MINUTES });
   }
@@ -185,7 +193,8 @@ async function processConsolidation(
     // Claim batch exclusively - prevents duplicate processing across replicas
     const rawDiamonds = await claimUnconsolidatedRawDiamonds(
       CONSOLIDATOR_BATCH_SIZE,
-      CONSOLIDATOR_INSTANCE_ID
+      CONSOLIDATOR_INSTANCE_ID,
+      adapter.rawTableName
     );
 
     if (rawDiamonds.length === 0) {
@@ -201,7 +210,7 @@ async function processConsolidation(
     // Process chunks concurrently (respects connection pool limits)
     const results = await processWithConcurrency(
       chunks,
-      (chunk) => processBatch(chunk, pricingEngine, log),
+      (chunk) => processBatch(chunk, pricingEngine, adapter, log),
       CONSOLIDATOR_CONCURRENCY
     );
 
@@ -215,12 +224,12 @@ async function processConsolidation(
 
     // Mark successfully processed diamonds as consolidated
     if (allProcessedIds.length > 0) {
-      await markAsConsolidated(allProcessedIds);
+      await markAsConsolidated(allProcessedIds, adapter.rawTableName);
     }
 
     // Mark failed diamonds explicitly so they don't stay stuck in 'processing'
     if (allFailedIds.length > 0) {
-      await markAsFailed(allFailedIds);
+      await markAsFailed(allFailedIds, adapter.rawTableName);
     }
 
     log.info('Batch processed', {
@@ -255,13 +264,13 @@ async function processConsolidation(
     lastRunId: message.runId,
     lastRunCompletedAt: now.toISOString(),
   };
-  await saveWatermark(watermark);
+  await saveWatermark(watermark, adapter.watermarkBlobName);
 
   log.info('Watermark advanced', { watermark });
 
   sendAlert(
     'Consolidation Completed',
-    `Run ${message.runId} consolidation completed successfully.\n\n` +
+    `Run ${message.runId} (feed: ${adapter.feedId}) consolidation completed successfully.\n\n` +
       `Processed: ${totalProcessed}\n` +
       `Errors: ${totalErrors}\n` +
       `Total claimed: ${totalClaimed}\n\n` +
@@ -275,9 +284,13 @@ async function handleConsolidateMessage(
   const log = baseLogger.child({
     runId: message.runId,
     traceId: message.traceId,
+    feed: message.feed,
   });
 
   log.info('Received consolidate message');
+
+  // Resolve the feed adapter for this consolidation
+  const adapter = feedRegistry.get(message.feed);
 
   const runMetadata = await getRunMetadata(message.runId);
 
@@ -294,7 +307,7 @@ async function handleConsolidateMessage(
     });
     await sendAlert(
       'Consolidation Skipped',
-      `Run ${message.runId} was not consolidated because ${runMetadata.failedWorkers} worker(s) failed.\n\n` +
+      `Run ${message.runId} (feed: ${message.feed}) was not consolidated because ${runMetadata.failedWorkers} worker(s) failed.\n\n` +
         `Expected workers: ${runMetadata.expectedWorkers}\n` +
         `Completed workers: ${runMetadata.completedWorkers}\n` +
         `Failed workers: ${runMetadata.failedWorkers}`
@@ -311,7 +324,7 @@ async function handleConsolidateMessage(
   }
 
   try {
-    await processConsolidation(message, log);
+    await processConsolidation(message, adapter, log);
   } catch (error) {
     const rawErrorMessage = error instanceof Error ? error.message : String(error);
     const errorMessage = capErrorMessage(rawErrorMessage);
@@ -321,11 +334,12 @@ async function handleConsolidateMessage(
     insertErrorLog('consolidator', errorMessage, errorStack, {
       runId: message.runId,
       traceId: message.traceId,
+      feed: message.feed,
     }).catch(() => {});
 
     await sendAlert(
       'Consolidation Failed',
-      `Run ${message.runId} consolidation failed.\n\n` +
+      `Run ${message.runId} (feed: ${message.feed}) consolidation failed.\n\n` +
         `Error: ${errorMessage}\n\n` +
         'Watermark was NOT advanced. Manual intervention may be required.'
     );
@@ -335,7 +349,7 @@ async function handleConsolidateMessage(
 }
 
 async function run(): Promise<void> {
-  baseLogger.info('Consolidator starting');
+  baseLogger.info('Consolidator starting', { registeredFeeds: feedRegistry.getFeedIds() });
 
   while (true) {
     const received = await receiveConsolidateMessage();

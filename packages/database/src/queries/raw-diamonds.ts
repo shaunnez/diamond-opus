@@ -1,6 +1,25 @@
 import { query } from '../client.js';
 import { sha256 } from '@diamond/shared';
 
+/** Default raw table for backwards compatibility */
+const DEFAULT_RAW_TABLE = 'raw_diamonds_nivoda';
+
+/**
+ * Allowlist of valid raw diamond table names.
+ * Prevents SQL injection when table names are passed as parameters.
+ */
+const VALID_RAW_TABLES = new Set([
+  'raw_diamonds_nivoda',
+  'raw_diamonds_demo',
+]);
+
+function validateTableName(tableName: string): string {
+  if (!VALID_RAW_TABLES.has(tableName)) {
+    throw new Error(`Invalid raw diamond table name: '${tableName}'. Allowed: ${Array.from(VALID_RAW_TABLES).join(', ')}`);
+  }
+  return tableName;
+}
+
 export interface RawDiamondRow {
   id: string;
   run_id: string;
@@ -20,14 +39,16 @@ export async function upsertRawDiamond(
   supplierStoneId: string,
   offerId: string,
   payload: Record<string, unknown>,
-  sourceUpdatedAt?: Date
+  sourceUpdatedAt?: Date,
+  tableName: string = DEFAULT_RAW_TABLE,
 ): Promise<void> {
+  const table = validateTableName(tableName);
   const payloadStr = JSON.stringify(payload);
   const payloadHash = sha256(payloadStr);
 
   // WHERE clause prevents no-op updates when payload hasn't changed
   await query(
-    `INSERT INTO raw_diamonds_nivoda (
+    `INSERT INTO ${table} (
       run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at
     ) VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (supplier_stone_id) DO UPDATE SET
@@ -40,7 +61,7 @@ export async function upsertRawDiamond(
       consolidation_status = 'pending',
       consolidated_at = NULL,
       updated_at = NOW()
-    WHERE raw_diamonds_nivoda.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash`,
+    WHERE ${table}.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash`,
     [runId, supplierStoneId, offerId, payloadStr, payloadHash, sourceUpdatedAt]
   );
 }
@@ -60,23 +81,26 @@ export interface ClaimedRawDiamond {
  *
  * @param limit - Maximum number of rows to claim
  * @param claimedBy - Unique identifier for the consolidator instance (e.g., random UUID)
+ * @param tableName - Raw table to claim from (default: raw_diamonds_nivoda)
  * @returns Array of claimed diamonds with only id and payload (minimal data transfer)
  */
 export async function claimUnconsolidatedRawDiamonds(
   limit: number,
-  claimedBy: string
+  claimedBy: string,
+  tableName: string = DEFAULT_RAW_TABLE,
 ): Promise<ClaimedRawDiamond[]> {
+  const table = validateTableName(tableName);
   const result = await query<ClaimedRawDiamond>(
     `WITH candidates AS (
       SELECT id
-      FROM raw_diamonds_nivoda
+      FROM ${table}
       WHERE consolidated = FALSE
         AND consolidation_status = 'pending'
       ORDER BY created_at ASC
       LIMIT $1
       FOR UPDATE SKIP LOCKED
     )
-    UPDATE raw_diamonds_nivoda r
+    UPDATE ${table} r
     SET consolidation_status = 'processing',
         claimed_at = NOW(),
         claimed_by = $2
@@ -90,14 +114,14 @@ export async function claimUnconsolidatedRawDiamonds(
 
 /**
  * @deprecated Use claimUnconsolidatedRawDiamonds instead for multi-replica safety.
- * This function's FOR UPDATE SKIP LOCKED doesn't prevent duplicate processing because
- * the lock is released immediately after the SELECT.
  */
 export async function getUnconsolidatedRawDiamonds(
-  limit: number
+  limit: number,
+  tableName: string = DEFAULT_RAW_TABLE,
 ): Promise<RawDiamondRow[]> {
+  const table = validateTableName(tableName);
   const result = await query<RawDiamondRow>(
-    `SELECT * FROM raw_diamonds_nivoda
+    `SELECT * FROM ${table}
      WHERE consolidated = FALSE
      ORDER BY created_at ASC
      LIMIT $1
@@ -111,11 +135,15 @@ export async function getUnconsolidatedRawDiamonds(
  * Marks diamonds as consolidated after successful processing.
  * Updates both the legacy consolidated flag and the new consolidation_status.
  */
-export async function markAsConsolidated(ids: string[]): Promise<void> {
+export async function markAsConsolidated(
+  ids: string[],
+  tableName: string = DEFAULT_RAW_TABLE,
+): Promise<void> {
   if (ids.length === 0) return;
+  const table = validateTableName(tableName);
 
   await query(
-    `UPDATE raw_diamonds_nivoda
+    `UPDATE ${table}
      SET consolidated = TRUE,
          consolidation_status = 'done',
          consolidated_at = NOW(),
@@ -128,15 +156,19 @@ export async function markAsConsolidated(ids: string[]): Promise<void> {
 /**
  * Resets claims that have been stuck in 'processing' state for too long.
  * This recovers from consolidator crashes or timeouts by making rows available again.
- * Should be called periodically (e.g., at consolidator startup or every N processing loops).
  *
  * @param ttlMinutes - How long a claim can be held before it's considered stuck
+ * @param tableName - Raw table to reset claims on (default: raw_diamonds_nivoda)
  * @returns Number of rows reset
  */
-export async function resetStuckClaims(ttlMinutes: number): Promise<number> {
+export async function resetStuckClaims(
+  ttlMinutes: number,
+  tableName: string = DEFAULT_RAW_TABLE,
+): Promise<number> {
+  const table = validateTableName(tableName);
   const result = await query<{ count: string }>(
     `WITH reset AS (
-      UPDATE raw_diamonds_nivoda
+      UPDATE ${table}
       SET consolidation_status = 'pending',
           claimed_at = NULL,
           claimed_by = NULL
@@ -156,11 +188,15 @@ export async function resetStuckClaims(ttlMinutes: number): Promise<number> {
  * These diamonds won't be retried automatically but can be resumed via
  * the resume-consolidation endpoint which resets them to 'pending'.
  */
-export async function markAsFailed(ids: string[]): Promise<void> {
+export async function markAsFailed(
+  ids: string[],
+  tableName: string = DEFAULT_RAW_TABLE,
+): Promise<void> {
   if (ids.length === 0) return;
+  const table = validateTableName(tableName);
 
   await query(
-    `UPDATE raw_diamonds_nivoda
+    `UPDATE ${table}
      SET consolidation_status = 'failed',
          updated_at = NOW()
      WHERE id = ANY($1)`,
@@ -174,11 +210,15 @@ export async function markAsFailed(ids: string[]): Promise<void> {
  *
  * @returns Number of rows reset
  */
-export async function resetFailedDiamonds(runId?: string): Promise<number> {
+export async function resetFailedDiamonds(
+  runId?: string,
+  tableName: string = DEFAULT_RAW_TABLE,
+): Promise<number> {
+  const table = validateTableName(tableName);
   const result = await query<{ count: string }>(
     runId
       ? `WITH reset AS (
-          UPDATE raw_diamonds_nivoda
+          UPDATE ${table}
           SET consolidation_status = 'pending',
               claimed_at = NULL,
               claimed_by = NULL
@@ -189,7 +229,7 @@ export async function resetFailedDiamonds(runId?: string): Promise<number> {
         )
         SELECT COUNT(*)::text as count FROM reset`
       : `WITH reset AS (
-          UPDATE raw_diamonds_nivoda
+          UPDATE ${table}
           SET consolidation_status = 'pending',
               claimed_at = NULL,
               claimed_by = NULL
@@ -203,9 +243,12 @@ export async function resetFailedDiamonds(runId?: string): Promise<number> {
   return parseInt(result.rows[0]?.count ?? '0', 10);
 }
 
-export async function getUnconsolidatedCount(): Promise<number> {
+export async function getUnconsolidatedCount(
+  tableName: string = DEFAULT_RAW_TABLE,
+): Promise<number> {
+  const table = validateTableName(tableName);
   const result = await query<{ count: string }>(
-    `SELECT COUNT(*) as count FROM raw_diamonds_nivoda WHERE consolidated = FALSE`
+    `SELECT COUNT(*) as count FROM ${table} WHERE consolidated = FALSE`
   );
   return parseInt(result.rows[0]?.count ?? '0', 10);
 }
@@ -220,12 +263,18 @@ export interface BulkRawDiamond {
 /**
  * Bulk upsert raw diamonds for improved performance during worker processing.
  * Uses a single query with UNNEST to insert multiple records efficiently.
+ *
+ * @param runId - The run ID to associate with these diamonds
+ * @param diamonds - Array of raw diamonds to upsert
+ * @param tableName - Raw table to upsert into (default: raw_diamonds_nivoda)
  */
 export async function bulkUpsertRawDiamonds(
   runId: string,
-  diamonds: BulkRawDiamond[]
+  diamonds: BulkRawDiamond[],
+  tableName: string = DEFAULT_RAW_TABLE,
 ): Promise<void> {
   if (diamonds.length === 0) return;
+  const table = validateTableName(tableName);
 
   const supplierStoneIds = diamonds.map(d => d.supplierStoneId);
   const offerIds = diamonds.map(d => d.offerId);
@@ -235,7 +284,7 @@ export async function bulkUpsertRawDiamonds(
 
   // WHERE clause prevents no-op updates when payload hasn't changed
   await query(
-    `INSERT INTO raw_diamonds_nivoda (
+    `INSERT INTO ${table} (
       run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at
     )
     SELECT
@@ -255,7 +304,7 @@ export async function bulkUpsertRawDiamonds(
       consolidation_status = 'pending',
       consolidated_at = NULL,
       updated_at = NOW()
-    WHERE raw_diamonds_nivoda.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash`,
+    WHERE ${table}.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash`,
     [runId, supplierStoneIds, offerIds, payloads, payloadHashes, sourceUpdatedAts]
   );
 }

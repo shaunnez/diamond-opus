@@ -1,5 +1,5 @@
 {
-  "name": "@diamond/nivoda",
+  "name": "@diamond/demo-feed",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
@@ -13,14 +13,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@diamond/feed-registry": "*",
-    "@diamond/shared": "*",
-    "graphql": "^16.8.1",
-    "graphql-request": "^6.1.0"
+    "@diamond/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^25.2.1",

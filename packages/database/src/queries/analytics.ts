@@ -101,6 +101,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     // Last successful run (completed with no failures) - compute from worker_runs
     query<{
       run_id: string;
+      feed: string;
       run_type: string;
       expected_workers: number;
       completed_workers: number;
@@ -167,6 +168,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   const lastSuccessfulRun = lastSuccessfulRunRow
     ? {
         runId: lastSuccessfulRunRow.run_id,
+        feed: lastSuccessfulRunRow.feed ?? 'nivoda',
         runType: lastSuccessfulRunRow.run_type as RunType,
         expectedWorkers: lastSuccessfulRunRow.expected_workers,
         completedWorkers: lastSuccessfulRunRow.completed_workers,
@@ -260,6 +262,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     ),
     query<{
       run_id: string;
+      feed: string;
       run_type: string;
       expected_workers: number;
       completed_workers: number;
@@ -300,6 +303,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
   const runs = dataResult.rows.map((row) => ({
     runId: row.run_id,
+    feed: row.feed ?? 'nivoda',
     runType: row.run_type as RunType,
     expectedWorkers: row.expected_workers,
     completedWorkers: parseInt(row.completed_workers_actual, 10),
@@ -360,6 +364,7 @@ export async function getRunDetails(runId: string): Promise<{
   const [runResult, workersResult, statsResult] = await Promise.all([
     query<{
       run_id: string;
+      feed: string;
       run_type: string;
       expected_workers: number;
       completed_workers: number;
@@ -407,6 +412,7 @@ export async function getRunDetails(runId: string): Promise<{
 
   const run: RunWithStats = {
     runId: runRow.run_id,
+    feed: runRow.feed ?? 'nivoda',
     runType: runRow.run_type as RunType,
     expectedWorkers: runRow.expected_workers,
     completedWorkers: parseInt(stats.completed_count, 10),

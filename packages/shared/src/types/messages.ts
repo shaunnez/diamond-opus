@@ -1,5 +1,7 @@
 export interface WorkItemMessage {
   type: 'WORK_ITEM';
+  /** Feed identifier (e.g., 'nivoda', 'demo') */
+  feed: string;
   runId: string;
   /** Trace ID for distributed tracing correlation */
   traceId: string;
@@ -24,6 +26,8 @@ export interface WorkItemMessage {
 
 export interface WorkDoneMessage {
   type: 'WORK_DONE';
+  /** Feed identifier (e.g., 'nivoda', 'demo') */
+  feed: string;
   runId: string;
   /** Trace ID for distributed tracing correlation */
   traceId: string;
@@ -36,6 +40,8 @@ export interface WorkDoneMessage {
 
 export interface ConsolidateMessage {
   type: 'CONSOLIDATE';
+  /** Feed identifier (e.g., 'nivoda', 'demo') */
+  feed: string;
   runId: string;
   /** Trace ID for distributed tracing correlation */
   traceId: string;

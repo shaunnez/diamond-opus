@@ -17,7 +17,9 @@
     "paths": {
       "@diamond/shared": ["packages/shared/src/index.ts"],
       "@diamond/database": ["packages/database/src/index.ts"],
+      "@diamond/feed-registry": ["packages/feed-registry/src/index.ts"],
       "@diamond/nivoda": ["packages/nivoda/src/index.ts"],
+      "@diamond/demo-feed": ["packages/demo-feed/src/index.ts"],
       "@diamond/pricing-engine": ["packages/pricing-engine/src/index.ts"],
       "@diamond/api": ["packages/api/src/index.ts"]
     }
