@@ -377,6 +377,7 @@ router.post(
       // Send consolidation message
       const message: ConsolidateMessage & { force?: boolean } = {
         type: "CONSOLIDATE",
+        feed: runMetadata.feed,
         runId: body.run_id,
         traceId,
         force: body.force,
@@ -680,6 +681,7 @@ router.post(
       // Send consolidation message with force=true (we're explicitly resuming)
       const message: ConsolidateMessage = {
         type: "CONSOLIDATE",
+        feed: runMetadata.feed,
         runId: body.run_id,
         traceId,
         force: true,

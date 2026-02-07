@@ -104,6 +104,7 @@ export function createMockRunMetadata(
 ): RunMetadata {
   return {
     runId: overrides.runId ?? generateTestId('run'),
+    feed: 'nivoda',
     runType: 'full',
     expectedWorkers: 5,
     completedWorkers: 0,
@@ -139,6 +140,7 @@ export function createMockWorkItemMessage(
 ): WorkItemMessage {
   return {
     type: 'WORK_ITEM',
+    feed: 'nivoda',
     runId: overrides.runId ?? generateTestId('run'),
     traceId: overrides.traceId ?? generateTestId('trace'),
     partitionId: 'partition-0',
@@ -161,6 +163,7 @@ export function createMockWorkDoneMessage(
 ): WorkDoneMessage {
   return {
     type: 'WORK_DONE',
+    feed: 'nivoda',
     runId: overrides.runId ?? generateTestId('run'),
     traceId: overrides.traceId ?? generateTestId('trace'),
     workerId: generateTestId('worker'),
@@ -179,6 +182,7 @@ export function createMockConsolidateMessage(
 ): ConsolidateMessage {
   return {
     type: 'CONSOLIDATE',
+    feed: 'nivoda',
     runId: overrides.runId ?? generateTestId('run'),
     traceId: overrides.traceId ?? generateTestId('trace'),
     ...overrides,

@@ -13,13 +13,8 @@ if (process.env.NODE_ENV !== 'production') {
   config({ path: resolve(rootDir, '.env') });
 }
 import {
-  DIAMOND_SHAPES,
   withRetry,
   createLogger,
-  RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
-  RATE_LIMIT_WINDOW_MS,
-  RATE_LIMIT_MAX_WAIT_MS,
-  RATE_LIMIT_BASE_DELAY_MS,
   AUTO_CONSOLIDATION_SUCCESS_THRESHOLD,
   AUTO_CONSOLIDATION_DELAY_MINUTES,
   type WorkItemMessage,
@@ -40,13 +35,8 @@ import {
   markPartitionFailed,
   insertErrorLog,
   closePool,
-  acquireRateLimitToken,
 } from "@diamond/database";
-import {
-  NivodaAdapter,
-  type NivodaQuery,
-  type NivodaOrder,
-} from "@diamond/nivoda";
+import type { FeedAdapter, FeedQuery } from "@diamond/feed-registry";
 import {
   receiveWorkItem,
   sendWorkDone,
@@ -55,9 +45,13 @@ import {
   closeConnections,
 } from "./service-bus.js";
 import { sendAlert } from "./alerts.js";
+import { createFeedRegistry } from "./feeds.js";
 
 const baseLogger = createLogger({ service: "worker" });
 const workerId = randomUUID();
+
+// Create the feed registry once at startup - adapters are reused across messages
+const feedRegistry = createFeedRegistry();
 
 // Cap error messages to prevent overly long stack traces in database
 const MAX_ERROR_MESSAGE_LENGTH = 1000;
@@ -68,27 +62,6 @@ function capErrorMessage(message: string): string {
   return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
 }
 
-// Rate limiter configuration for Nivoda API
-const rateLimitConfig = {
-  maxRequestsPerWindow: RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
-  windowDurationMs: RATE_LIMIT_WINDOW_MS,
-  maxWaitMs: RATE_LIMIT_MAX_WAIT_MS,
-  baseDelayMs: RATE_LIMIT_BASE_DELAY_MS,
-};
-
-// Rate limiter function to pass to adapter and retries
-const acquireRateLimit = () => acquireRateLimitToken("nivoda_global", rateLimitConfig);
-
-// Singleton NivodaAdapter - reused across all work items to preserve token cache
-// This dramatically reduces authentication calls and prevents auth storms
-// Configured with:
-// - enableDesyncDelay: adds random delay before API calls to desynchronize workers
-// - rateLimiter: integrates with global rate limiter to smooth request bursts
-const nivodaAdapter = new NivodaAdapter(undefined, undefined, undefined, {
-  enableDesyncDelay: true,
-  rateLimiter: acquireRateLimit,
-});
-
 /**
  * Process exactly one page for continuation pattern.
  * Returns the number of records processed in this page.
@@ -98,6 +71,7 @@ const nivodaAdapter = new NivodaAdapter(undefined, undefined, undefined, {
  */
 async function processWorkItemPage(
   workItem: WorkItemMessage,
+  adapter: FeedAdapter,
   workerRunId: string,
   log: Logger
 ): Promise<{ recordsProcessed: number; hasMore: boolean; skipped: boolean }> {
@@ -113,7 +87,6 @@ async function processWorkItemPage(
   const progress = await getPartitionProgress(workItem.runId, workItem.partitionId);
 
   // Idempotency guard: skip if already completed
-  // IMPORTANT: Return skipped=true so caller doesn't trigger false completion
   if (progress.completed) {
     log.info("Partition already completed, skipping", {
       partitionId: workItem.partitionId,
@@ -122,8 +95,6 @@ async function processWorkItemPage(
   }
 
   // Idempotency guard: skip if offset doesn't match expected nextOffset
-  // This handles duplicate/redelivered messages from Service Bus
-  // IMPORTANT: Return skipped=true so caller doesn't trigger false completion
   if (workItem.offset !== progress.nextOffset) {
     log.warn("Offset mismatch, skipping duplicate or out-of-order message", {
       messageOffset: workItem.offset,
@@ -133,37 +104,28 @@ async function processWorkItemPage(
     return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
-  // Use singleton adapter (created at module scope) to preserve token cache
-  // This prevents authentication storms when processing many pages
-
-  // Build query with all filters from the work item
-  // - Price range from heatmap partition
-  // - Date range (updated) for consistent filtering with heatmap counts
-  const query: NivodaQuery = {
-    shapes: [...DIAMOND_SHAPES],
-    sizes: { from: 0.5, to: 10 },
-    dollar_value: { from: workItem.minPrice, to: workItem.maxPrice },
-    // Use the same date range filter as the heatmap for consistency
-    updated: workItem.updatedFrom && workItem.updatedTo
+  // Build query using generic FeedQuery
+  const query: FeedQuery = {
+    priceRange: { from: workItem.minPrice, to: workItem.maxPrice },
+    updatedRange: workItem.updatedFrom && workItem.updatedTo
       ? { from: workItem.updatedFrom, to: workItem.updatedTo }
       : undefined,
   };
 
   // Order by createdAt ASC for deterministic pagination
-  // This ensures diamonds don't shift between pages during the run
-  const order: NivodaOrder = { type: 'createdAt', direction: 'ASC' };
+  const order = { type: 'createdAt', direction: 'ASC' as const };
 
-  log.debug("Fetching page from Nivoda", {
+  log.debug("Fetching page from feed", {
+    feed: workItem.feed,
     offset: workItem.offset,
     limit: workItem.limit,
-    updated: query.updated,
   });
 
   const response = await withRetry(
-    () => nivodaAdapter.searchDiamonds(query, { offset: workItem.offset, limit: workItem.limit, order }),
+    () => adapter.search(query, { offset: workItem.offset, limit: workItem.limit, order }),
     {
       onRetry: (error, attempt, delayMs) => {
-        log.warn("Retrying search diamonds", {
+        log.warn("Retrying search", {
           attempt,
           offset: workItem.offset,
           delayMs: Math.round(delayMs),
@@ -176,7 +138,6 @@ async function processWorkItemPage(
   if (response.items.length === 0) {
     log.info("No items returned, marking partition as completed");
 
-    // Mark partition as completed
     const marked = await completePartition(
       workItem.runId,
       workItem.partitionId,
@@ -190,15 +151,13 @@ async function processWorkItemPage(
     return { recordsProcessed: 0, hasMore: false, skipped: false };
   }
 
-  // Bulk upsert all items from this page
-  const bulkDiamonds: BulkRawDiamond[] = response.items.map((item) => ({
-    supplierStoneId: item.diamond.id,
-    offerId: item.id,
-    payload: item as unknown as Record<string, unknown>,
-    sourceUpdatedAt: undefined,
-  }));
+  // Extract identities and build bulk diamonds using feed-specific logic
+  const bulkDiamonds: BulkRawDiamond[] = response.items.map((item) =>
+    adapter.extractIdentity(item)
+  );
 
-  await bulkUpsertRawDiamonds(workItem.runId, bulkDiamonds);
+  // Write to feed-specific raw table
+  await bulkUpsertRawDiamonds(workItem.runId, bulkDiamonds, adapter.rawTableName);
 
   log.debug("Page upserted", {
     recordsProcessed: response.items.length,
@@ -214,7 +173,6 @@ async function processWorkItemPage(
   const hasMore = response.items.length === workItem.limit;
 
   if (hasMore) {
-    // Update partition progress to new offset
     const updated = await updatePartitionOffset(
       workItem.runId,
       workItem.partitionId,
@@ -229,7 +187,6 @@ async function processWorkItemPage(
     // Last page (partial page), mark partition as completed
     log.info("Last page processed, marking partition as completed");
 
-    // First advance the offset to reflect the final processed position
     const updated = await updatePartitionOffset(
       workItem.runId,
       workItem.partitionId,
@@ -261,12 +218,15 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     traceId: workItem.traceId,
     workerId,
     partitionId: workItem.partitionId,
+    feed: workItem.feed,
   });
 
   log.info("Starting work item page processing");
 
+  // Resolve the feed adapter for this work item
+  const adapter = feedRegistry.get(workItem.feed);
+
   // Get or create worker run (idempotent due to unique constraint on run_id, partition_id)
-  // This ensures we only create one worker run per partition
   let workerRun;
   try {
     workerRun = await createWorkerRun(
@@ -276,10 +236,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
       workItem as unknown as Record<string, unknown>,
     );
   } catch (error) {
-    // If worker run already exists, this is a continuation message
-    // We still need the worker run ID for progress tracking
     log.info("Worker run already exists (continuation message)");
-    // For now, we'll fetch it - in production you might cache this
     const existingRuns = await import("@diamond/database").then(m => m.getWorkerRunsByRunId(workItem.runId));
     workerRun = existingRuns.find(r => r.partitionId === workItem.partitionId);
     if (!workerRun) {
@@ -289,52 +246,34 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
 
   let recordsProcessed = 0;
   let hasMore = false;
-  let errorOccurred = false;
-  let errorMessage: string | undefined;
 
   try {
-    const result = await processWorkItemPage(workItem, workerRun.id, log);
+    const result = await processWorkItemPage(workItem, adapter, workerRun.id, log);
     recordsProcessed = result.recordsProcessed;
     hasMore = result.hasMore;
 
-    // If message was skipped due to idempotency guards (duplicate/redelivered message),
-    // just ack the message without any state changes - another worker is handling this partition
     if (result.skipped) {
       log.info("Message skipped due to idempotency guard, acknowledging without state changes");
       return;
     }
 
-    log.info("Page processed successfully", {
-      recordsProcessed,
-      hasMore,
-    });
+    log.info("Page processed successfully", { recordsProcessed, hasMore });
 
-    // Advance database progress first (already done in processWorkItemPage)
-    // Now enqueue next message if there are more pages
     if (hasMore) {
       const nextWorkItem: WorkItemMessage = {
         ...workItem,
         offset: workItem.offset + recordsProcessed,
       };
-
-      log.info("Enqueueing next page", {
-        nextOffset: nextWorkItem.offset,
-      });
-
-      // Critical: This must succeed or throw
+      log.info("Enqueueing next page", { nextOffset: nextWorkItem.offset });
       await sendWorkItem(nextWorkItem);
-
       log.info("Next page enqueued successfully");
     } else {
-      // This was the last page for this partition
       log.info("Partition completed, no more pages");
-
-      // Update worker run status to completed
       await updateWorkerRun(workerRun.id, "completed");
 
-      // Send WORK_DONE message only once per partition
       const workDoneMessage: WorkDoneMessage = {
         type: "WORK_DONE",
+        feed: workItem.feed,
         runId: workItem.runId,
         traceId: workItem.traceId,
         workerId,
@@ -342,164 +281,95 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
         recordsProcessed,
         status: "success",
       };
-
       await sendWorkDone(workDoneMessage);
 
-      // Increment completed workers only once per partition
       const { completedWorkers, expectedWorkers, failedWorkers } =
         await incrementCompletedWorkers(workItem.runId);
 
-      log.info("Worker completed", {
-        completedWorkers,
-        expectedWorkers,
-        failedWorkers,
-      });
+      log.info("Worker completed", { completedWorkers, expectedWorkers, failedWorkers });
 
-      // Trigger consolidation if all workers are done
       if (completedWorkers === expectedWorkers && failedWorkers === 0) {
-        // All workers completed successfully - trigger immediately
         log.info("All workers completed successfully, triggering consolidation");
         await sendConsolidate({
           type: "CONSOLIDATE",
+          feed: workItem.feed,
           runId: workItem.runId,
           traceId: workItem.traceId,
         });
         sendAlert(
           'Run Completed',
-          `Run ${workItem.runId} completed successfully.\n\n` +
-            `Workers: ${completedWorkers}/${expectedWorkers} succeeded\n` +
-            `Consolidation has been triggered.`
+          `Run ${workItem.runId} (feed: ${workItem.feed}) completed successfully.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded\nConsolidation has been triggered.`
         ).catch(() => {});
       } else if (completedWorkers + failedWorkers >= expectedWorkers) {
-        // All workers done but some failed - check if we can auto-start
         const successRate = completedWorkers / expectedWorkers;
         if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
           log.info("Auto-starting consolidation with partial success", {
-            successRate: Math.round(successRate * 100),
-            completedWorkers,
-            failedWorkers,
-            expectedWorkers,
+            successRate: Math.round(successRate * 100), completedWorkers, failedWorkers, expectedWorkers,
             delayMinutes: AUTO_CONSOLIDATION_DELAY_MINUTES,
           });
           await sendConsolidate({
-            type: "CONSOLIDATE",
-            runId: workItem.runId,
-            traceId: workItem.traceId,
-            force: true,
+            type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true,
           }, AUTO_CONSOLIDATION_DELAY_MINUTES);
-          sendAlert(
-            'Run Completed (Partial Success)',
-            `Run ${workItem.runId} finished with partial success.\n\n` +
-              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
-              `Failed workers: ${failedWorkers}\n\n` +
-              `Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
+          sendAlert('Run Completed (Partial Success)',
+            `Run ${workItem.runId} (feed: ${workItem.feed}) finished with partial success.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
           ).catch(() => {});
         } else {
           log.warn("All workers finished but success rate below threshold, skipping consolidation", {
-            successRate: Math.round(successRate * 100),
-            completedWorkers,
-            failedWorkers,
-            expectedWorkers,
+            successRate: Math.round(successRate * 100), completedWorkers, failedWorkers, expectedWorkers,
             threshold: `${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}%`,
           });
-          sendAlert(
-            'Run Failed',
-            `Run ${workItem.runId} failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\n` +
-              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
-              `Failed workers: ${failedWorkers}\n\n` +
-              `Consolidation was NOT triggered. Manual intervention may be required.`
+          sendAlert('Run Failed',
+            `Run ${workItem.runId} (feed: ${workItem.feed}) failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation was NOT triggered. Manual intervention may be required.`
           ).catch(() => {});
         }
       }
     }
   } catch (error) {
-    errorOccurred = true;
     const rawErrorMessage = error instanceof Error ? error.message : String(error);
-    errorMessage = capErrorMessage(rawErrorMessage);
+    const errorMessage = capErrorMessage(rawErrorMessage);
     const errorStack = error instanceof Error ? error.stack : undefined;
 
-    // Log error message and type to avoid large payloads
     log.error("Worker page processing failed", {
-      errorType: error instanceof Error ? error.name : "unknown",
-      errorMessage,
-      offset: workItem.offset,
+      errorType: error instanceof Error ? error.name : "unknown", errorMessage, offset: workItem.offset,
     });
 
     insertErrorLog('worker', errorMessage, errorStack, {
-      runId: workItem.runId,
-      partitionId: workItem.partitionId,
-      offset: String(workItem.offset),
+      runId: workItem.runId, partitionId: workItem.partitionId, offset: String(workItem.offset),
     }).catch(() => {});
 
-    // Update worker run status to failed
     await updateWorkerRun(workerRun.id, "failed", errorMessage);
-
-    // Atomically mark partition as failed (idempotent)
-    // markPartitionFailed returns true only on first failure
     const isFirstFailure = await markPartitionFailed(workItem.runId, workItem.partitionId);
-    if (isFirstFailure) {
-      log.info("Partition marked as failed");
-    } else {
-      log.info("Partition already marked as failed, not double-counting");
-    }
+    if (isFirstFailure) { log.info("Partition marked as failed"); }
+    else { log.info("Partition already marked as failed, not double-counting"); }
 
-    // Send WORK_DONE failure message
     const workDoneMessage: WorkDoneMessage = {
-      type: "WORK_DONE",
-      runId: workItem.runId,
-      traceId: workItem.traceId,
-      workerId,
-      partitionId: workItem.partitionId,
-      recordsProcessed,
-      status: "failed",
-      error: errorMessage,
+      type: "WORK_DONE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId,
+      workerId, partitionId: workItem.partitionId, recordsProcessed, status: "failed", error: errorMessage,
     };
-
     await sendWorkDone(workDoneMessage);
 
-    // Check if all workers are done and auto-consolidation should be triggered.
-    // The 5-minute delay gives retries time to complete before consolidation starts.
     try {
-      const { completedWorkers, expectedWorkers, failedWorkers } =
-        await incrementCompletedWorkers(workItem.runId);
-
+      const { completedWorkers, expectedWorkers, failedWorkers } = await incrementCompletedWorkers(workItem.runId);
       if (completedWorkers + failedWorkers >= expectedWorkers) {
         const successRate = completedWorkers / expectedWorkers;
         if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
           log.info("Auto-starting consolidation with partial success (from failure path)", {
-            successRate: Math.round(successRate * 100),
-            completedWorkers,
-            failedWorkers,
-            expectedWorkers,
+            successRate: Math.round(successRate * 100), completedWorkers, failedWorkers, expectedWorkers,
             delayMinutes: AUTO_CONSOLIDATION_DELAY_MINUTES,
           });
           await sendConsolidate({
-            type: "CONSOLIDATE",
-            runId: workItem.runId,
-            traceId: workItem.traceId,
-            force: true,
+            type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true,
           }, AUTO_CONSOLIDATION_DELAY_MINUTES);
-          sendAlert(
-            'Run Completed (Partial Success)',
-            `Run ${workItem.runId} finished with partial success.\n\n` +
-              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
-              `Failed workers: ${failedWorkers}\n\n` +
-              `Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
+          sendAlert('Run Completed (Partial Success)',
+            `Run ${workItem.runId} (feed: ${workItem.feed}) finished with partial success.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
           ).catch(() => {});
         } else {
           log.warn("All workers finished but success rate below threshold, skipping consolidation", {
-            successRate: Math.round(successRate * 100),
-            completedWorkers,
-            failedWorkers,
-            expectedWorkers,
+            successRate: Math.round(successRate * 100), completedWorkers, failedWorkers, expectedWorkers,
             threshold: `${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}%`,
           });
-          sendAlert(
-            'Run Failed',
-            `Run ${workItem.runId} failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\n` +
-              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
-              `Failed workers: ${failedWorkers}\n\n` +
-              `Consolidation was NOT triggered. Manual intervention may be required.`
+          sendAlert('Run Failed',
+            `Run ${workItem.runId} (feed: ${workItem.feed}) failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation was NOT triggered. Manual intervention may be required.`
           ).catch(() => {});
         }
       }
@@ -509,14 +379,13 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
       });
     }
 
-    // Re-throw so the message is retried by Service Bus
     throw error;
   }
 }
 
 async function run(): Promise<void> {
   const log = baseLogger.child({ workerId });
-  log.info("Worker starting");
+  log.info("Worker starting", { registeredFeeds: feedRegistry.getFeedIds() });
 
   while (true) {
     const received = await receiveWorkItem();
@@ -531,7 +400,6 @@ async function run(): Promise<void> {
       await handleWorkItem(received.message);
       await received.complete();
     } catch (error) {
-      // Log only error message to avoid large payloads
       const rawErrorMsg = error instanceof Error ? error.message : String(error);
       const errorMsg = capErrorMessage(rawErrorMsg);
       log.error("Error processing work item", {
@@ -547,13 +415,9 @@ async function main(): Promise<void> {
   try {
     await run();
   } catch (error) {
-    // Log only error message to avoid large payloads
     const rawErrorMsg = error instanceof Error ? error.message : String(error);
     const errorMsg = capErrorMessage(rawErrorMsg);
-    baseLogger.error("Worker failed", {
-      errorMessage: errorMsg,
-      errorType: error instanceof Error ? error.name : "unknown",
-    });
+    baseLogger.error("Worker failed", { errorMessage: errorMsg, errorType: error instanceof Error ? error.name : "unknown" });
     process.exitCode = 1;
   } finally {
     await closeConnections();

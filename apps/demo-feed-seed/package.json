@@ -1,23 +1,16 @@
 {
-  "name": "@diamond/worker",
+  "name": "@diamond/demo-feed-seed",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "cross-env NODE_ENV=development tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "retry": "tsx src/retry.ts",
+    "seed": "cross-env NODE_ENV=development tsx src/index.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@azure/service-bus": "^7.9.3",
     "@diamond/database": "*",
-    "@diamond/demo-feed": "*",
-    "@diamond/feed-registry": "*",
-    "@diamond/nivoda": "*",
-    "@diamond/shared": "*",
-    "resend": "^2.1.0"
+    "@diamond/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^25.2.1",

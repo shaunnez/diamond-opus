@@ -79,6 +79,7 @@ async function triggerConsolidation(runId: string, force: boolean): Promise<void
 
   const message: ConsolidateMessage = {
     type: 'CONSOLIDATE',
+    feed: runMetadata.feed,
     runId,
     traceId,
   };
