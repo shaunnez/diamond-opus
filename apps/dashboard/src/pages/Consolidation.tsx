@@ -14,6 +14,7 @@ import {
   getConsolidationStats,
   getConsolidationStatus,
   type RunConsolidationStatus,
+  type AnalyticsFeed,
 } from '../api/analytics';
 import { resumeConsolidation } from '../api/triggers';
 import { Header } from '../components/layout/Header';
@@ -74,9 +75,15 @@ function canResume(run: RunConsolidationStatus): boolean {
   return pendingCount > 0 || failedCount > 0;
 }
 
+const FEED_OPTIONS: { value: AnalyticsFeed; label: string }[] = [
+  { value: 'nivoda', label: 'Nivoda' },
+  { value: 'demo', label: 'Demo' },
+];
+
 export function Consolidation() {
   const queryClient = useQueryClient();
   const [resumeRunId, setResumeRunId] = useState<string | null>(null);
+  const [feed, setFeed] = useState<AnalyticsFeed>('nivoda');
 
   const {
     data: stats,
@@ -85,8 +92,8 @@ export function Consolidation() {
     refetch: refetchStats,
     isFetching: statsFetching,
   } = useQuery({
-    queryKey: ['consolidation-stats'],
-    queryFn: getConsolidationStats,
+    queryKey: ['consolidation-stats', feed],
+    queryFn: () => getConsolidationStats(feed),
     refetchInterval: 10000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
@@ -96,8 +103,8 @@ export function Consolidation() {
     data: runStatuses,
     isLoading: statusLoading,
   } = useQuery({
-    queryKey: ['consolidation-status'],
-    queryFn: () => getConsolidationStatus(10),
+    queryKey: ['consolidation-status', feed],
+    queryFn: () => getConsolidationStatus(10, feed),
     refetchInterval: 10000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
@@ -135,6 +142,26 @@ export function Consolidation() {
     <>
       <Header onRefresh={refetchStats} isRefreshing={statsFetching} />
       <PageContainer>
+        {/* Feed Selector */}
+        <div className="flex items-center gap-3 mb-6">
+          <label className="text-sm font-medium text-stone-600 dark:text-stone-400">Feed:</label>
+          <div className="flex rounded-lg border border-stone-300 dark:border-stone-600 overflow-hidden">
+            {FEED_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setFeed(opt.value)}
+                className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                  feed === opt.value
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Progress Ring */}
           <Card className="flex flex-col items-center justify-center py-8">
@@ -164,7 +191,7 @@ export function Consolidation() {
             <StatCard
               title="Total Raw Diamonds"
               value={formatNumber(stats?.totalRaw ?? 0)}
-              subtitle="In raw_diamonds_nivoda table"
+              subtitle={`In raw_diamonds_${feed} table`}
               icon={<Database className="w-5 h-5" />}
             />
             <StatCard
@@ -335,7 +362,7 @@ export function Consolidation() {
           <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
             <li>
               Raw diamonds are fetched by workers and stored in{' '}
-              <code className="bg-info-100 dark:bg-info-900/30 px-1 rounded">raw_diamonds_nivoda</code>
+              <code className="bg-info-100 dark:bg-info-900/30 px-1 rounded">raw_diamonds_{feed}</code>
             </li>
             <li>
               The consolidator maps raw data to the canonical{' '}
