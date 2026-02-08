@@ -340,9 +340,9 @@ variable "consolidator_max_replicas" {
 
 ## Demo Feed API Scaling
 variable "demo_feed_api_min_replicas" {
-  description = "Minimum demo feed API replicas"
+  description = "Minimum demo feed API replicas (1 recommended — scheduler/worker depend on it)"
   type        = number
-  default     = 0
+  default     = 1
 
   validation {
     condition     = var.demo_feed_api_min_replicas >= 0
