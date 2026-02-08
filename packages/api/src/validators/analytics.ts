@@ -37,6 +37,13 @@ export const tableParamSchema = z.object({
 
 export type TableParams = z.infer<typeof tableParamSchema>;
 
+export const consolidationQuerySchema = z.object({
+  feed: z.enum(['nivoda', 'demo']).default('nivoda'),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+});
+
+export type ConsolidationQuery = z.infer<typeof consolidationQuerySchema>;
+
 export const triggerSchedulerSchema = z.object({
   run_type: z.enum(['full', 'incremental']).default('incremental'),
   feed: z.string().optional(),

@@ -2,6 +2,33 @@ import type { RunMetadata, WorkerRun, RunType, WorkerStatus } from '@diamond/sha
 import { query } from '../client.js';
 
 // ============================================================================
+// Feed-aware raw table resolution
+// ============================================================================
+
+/** Feed identifiers supported by consolidation analytics */
+export type AnalyticsFeed = 'nivoda' | 'demo';
+
+const RAW_TABLE_BY_FEED: Record<AnalyticsFeed, string> = {
+  nivoda: 'raw_diamonds_nivoda',
+  demo: 'raw_diamonds_demo',
+};
+
+/** Validates a feed string and returns the corresponding raw table name.
+ *  Prevents SQL injection by only allowing known feed identifiers. */
+export function resolveRawTable(feed: AnalyticsFeed): string {
+  const table = RAW_TABLE_BY_FEED[feed];
+  if (!table) {
+    throw new Error(`Invalid analytics feed: '${feed}'. Allowed: ${Object.keys(RAW_TABLE_BY_FEED).join(', ')}`);
+  }
+  return table;
+}
+
+/** Type guard for AnalyticsFeed */
+export function isValidAnalyticsFeed(value: string): value is AnalyticsFeed {
+  return value in RAW_TABLE_BY_FEED;
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -568,7 +595,8 @@ export async function getFeedStats(): Promise<FeedStats[]> {
 // Consolidation Progress
 // ============================================================================
 
-export async function getConsolidationProgress(runId: string): Promise<ConsolidationProgress | null> {
+export async function getConsolidationProgress(runId: string, feed: AnalyticsFeed = 'nivoda'): Promise<ConsolidationProgress | null> {
+  const rawTable = resolveRawTable(feed);
   const result = await query<{
     total_raw: string;
     consolidated_count: string;
@@ -582,7 +610,7 @@ export async function getConsolidationProgress(runId: string): Promise<Consolida
       COUNT(*) FILTER (WHERE consolidated = false AND consolidation_status != 'failed') as pending_count,
       COUNT(*) FILTER (WHERE consolidation_status = 'failed') as failed_count,
       MIN(created_at) FILTER (WHERE consolidated = false) as oldest_pending
-     FROM raw_diamonds_nivoda
+     FROM ${rawTable}
      WHERE run_id = $1`,
     [runId]
   );
@@ -608,12 +636,13 @@ export async function getConsolidationProgress(runId: string): Promise<Consolida
   };
 }
 
-export async function getOverallConsolidationStats(): Promise<{
+export async function getOverallConsolidationStats(feed: AnalyticsFeed = 'nivoda'): Promise<{
   totalRaw: number;
   totalConsolidated: number;
   totalPending: number;
   progressPercent: number;
 }> {
+  const rawTable = resolveRawTable(feed);
   const result = await query<{
     total_raw: string;
     consolidated_count: string;
@@ -623,7 +652,7 @@ export async function getOverallConsolidationStats(): Promise<{
       COUNT(*) as total_raw,
       COUNT(*) FILTER (WHERE consolidated = true) as consolidated_count,
       COUNT(*) FILTER (WHERE consolidated = false) as pending_count
-     FROM raw_diamonds_nivoda`
+     FROM ${rawTable}`
   );
 
   const row = result.rows[0]!;
@@ -643,7 +672,8 @@ export async function getOverallConsolidationStats(): Promise<{
 // Consolidation Status per Run (for dashboard)
 // ============================================================================
 
-export async function getRunsConsolidationStatus(limit = 10): Promise<RunConsolidationStatus[]> {
+export async function getRunsConsolidationStatus(limit = 10, feed: AnalyticsFeed = 'nivoda'): Promise<RunConsolidationStatus[]> {
+  const rawTable = resolveRawTable(feed);
   const result = await query<{
     run_id: string;
     run_type: string;
@@ -697,12 +727,13 @@ export async function getRunsConsolidationStatus(limit = 10): Promise<RunConsoli
          COUNT(*) FILTER (WHERE consolidated = false AND consolidation_status != 'failed') as pending_count,
          COUNT(*) FILTER (WHERE consolidation_status = 'failed') as failed_count,
          MIN(created_at) FILTER (WHERE consolidated = false) as oldest_pending
-       FROM raw_diamonds_nivoda rdn
+       FROM ${rawTable} rdn
        WHERE rdn.run_id = rm.run_id
      ) raw_stats ON TRUE
+     WHERE rm.feed = $1
      ORDER BY rm.started_at DESC
-     LIMIT $1`,
-    [limit]
+     LIMIT $2`,
+    [feed, limit]
   );
 
   return result.rows.map((row) => {

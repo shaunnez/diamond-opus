@@ -97,6 +97,8 @@ export interface ConsolidationStats {
   progressPercent: number;
 }
 
+export type AnalyticsFeed = 'nivoda' | 'demo';
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {
@@ -149,18 +151,18 @@ export async function getFeedStats(): Promise<FeedStats[]> {
   return response.data.data;
 }
 
-export async function getConsolidationStats(): Promise<ConsolidationStats> {
-  const response = await api.get<{ data: ConsolidationStats }>('/analytics/consolidation');
+export async function getConsolidationStats(feed: AnalyticsFeed = 'nivoda'): Promise<ConsolidationStats> {
+  const response = await api.get<{ data: ConsolidationStats }>(`/analytics/consolidation?feed=${feed}`);
   return response.data.data;
 }
 
-export async function getConsolidationProgress(runId: string): Promise<ConsolidationProgress> {
-  const response = await api.get<{ data: ConsolidationProgress }>(`/analytics/consolidation/${runId}`);
+export async function getConsolidationProgress(runId: string, feed: AnalyticsFeed = 'nivoda'): Promise<ConsolidationProgress> {
+  const response = await api.get<{ data: ConsolidationProgress }>(`/analytics/consolidation/${runId}?feed=${feed}`);
   return response.data.data;
 }
 
-export async function getConsolidationStatus(limit = 10): Promise<RunConsolidationStatus[]> {
-  const response = await api.get<{ data: RunConsolidationStatus[] }>(`/analytics/consolidation/status?limit=${limit}`);
+export async function getConsolidationStatus(limit = 10, feed: AnalyticsFeed = 'nivoda'): Promise<RunConsolidationStatus[]> {
+  const response = await api.get<{ data: RunConsolidationStatus[] }>(`/analytics/consolidation/status?feed=${feed}&limit=${limit}`);
   return response.data.data;
 }
 

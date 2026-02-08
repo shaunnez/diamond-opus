@@ -17,6 +17,7 @@ import {
   getHoldHistoryList,
   getPurchaseHistoryList,
   type RunsFilter,
+  type AnalyticsFeed,
 } from '@diamond/database';
 import { BlobServiceClient } from '@azure/storage-blob';
 import {
@@ -31,10 +32,12 @@ import {
   runIdSchema,
   queryProxySchema,
   tableParamSchema,
+  consolidationQuerySchema,
   type RunsQuery,
   type RunIdParams,
   type QueryProxyBody,
   type TableParams,
+  type ConsolidationQuery,
 } from '../validators/index.js';
 
 const router = Router();
@@ -372,20 +375,33 @@ router.get('/feeds', async (_req: Request, res: Response, next: NextFunction) =>
  *     security:
  *       - ApiKeyAuth: []
  *       - HmacAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: feed
+ *         schema:
+ *           type: string
+ *           enum: [nivoda, demo]
+ *           default: nivoda
+ *         description: Feed to get consolidation stats for
  *     responses:
  *       200:
  *         description: Overall consolidation progress
  *       401:
  *         description: Unauthorized
  */
-router.get('/consolidation', async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const stats = await getOverallConsolidationStats();
-    res.json({ data: stats });
-  } catch (error) {
-    next(error);
+router.get(
+  '/consolidation',
+  validateQuery(consolidationQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { feed } = (req as Request & { validatedQuery: ConsolidationQuery }).validatedQuery;
+      const stats = await getOverallConsolidationStats(feed as AnalyticsFeed);
+      res.json({ data: stats });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -394,14 +410,22 @@ router.get('/consolidation', async (_req: Request, res: Response, next: NextFunc
  *     summary: Get consolidation status for recent runs
  *     description: |
  *       Returns per-run consolidation status including recorded outcome stats
- *       and live progress counts from raw_diamonds_nivoda. Used by the
- *       dashboard to show which runs completed fully and which can be resumed.
+ *       and live progress counts from the raw diamonds table for the specified
+ *       feed. Used by the dashboard to show which runs completed fully and
+ *       which can be resumed.
  *     tags:
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
  *       - HmacAuth: []
  *     parameters:
+ *       - in: query
+ *         name: feed
+ *         schema:
+ *           type: string
+ *           enum: [nivoda, demo]
+ *           default: nivoda
+ *         description: Feed to get consolidation status for
  *       - in: query
  *         name: limit
  *         schema:
@@ -414,15 +438,20 @@ router.get('/consolidation', async (_req: Request, res: Response, next: NextFunc
  *       401:
  *         description: Unauthorized
  */
-router.get('/consolidation/status', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 50);
-    const statuses = await getRunsConsolidationStatus(limit);
-    res.json({ data: statuses });
-  } catch (error) {
-    next(error);
+router.get(
+  '/consolidation/status',
+  validateQuery(consolidationQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { feed, limit: validatedLimit } = (req as Request & { validatedQuery: ConsolidationQuery }).validatedQuery;
+      const limit = validatedLimit ?? 10;
+      const statuses = await getRunsConsolidationStatus(limit, feed as AnalyticsFeed);
+      res.json({ data: statuses });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -441,6 +470,13 @@ router.get('/consolidation/status', async (req: Request, res: Response, next: Ne
  *         schema:
  *           type: string
  *           format: uuid
+ *       - in: query
+ *         name: feed
+ *         schema:
+ *           type: string
+ *           enum: [nivoda, demo]
+ *           default: nivoda
+ *         description: Feed to get consolidation progress for
  *     responses:
  *       200:
  *         description: Consolidation progress for the run
@@ -452,10 +488,12 @@ router.get('/consolidation/status', async (req: Request, res: Response, next: Ne
 router.get(
   '/consolidation/:runId',
   validateParams(runIdSchema),
+  validateQuery(consolidationQuerySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { runId } = (req as Request & { validatedParams: RunIdParams }).validatedParams;
-      const progress = await getConsolidationProgress(runId);
+      const { feed } = (req as Request & { validatedQuery: ConsolidationQuery }).validatedQuery;
+      const progress = await getConsolidationProgress(runId, feed as AnalyticsFeed);
 
       if (!progress) {
         throw notFound('No consolidation data found for this run');
