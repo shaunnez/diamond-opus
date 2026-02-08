@@ -3,6 +3,7 @@ import { api } from './client';
 export interface TriggerSchedulerResponse {
   message: string;
   run_type: 'full' | 'incremental';
+  feed?: string;
   status: string;
   note?: string;
 }
@@ -71,10 +72,10 @@ export class SchedulerTriggerError extends Error {
 }
 
 // Trigger a new scheduler run
-export async function triggerScheduler(runType: 'full' | 'incremental'): Promise<TriggerSchedulerResponse> {
+export async function triggerScheduler(runType: 'full' | 'incremental', feed?: string): Promise<TriggerSchedulerResponse> {
   const response = await api.post<{ data: TriggerSchedulerResponse } | SchedulerErrorResponse>(
     '/triggers/scheduler',
-    { run_type: runType }
+    { run_type: runType, ...(feed ? { feed } : {}) }
   );
   if ('error' in response.data) {
     throw new SchedulerTriggerError(response.data as SchedulerErrorResponse);

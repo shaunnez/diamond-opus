@@ -71,6 +71,7 @@ export interface RunConsolidationStatus {
 export interface RunsFilter {
   runType?: RunType;
   status?: 'running' | 'completed' | 'failed' | 'partial';
+  feed?: string;
   startedAfter?: Date;
   startedBefore?: Date;
   limit?: number;
@@ -233,6 +234,11 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   if (filters.runType) {
     conditions.push(`run_type = $${paramIndex++}`);
     values.push(filters.runType);
+  }
+
+  if (filters.feed) {
+    conditions.push(`feed = $${paramIndex++}`);
+    values.push(filters.feed);
   }
 
   if (filters.startedAfter) {

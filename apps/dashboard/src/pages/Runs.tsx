@@ -6,6 +6,7 @@ import { getRuns, type RunsFilter, type RunWithStats } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
+  Badge,
   Card,
   Button,
   Select,
@@ -53,7 +54,7 @@ export function Runs() {
     setFilters({ page: 1, limit: 20 });
   };
 
-  const hasActiveFilters = filters.run_type || filters.status;
+  const hasActiveFilters = filters.run_type || filters.status || filters.feed;
 
   const columns = [
     {
@@ -61,6 +62,15 @@ export function Runs() {
       header: 'Run ID',
       render: (run: RunWithStats) => (
         <span className="font-mono text-sm">{truncateId(run.runId, 12)}</span>
+      ),
+    },
+    {
+      key: 'feed',
+      header: 'Feed',
+      render: (run: RunWithStats) => (
+        <Badge variant={run.feed === 'demo' ? 'info' : 'neutral'}>
+          {run.feed}
+        </Badge>
       ),
     },
     {
@@ -152,7 +162,17 @@ export function Runs() {
           </div>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-stone-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mt-4 pt-4 border-t border-stone-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Select
+                label="Feed"
+                value={filters.feed || ''}
+                onChange={(e) => handleFilterChange('feed', e.target.value)}
+                options={[
+                  { value: '', label: 'All Feeds' },
+                  { value: 'nivoda', label: 'Nivoda' },
+                  { value: 'demo', label: 'Demo' },
+                ]}
+              />
               <Select
                 label="Run Type"
                 value={filters.run_type || ''}
