@@ -134,11 +134,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
          SELECT
            rm.run_id,
            CASE
-             WHEN rm.completed_at IS NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'running'
              WHEN rm.completed_at IS NOT NULL AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'completed'
+             WHEN COALESCE(wr_stats.completed_count, 0) >= rm.expected_workers AND COALESCE(wr_stats.failed_count, 0) = 0 THEN 'completed'
              WHEN COALESCE(wr_stats.failed_count, 0) > 0
                   AND COALESCE(wr_stats.completed_count, 0) + COALESCE(wr_stats.failed_count, 0) >= rm.expected_workers THEN 'failed'
-             ELSE 'partial'
+             WHEN COALESCE(wr_stats.failed_count, 0) > 0 THEN 'partial'
+             ELSE 'running'
            END as status
          FROM run_metadata rm
          LEFT JOIN LATERAL (
@@ -338,9 +339,9 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
 function getStatusCondition(status: string): string {
   switch (status) {
     case 'running':
-      return '(completed_at IS NULL AND failed_workers = 0)';
+      return '(completed_at IS NULL AND failed_workers = 0 AND completed_workers < expected_workers)';
     case 'completed':
-      return '(completed_at IS NOT NULL AND failed_workers = 0)';
+      return '((completed_at IS NOT NULL AND failed_workers = 0) OR (completed_workers >= expected_workers AND failed_workers = 0))';
     case 'failed':
       return '(failed_workers > 0 AND completed_workers + failed_workers >= expected_workers)';
     case 'partial':
@@ -356,11 +357,13 @@ function getRunStatus(row: {
   completed_workers: number;
   expected_workers: number;
 }): 'running' | 'completed' | 'failed' | 'partial' {
-  if (row.completed_at === null && row.failed_workers === 0) return 'running';
   if (row.completed_at !== null && row.failed_workers === 0) return 'completed';
+  // All workers completed with no failures → completed (consolidation may be pending)
+  if (row.completed_workers >= row.expected_workers && row.failed_workers === 0) return 'completed';
   if (row.failed_workers > 0 && row.completed_workers + row.failed_workers >= row.expected_workers)
     return 'failed';
-  return 'partial';
+  if (row.failed_workers > 0) return 'partial';
+  return 'running';
 }
 
 export async function getRunDetails(runId: string): Promise<{

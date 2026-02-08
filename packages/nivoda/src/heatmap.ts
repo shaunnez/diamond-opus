@@ -887,7 +887,7 @@ export function createPartitions(
         partitions.push({
           partitionId: `partition-${currentWorkerId}`,
           minPrice: currentBatchStart,
-          maxPrice: chunk.max,
+          maxPrice: chunk.max - 1,
           totalRecords: currentBatchSum,
         });
 
@@ -921,7 +921,7 @@ export function createPartitions(
       partitions.push({
         partitionId: `partition-${currentWorkerId}`,
         minPrice: currentBatchStart,
-        maxPrice: chunk.max,
+        maxPrice: chunk.max - 1,
         totalRecords: currentBatchSum,
       });
 
