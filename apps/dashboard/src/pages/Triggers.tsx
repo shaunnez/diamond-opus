@@ -23,6 +23,7 @@ export function Triggers() {
 
   // Scheduler state
   const [schedulerRunType, setSchedulerRunType] = useState<'full' | 'incremental'>('incremental');
+  const [schedulerFeed, setSchedulerFeed] = useState<string>('nivoda');
   const [showSchedulerModal, setShowSchedulerModal] = useState(false);
 
   // Consolidation state
@@ -49,10 +50,10 @@ export function Triggers() {
 
   // Mutations
   const schedulerMutation = useMutation({
-    mutationFn: () => triggerScheduler(schedulerRunType),
+    mutationFn: () => triggerScheduler(schedulerRunType, schedulerFeed),
     onSuccess: () => {
       setShowSchedulerModal(false);
-      addToast({ variant: 'success', title: `${schedulerRunType === 'full' ? 'Full' : 'Incremental'} run triggered` });
+      addToast({ variant: 'success', title: `${schedulerRunType === 'full' ? 'Full' : 'Incremental'} run triggered for ${schedulerFeed}` });
     },
     onError: (error) => {
       addToast({
@@ -125,7 +126,7 @@ export function Triggers() {
           <Card>
             <CardHeader
               title="Trigger Scheduler"
-              subtitle="Start a new pipeline run to fetch diamonds from Nivoda"
+              subtitle="Start a new pipeline run to fetch diamonds from a feed source"
             />
             <div className="mt-4 space-y-4">
               <div className="flex items-start gap-4">
@@ -151,6 +152,17 @@ export function Triggers() {
               </div>
 
               <div className="flex items-end gap-4">
+                <div className="flex-1 max-w-xs">
+                  <Select
+                    label="Feed"
+                    value={schedulerFeed}
+                    onChange={(e) => setSchedulerFeed(e.target.value)}
+                    options={[
+                      { value: 'nivoda', label: 'Nivoda' },
+                      { value: 'demo', label: 'Demo Feed' },
+                    ]}
+                  />
+                </div>
                 <div className="flex-1 max-w-xs">
                   <Select
                     label="Run Type"
@@ -416,11 +428,11 @@ export function Triggers() {
           isOpen={showSchedulerModal}
           onClose={() => setShowSchedulerModal(false)}
           onConfirm={() => schedulerMutation.mutate()}
-          title={`Start ${schedulerRunType === 'full' ? 'Full' : 'Incremental'} Run`}
+          title={`Start ${schedulerRunType === 'full' ? 'Full' : 'Incremental'} Run — ${schedulerFeed}`}
           message={
             schedulerRunType === 'full'
-              ? 'This will trigger a full scan of all diamonds. This operation may take a long time.'
-              : 'This will trigger an incremental sync to fetch diamonds updated since the last run.'
+              ? `This will trigger a full scan of all diamonds from the ${schedulerFeed} feed. This operation may take a long time.`
+              : `This will trigger an incremental sync for the ${schedulerFeed} feed to fetch diamonds updated since the last run.`
           }
           confirmText="Start Run"
           loading={schedulerMutation.isPending}

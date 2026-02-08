@@ -119,6 +119,7 @@ function getSchedulerJobConfig(): SchedulerJobConfig | null {
 
 async function triggerSchedulerJob(
   runType: "full" | "incremental",
+  feed?: string,
 ): Promise<{ executionName: string }> {
   const config = getSchedulerJobConfig();
   if (!config) {
@@ -135,12 +136,16 @@ async function triggerSchedulerJob(
   const job = await client.jobs.get(config.resourceGroupName, config.jobName);
   const existingContainers = job.template?.containers ?? [];
 
-  // Merge RUN_TYPE into the existing container's env vars
+  // Merge RUN_TYPE and optionally FEED into the existing container's env vars
+  const envOverrides = ["RUN_TYPE", ...(feed ? ["FEED"] : [])];
   const containers = existingContainers.map((container) => ({
     ...container,
     env: [
-      ...(container.env ?? []).filter((e) => e.name !== "RUN_TYPE"),
+      ...(container.env ?? []).filter(
+        (e) => !envOverrides.includes(e.name ?? ""),
+      ),
       { name: "RUN_TYPE", value: runType },
+      ...(feed ? [{ name: "FEED", value: feed }] : []),
     ],
   }));
 
@@ -226,6 +231,7 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = req.body as TriggerSchedulerBody;
+      const feedArg = body.feed ? ` FEED=${body.feed}` : "";
 
       // Check if Azure Container Apps Job is configured
       const jobConfig = getSchedulerJobConfig();
@@ -237,19 +243,20 @@ router.post(
             message:
               "Azure Container Apps Job not configured. Scheduler must be run manually.",
           },
-          manual_command: `npm run dev:scheduler -- --${body.run_type}`,
+          manual_command: `${feedArg ? `FEED=${body.feed} ` : ""}npm run dev:scheduler -- --${body.run_type}`,
         });
         return;
       }
 
       // Trigger the Azure Container Apps Job
       try {
-        const result = await triggerSchedulerJob(body.run_type);
+        const result = await triggerSchedulerJob(body.run_type, body.feed);
 
         res.json({
           data: {
-            message: `Scheduler job triggered successfully for ${body.run_type} run`,
+            message: `Scheduler job triggered successfully for ${body.run_type} run${body.feed ? ` (feed: ${body.feed})` : ""}`,
             run_type: body.run_type,
+            feed: body.feed,
             status: "started",
             execution_name: result.executionName,
             job_name: jobConfig.jobName,

@@ -224,6 +224,7 @@ router.get(
       const filters: RunsFilter = {
         runType: query.run_type,
         status: query.status,
+        feed: query.feed,
         startedAfter: query.started_after,
         startedBefore: query.started_before,
         limit: query.limit,

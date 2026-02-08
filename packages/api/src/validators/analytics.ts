@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const runsQuerySchema = z.object({
   run_type: z.enum(['full', 'incremental']).optional(),
   status: z.enum(['running', 'completed', 'failed', 'partial']).optional(),
+  feed: z.string().optional(),
   started_after: z.coerce.date().optional(),
   started_before: z.coerce.date().optional(),
   page: z.coerce.number().int().positive().default(1),
@@ -38,6 +39,7 @@ export type TableParams = z.infer<typeof tableParamSchema>;
 
 export const triggerSchedulerSchema = z.object({
   run_type: z.enum(['full', 'incremental']).default('incremental'),
+  feed: z.string().optional(),
 });
 
 export type TriggerSchedulerBody = z.infer<typeof triggerSchedulerSchema>;

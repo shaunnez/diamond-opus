@@ -33,6 +33,7 @@ export interface RunMetadata {
 }
 
 export interface RunWithStats extends RunMetadata {
+  feed: string;
   totalRecordsProcessed: number;
   durationMs: number | null;
   status: 'running' | 'completed' | 'failed' | 'partial';
@@ -109,6 +110,7 @@ export interface PaginatedResponse<T> {
 export interface RunsFilter {
   run_type?: 'full' | 'incremental';
   status?: 'running' | 'completed' | 'failed' | 'partial';
+  feed?: string;
   started_after?: string;
   started_before?: string;
   page?: number;
@@ -125,6 +127,7 @@ export async function getRuns(filters: RunsFilter = {}): Promise<PaginatedRespon
   const params = new URLSearchParams();
   if (filters.run_type) params.set('run_type', filters.run_type);
   if (filters.status) params.set('status', filters.status);
+  if (filters.feed) params.set('feed', filters.feed);
   if (filters.started_after) params.set('started_after', filters.started_after);
   if (filters.started_before) params.set('started_before', filters.started_before);
   if (filters.page) params.set('page', String(filters.page));
