@@ -379,9 +379,9 @@ variable "demo_feed_api_memory" {
 }
 
 variable "demo_feed_api_min_replicas" {
-  description = "Minimum replicas for demo feed API"
+  description = "Minimum replicas for demo feed API (1 recommended — scheduler/worker depend on it)"
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "demo_feed_api_max_replicas" {
