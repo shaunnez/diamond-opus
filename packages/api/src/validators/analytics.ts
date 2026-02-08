@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const runsQuerySchema = z.object({
   run_type: z.enum(['full', 'incremental']).optional(),
-  status: z.enum(['running', 'completed', 'failed', 'partial']).optional(),
+  status: z.enum(['running', 'completed', 'failed', 'partial', 'stalled']).optional(),
   feed: z.string().optional(),
   started_after: z.coerce.date().optional(),
   started_before: z.coerce.date().optional(),
@@ -77,3 +77,10 @@ export const demoSeedSchema = z.object({
 });
 
 export type DemoSeedBody = z.infer<typeof demoSeedSchema>;
+
+export const cancelRunSchema = z.object({
+  run_id: z.string().uuid(),
+  reason: z.string().optional(),
+});
+
+export type CancelRunBody = z.infer<typeof cancelRunSchema>;

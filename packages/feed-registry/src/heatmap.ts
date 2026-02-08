@@ -254,11 +254,13 @@ interface ScanRange {
 
 /**
  * Helper: create a count query with a price range override on the base query.
+ * Uses half-open interval [from, toExclusive) — converts to inclusive by subtracting
+ * the smallest price unit (0.01) since prices are DECIMAL(12,2).
  */
-function queryWithPriceRange(baseQuery: FeedQuery, from: number, to: number): FeedQuery {
+function queryWithPriceRange(baseQuery: FeedQuery, from: number, toExclusive: number): FeedQuery {
   return {
     ...baseQuery,
-    priceRange: { from, to },
+    priceRange: { from, to: toExclusive - 0.01 },
   };
 }
 
@@ -319,7 +321,7 @@ async function buildDensityMap(
       batch.map(async (range) => {
         ctx.apiCalls++;
         // Use half-open interval: [min, max) → query [min, max-1] for inclusive APIs
-        const q = queryWithPriceRange(baseQuery, range.min, range.max - 1);
+        const q = queryWithPriceRange(baseQuery, range.min, range.max);
 
         const count = await withRetry(
           () => adapter.getCount(q),
@@ -505,7 +507,7 @@ async function coarseScan(
     const batchResults = await Promise.all(
       batch.map(async (range) => {
         ctx.apiCalls++;
-        const q = queryWithPriceRange(baseQuery, range.min, range.max - 1);
+        const q = queryWithPriceRange(baseQuery, range.min, range.max);
         const count = await withRetry(() => adapter.getCount(q), {
           onRetry: (error, attempt) => {
             ctx.log.warn("Retrying coarse scan", {
@@ -636,7 +638,7 @@ async function binarySearchBoundary(
     const mid = (low + high) / 2;
 
     ctx.apiCalls++;
-    const q = queryWithPriceRange(baseQuery, Math.floor(low), Math.floor(mid) - 1);
+    const q = queryWithPriceRange(baseQuery, Math.floor(low), Math.floor(mid));
 
     const count = await withRetry(() => adapter.getCount(q), {
       onRetry: (error, attempt) => {
@@ -699,7 +701,7 @@ async function fineScanRegion(
     const results = await Promise.all(
       batch.map(async (range) => {
         ctx.apiCalls++;
-        const q = queryWithPriceRange(baseQuery, range.min, range.max - 1);
+        const q = queryWithPriceRange(baseQuery, range.min, range.max);
         const count = await withRetry(() => adapter.getCount(q), {
           onRetry: (error, attempt) => {
             ctx.log.warn("Retrying fine scan", {
@@ -847,7 +849,7 @@ export function createPartitions(
         partitions.push({
           partitionId: `partition-${currentWorkerId}`,
           minPrice: currentBatchStart,
-          maxPrice: chunk.max - 1,
+          maxPrice: chunk.max - 0.01,
           totalRecords: currentBatchSum,
         });
 
@@ -878,7 +880,7 @@ export function createPartitions(
       partitions.push({
         partitionId: `partition-${currentWorkerId}`,
         minPrice: currentBatchStart,
-        maxPrice: chunk.max - 1,
+        maxPrice: chunk.max - 0.01,
         totalRecords: currentBatchSum,
       });
 

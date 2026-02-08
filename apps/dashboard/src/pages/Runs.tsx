@@ -37,7 +37,7 @@ export function Runs() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['runs', filters],
     queryFn: () => getRuns(filters),
-    refetchInterval: filters.status === 'running' ? 5000 : 30000,
+    refetchInterval: (filters.status === 'running' || filters.status === 'stalled') ? 5000 : 30000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -190,6 +190,7 @@ export function Runs() {
                 options={[
                   { value: '', label: 'All Statuses' },
                   { value: 'running', label: 'Running' },
+                  { value: 'stalled', label: 'Stalled' },
                   { value: 'completed', label: 'Completed' },
                   { value: 'failed', label: 'Failed' },
                   { value: 'partial', label: 'Partial' },

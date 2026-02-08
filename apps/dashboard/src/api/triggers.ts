@@ -145,6 +145,36 @@ export async function resumeConsolidation(runId: string): Promise<ResumeConsolid
   return response.data.data;
 }
 
+// Cancel run types
+export interface CancelRunResponse {
+  message: string;
+  run_id: string;
+  reason: string;
+  cancelled_partitions: number;
+  cancelled_workers: number;
+  run_metadata: {
+    run_type: 'full' | 'incremental';
+    expected_workers: number;
+    completed_workers: number;
+    failed_workers: number;
+  };
+}
+
+// Cancel a stalled or running run
+export async function cancelRun(
+  runId: string,
+  reason?: string
+): Promise<CancelRunResponse> {
+  const response = await api.post<{ data: CancelRunResponse } | { error: unknown }>(
+    '/triggers/cancel-run',
+    { run_id: runId, ...(reason ? { reason } : {}) }
+  );
+  if ('error' in response.data) {
+    throw new Error((response.data.error as { message: string }).message);
+  }
+  return response.data.data;
+}
+
 // Demo seed types
 export interface DemoSeedResponse {
   message: string;

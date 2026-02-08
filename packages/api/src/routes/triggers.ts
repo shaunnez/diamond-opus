@@ -16,6 +16,7 @@ import {
   resetFailedWorker,
   getPartitionProgress,
   resetFailedDiamonds,
+  cancelRun,
 } from "@diamond/database";
 import { validateBody, badRequest, notFound } from "../middleware/index.js";
 import {
@@ -24,11 +25,13 @@ import {
   retryWorkersSchema,
   resumeConsolidateSchema,
   demoSeedSchema,
+  cancelRunSchema,
   type TriggerSchedulerBody,
   type TriggerConsolidateBody,
   type RetryWorkersBody,
   type ResumeConsolidateBody,
   type DemoSeedBody,
+  type CancelRunBody,
 } from "../validators/index.js";
 
 const router = Router();
@@ -802,6 +805,91 @@ router.post(
 
       const result = await response.json();
       res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================================================
+// Cancel Run
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/triggers/cancel-run:
+ *   post:
+ *     summary: Cancel a stalled or running run
+ *     description: |
+ *       Marks all incomplete partitions and running workers as failed,
+ *       and sets the run as completed. Use this when a run has stalled
+ *       (workers died, messages expired from Service Bus, etc.).
+ *     tags:
+ *       - Triggers
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - run_id
+ *             properties:
+ *               run_id:
+ *                 type: string
+ *                 format: uuid
+ *               reason:
+ *                 type: string
+ *                 description: Optional reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Run cancelled successfully
+ *       400:
+ *         description: Run is already completed
+ *       404:
+ *         description: Run not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  "/cancel-run",
+  validateBody(cancelRunSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = req.body as CancelRunBody;
+
+      // Verify run exists
+      const runMetadata = await getRunMetadata(body.run_id);
+      if (!runMetadata) {
+        throw notFound("Run not found");
+      }
+
+      // Check if run is already fully completed (all workers done, watermark advanced)
+      if (runMetadata.completedAt && runMetadata.completedWorkers >= runMetadata.expectedWorkers) {
+        throw badRequest("Run is already completed and cannot be cancelled");
+      }
+
+      const reason = body.reason ?? "Cancelled by user";
+      const result = await cancelRun(body.run_id, reason);
+
+      res.json({
+        data: {
+          message: "Run cancelled successfully",
+          run_id: body.run_id,
+          reason,
+          cancelled_partitions: result.cancelledPartitions,
+          cancelled_workers: result.cancelledWorkers,
+          run_metadata: {
+            run_type: runMetadata.runType,
+            expected_workers: runMetadata.expectedWorkers,
+            completed_workers: runMetadata.completedWorkers,
+            failed_workers: runMetadata.failedWorkers,
+          },
+        },
+      });
     } catch (error) {
       next(error);
     }

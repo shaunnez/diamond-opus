@@ -271,6 +271,52 @@ export async function resetFailedWorker(
   // computed from partition_progress.failed flag which is cleared above
 }
 
+/**
+ * Cancel a run by marking all incomplete partitions and workers as failed.
+ * Sets completed_at on the run so it's no longer considered "running".
+ * Returns the number of partitions and workers that were cancelled.
+ */
+export async function cancelRun(
+  runId: string,
+  reason: string = 'Cancelled by user'
+): Promise<{ cancelledPartitions: number; cancelledWorkers: number }> {
+  // Mark all incomplete partitions as failed
+  const partitionResult = await query<{ count: string }>(
+    `WITH cancelled AS (
+       UPDATE partition_progress
+       SET failed = TRUE, updated_at = NOW()
+       WHERE run_id = $1 AND completed = FALSE AND failed = FALSE
+       RETURNING partition_id
+     )
+     SELECT COUNT(*)::text as count FROM cancelled`,
+    [runId]
+  );
+  const cancelledPartitions = parseInt(partitionResult.rows[0]?.count ?? '0', 10);
+
+  // Mark all running worker_runs as failed
+  const workerResult = await query<{ count: string }>(
+    `WITH cancelled AS (
+       UPDATE worker_runs
+       SET status = 'failed', error_message = $2, completed_at = NOW()
+       WHERE run_id = $1 AND status = 'running'
+       RETURNING id
+     )
+     SELECT COUNT(*)::text as count FROM cancelled`,
+    [runId, reason]
+  );
+  const cancelledWorkers = parseInt(workerResult.rows[0]?.count ?? '0', 10);
+
+  // Set completed_at on the run if not already set
+  await query(
+    `UPDATE run_metadata
+     SET completed_at = COALESCE(completed_at, NOW())
+     WHERE run_id = $1`,
+    [runId]
+  );
+
+  return { cancelledPartitions, cancelledWorkers };
+}
+
 export async function resetAllFailedWorkers(runId: string): Promise<number> {
   // Get failed worker partition IDs first
   const failedResult = await query<{ partition_id: string }>(

@@ -3,7 +3,7 @@ import {
   createPartitions,
   calculateWorkerCount,
   type DensityChunk,
-} from '@diamond/nivoda';
+} from '@diamond/feed-registry';
 
 // Suppress console.log during tests
 vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -72,7 +72,7 @@ describe('createPartitions', () => {
 
       // Price range should span the full chunk
       expect(result[0].minPrice).toBe(0);
-      expect(result[result.length - 1].maxPrice).toBe(999);
+      expect(result[result.length - 1].maxPrice).toBe(999.99);
     });
 
     it('should handle more workers than chunks', () => {
@@ -139,11 +139,11 @@ describe('createPartitions', () => {
       expect(result.length).toBe(2);
       // First partition: $0 - $5000 (combines first two chunks)
       expect(result[0].minPrice).toBe(0);
-      expect(result[0].maxPrice).toBe(4999);
+      expect(result[0].maxPrice).toBe(4999.99);
       expect(result[0].totalRecords).toBe(5000);
-      // Second partition: $5000 - $9999
+      // Second partition: $5000 - $9999.99
       expect(result[1].minPrice).toBe(5000);
-      expect(result[1].maxPrice).toBe(9999);
+      expect(result[1].maxPrice).toBe(9999.99);
       expect(result[1].totalRecords).toBe(1000);
     });
   });
