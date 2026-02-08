@@ -49,19 +49,32 @@ export class NivodaFeedAdapter implements FeedAdapter {
   readonly workerPageSize = WORKER_PAGE_SIZE;
   readonly heatmapConfig: HeatmapConfigOverrides = {};
 
-  private adapter: NivodaAdapter;
+  private adapter: NivodaAdapter | null = null;
+  private adapterConfig?: NivodaAdapterConfig;
 
   constructor(config?: NivodaAdapterConfig) {
-    this.adapter = new NivodaAdapter(undefined, undefined, undefined, config);
+    this.adapterConfig = config;
+  }
+
+  /**
+   * Lazily creates the NivodaAdapter on first use.
+   * This avoids requiring Nivoda API credentials (NIVODA_ENDPOINT, NIVODA_USERNAME,
+   * NIVODA_PASSWORD) in services that only use mapping/metadata (e.g. consolidator).
+   */
+  private getOrCreateAdapter(): NivodaAdapter {
+    if (!this.adapter) {
+      this.adapter = new NivodaAdapter(undefined, undefined, undefined, this.adapterConfig);
+    }
+    return this.adapter;
   }
 
   /** Access the underlying NivodaAdapter for operations not covered by FeedAdapter */
   getNivodaAdapter(): NivodaAdapter {
-    return this.adapter;
+    return this.getOrCreateAdapter();
   }
 
   async getCount(query: FeedQuery): Promise<number> {
-    return this.adapter.getDiamondsCount(toNivodaQuery(query));
+    return this.getOrCreateAdapter().getDiamondsCount(toNivodaQuery(query));
   }
 
   buildBaseQuery(updatedFrom: string, updatedTo: string): FeedQuery {
@@ -77,7 +90,7 @@ export class NivodaFeedAdapter implements FeedAdapter {
       ? { type: options.order.type as 'createdAt', direction: options.order.direction }
       : undefined;
 
-    const response = await this.adapter.searchDiamonds(
+    const response = await this.getOrCreateAdapter().searchDiamonds(
       toNivodaQuery(query),
       { offset: options.offset, limit: options.limit, order: nivodaOrder },
     );
