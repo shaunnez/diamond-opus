@@ -74,6 +74,14 @@ module "container_registry" {
   tags = local.tags
 }
 
+# Import demo-feed-api that was created outside Terraform state
+# (previous partial apply created the resource but failed before saving state)
+# This block can be removed after a successful terraform apply.
+import {
+  to = module.container_apps[0].azurerm_container_app.demo_feed_api
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/diamond-${var.environment}-rg/providers/Microsoft.App/containerApps/diamond-${var.environment}-demo-feed-api"
+}
+
 # Container Apps (only create if enabled)
 module "container_apps" {
   source = "../../modules/container-apps"
