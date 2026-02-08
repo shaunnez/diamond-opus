@@ -32,10 +32,12 @@ export function isValidAnalyticsFeed(value: string): value is AnalyticsFeed {
 // Types
 // ============================================================================
 
+export type RunStatus = 'running' | 'completed' | 'failed' | 'partial' | 'stalled';
+
 export interface RunWithStats extends RunMetadata {
   totalRecordsProcessed: number;
   durationMs: number | null;
-  status: 'running' | 'completed' | 'failed' | 'partial';
+  status: RunStatus;
 }
 
 export interface DashboardSummary {
@@ -95,9 +97,12 @@ export interface RunConsolidationStatus {
   liveProgress: ConsolidationProgress | null;
 }
 
+/** Threshold in minutes after which a run with no worker activity is considered stalled */
+export const RUN_STALL_THRESHOLD_MINUTES = 30;
+
 export interface RunsFilter {
   runType?: RunType;
-  status?: 'running' | 'completed' | 'failed' | 'partial';
+  status?: RunStatus;
   feed?: string;
   startedAfter?: Date;
   startedBefore?: Date;
@@ -309,6 +314,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       completed_at: Date | null;
       total_records: string;
       last_worker_completed_at: Date | null;
+      last_worker_activity_at: Date | null;
     }>(
       `SELECT
         rm.*,
@@ -323,7 +329,9 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
           0
         ) as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
-        MAX(wr.completed_at) as last_worker_completed_at
+        MAX(wr.completed_at) as last_worker_completed_at,
+        (SELECT MAX(pp.updated_at) FROM partition_progress pp
+         WHERE pp.run_id = rm.run_id) as last_worker_activity_at
        FROM run_metadata rm
        LEFT JOIN worker_runs wr ON rm.run_id = wr.run_id
        WHERE ${whereClause}
@@ -357,6 +365,8 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       failed_workers: parseInt(row.failed_workers_actual, 10),
       completed_workers: parseInt(row.completed_workers_actual, 10),
       expected_workers: row.expected_workers,
+      started_at: row.started_at,
+      last_worker_activity_at: row.last_worker_activity_at,
     }),
   }));
 
@@ -366,6 +376,10 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
 function getStatusCondition(status: string): string {
   switch (status) {
     case 'running':
+      // Running includes stalled (stall is computed at application level)
+      return '(completed_at IS NULL AND failed_workers = 0 AND completed_workers < expected_workers)';
+    case 'stalled':
+      // Same SQL filter as running — stall detection is done in getRunStatus()
       return '(completed_at IS NULL AND failed_workers = 0 AND completed_workers < expected_workers)';
     case 'completed':
       return '((completed_at IS NOT NULL AND failed_workers = 0) OR (completed_workers >= expected_workers AND failed_workers = 0))';
@@ -383,13 +397,31 @@ function getRunStatus(row: {
   failed_workers: number;
   completed_workers: number;
   expected_workers: number;
-}): 'running' | 'completed' | 'failed' | 'partial' {
+  started_at?: Date;
+  last_worker_activity_at?: Date | null;
+}): RunStatus {
   if (row.completed_at !== null && row.failed_workers === 0) return 'completed';
   // All workers completed with no failures → completed (consolidation may be pending)
   if (row.completed_workers >= row.expected_workers && row.failed_workers === 0) return 'completed';
   if (row.failed_workers > 0 && row.completed_workers + row.failed_workers >= row.expected_workers)
     return 'failed';
   if (row.failed_workers > 0) return 'partial';
+
+  // Stall detection: if the run has been going for a while with no recent worker activity,
+  // it's likely stalled (workers died, messages expired, etc.)
+  if (row.started_at && row.completed_at === null) {
+    const now = Date.now();
+    const stallThresholdMs = RUN_STALL_THRESHOLD_MINUTES * 60 * 1000;
+    const lastActivity = row.last_worker_activity_at
+      ? new Date(row.last_worker_activity_at).getTime()
+      : new Date(row.started_at).getTime();
+    const timeSinceLastActivity = now - lastActivity;
+
+    if (timeSinceLastActivity > stallThresholdMs) {
+      return 'stalled';
+    }
+  }
+
   return 'running';
 }
 
@@ -427,12 +459,15 @@ export async function getRunDetails(runId: string): Promise<{
       failed_count: string;
       total_records: string;
       last_worker_completed_at: Date | null;
+      last_worker_activity_at: Date | null;
     }>(
       `SELECT
         COALESCE(COUNT(*) FILTER (WHERE wr.status = 'completed'), 0) as completed_count,
         COALESCE(COUNT(*) FILTER (WHERE wr.status = 'failed'), 0) as failed_count,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
-        MAX(wr.completed_at) as last_worker_completed_at
+        MAX(wr.completed_at) as last_worker_completed_at,
+        (SELECT MAX(pp.updated_at) FROM partition_progress pp
+         WHERE pp.run_id = $1) as last_worker_activity_at
        FROM worker_runs wr
        WHERE wr.run_id = $1`,
       [runId]
@@ -468,6 +503,8 @@ export async function getRunDetails(runId: string): Promise<{
       failed_workers: parseInt(stats.failed_count, 10),
       completed_workers: parseInt(stats.completed_count, 10),
       expected_workers: runRow.expected_workers,
+      started_at: runRow.started_at,
+      last_worker_activity_at: stats.last_worker_activity_at,
     }),
   };
 

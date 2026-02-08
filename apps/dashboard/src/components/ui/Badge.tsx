@@ -27,6 +27,7 @@ export function StatusBadge({ status }: { status: string }) {
     completed: 'success',
     failed: 'error',
     partial: 'warning',
+    stalled: 'error',
     available: 'success',
     on_hold: 'warning',
     sold: 'neutral',

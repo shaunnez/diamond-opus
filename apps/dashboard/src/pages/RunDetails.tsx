@@ -7,9 +7,10 @@ import {
   PlayCircle,
   RefreshCw,
   Layers,
+  Ban,
 } from 'lucide-react';
 import { getRunDetails, type WorkerRun } from '../api/analytics';
-import { triggerConsolidate, retryWorkers } from '../api/triggers';
+import { triggerConsolidate, retryWorkers, cancelRun } from '../api/triggers';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -42,14 +43,17 @@ export function RunDetails() {
 
   const [showConsolidateModal, setShowConsolidateModal] = useState(false);
   const [showRetryModal, setShowRetryModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [forceConsolidate, setForceConsolidate] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['run-details', runId],
     queryFn: () => getRunDetails(runId!),
     enabled: !!runId,
-    refetchInterval: (query) =>
-      query.state.data?.run?.status === 'running' ? 5000 : false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.run?.status;
+      return (status === 'running' || status === 'stalled') ? 5000 : false;
+    },
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -67,6 +71,15 @@ export function RunDetails() {
     onSuccess: () => {
       setShowRetryModal(false);
       queryClient.invalidateQueries({ queryKey: ['run-details', runId] });
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelRun(runId!, 'Cancelled from dashboard'),
+    onSuccess: () => {
+      setShowCancelModal(false);
+      queryClient.invalidateQueries({ queryKey: ['run-details', runId] });
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
     },
   });
 
@@ -96,6 +109,8 @@ export function RunDetails() {
   // and has at least some completed workers
   const canConsolidate = !run.watermarkAfter && run.completedWorkers > 0;
   const canRetry = hasFailedWorkers;
+  const isStalled = run.status === 'stalled';
+  const canCancel = run.status === 'running' || isStalled;
 
   // Sort workers numerically by partition ID
   const sortedWorkers = [...workers].sort((a, b) => {
@@ -270,6 +285,17 @@ export function RunDetails() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {canCancel && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Ban className="w-4 h-4" />}
+                  onClick={() => setShowCancelModal(true)}
+                >
+                  <span className="hidden sm:inline">Cancel Run</span>
+                  <span className="sm:hidden">Cancel</span>
+                </Button>
+              )}
               {canRetry && (
                 <Button
                   variant="secondary"
@@ -366,6 +392,15 @@ export function RunDetails() {
             )}
           </div>
         </Card>
+
+        {/* Alert for stalled run */}
+        {isStalled && (
+          <Alert variant="error" title="Run appears stalled" className="mb-6">
+            No worker activity detected for over 30 minutes. Workers may have died
+            or Service Bus messages expired. You can cancel this run to mark it as
+            failed, then optionally consolidate the data that was collected.
+          </Alert>
+        )}
 
         {/* Alert for failures */}
         {hasFailedWorkers && (
@@ -510,6 +545,17 @@ export function RunDetails() {
           message={`This will re-queue ${run.failedWorkers} failed worker(s) for processing. They will be picked up by available workers.`}
           confirmText="Retry"
           loading={retryMutation.isPending}
+        />
+
+        {/* Cancel Run Modal */}
+        <ConfirmModal
+          isOpen={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          onConfirm={() => cancelMutation.mutate()}
+          title="Cancel Run"
+          message={`This will mark all ${run.expectedWorkers - run.completedWorkers - run.failedWorkers} incomplete worker(s) as failed and end the run. Completed workers' data will be preserved. You can consolidate the collected data afterwards.`}
+          confirmText="Cancel Run"
+          loading={cancelMutation.isPending}
         />
       </PageContainer>
     </>

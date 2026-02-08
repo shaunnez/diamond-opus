@@ -36,7 +36,7 @@ export interface RunWithStats extends RunMetadata {
   feed: string;
   totalRecordsProcessed: number;
   durationMs: number | null;
-  status: 'running' | 'completed' | 'failed' | 'partial';
+  status: 'running' | 'completed' | 'failed' | 'partial' | 'stalled';
 }
 
 export interface WorkerRun {
@@ -111,7 +111,7 @@ export interface PaginatedResponse<T> {
 
 export interface RunsFilter {
   run_type?: 'full' | 'incremental';
-  status?: 'running' | 'completed' | 'failed' | 'partial';
+  status?: 'running' | 'completed' | 'failed' | 'partial' | 'stalled';
   feed?: string;
   started_after?: string;
   started_before?: string;
