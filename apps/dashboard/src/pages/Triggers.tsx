@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Play, RefreshCw, Layers, CheckCircle, Zap, Terminal, Copy } from 'lucide-react';
+import { Play, RefreshCw, Layers, CheckCircle, Zap, Terminal, Copy, Database } from 'lucide-react';
 import { getRuns } from '../api/analytics';
-import { triggerScheduler, triggerConsolidate, retryWorkers, getFailedWorkers, SchedulerTriggerError } from '../api/triggers';
+import { triggerScheduler, triggerConsolidate, retryWorkers, getFailedWorkers, triggerDemoSeed, SchedulerTriggerError } from '../api/triggers';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -30,6 +30,11 @@ export function Triggers() {
   const [selectedRunForConsolidate, setSelectedRunForConsolidate] = useState('');
   const [forceConsolidate, setForceConsolidate] = useState(false);
   const [showConsolidateModal, setShowConsolidateModal] = useState(false);
+
+  // Demo seed state
+  const [seedMode, setSeedMode] = useState<'full' | 'incremental'>('full');
+  const [seedCount, setSeedCount] = useState('');
+  const [showSeedModal, setShowSeedModal] = useState(false);
 
   // Retry state
   const [selectedRunForRetry, setSelectedRunForRetry] = useState('');
@@ -92,6 +97,24 @@ export function Triggers() {
       addToast({
         variant: 'error',
         title: 'Failed to retry workers',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => triggerDemoSeed(seedMode, seedCount ? parseInt(seedCount, 10) : undefined),
+    onSuccess: (data) => {
+      setShowSeedModal(false);
+      addToast({
+        variant: 'success',
+        title: `Demo seed completed: ${data.inserted.toLocaleString()} diamonds ${seedMode === 'full' ? 'generated' : 'appended'}`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to seed demo feed',
         message: error instanceof Error ? error.message : 'An unknown error occurred',
       });
     },
@@ -230,6 +253,80 @@ export function Triggers() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Seed Demo Feed */}
+          <Card>
+            <CardHeader
+              title="Seed Demo Feed"
+              subtitle="Generate test diamond data for the demo feed"
+            />
+            <div className="mt-4 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-violet-50 rounded-xl">
+                  <Database className="w-6 h-6 text-violet-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-stone-600 dark:text-stone-400">
+                    Populate the demo_feed_inventory table with deterministic test diamonds
+                    using a seeded PRNG. Data is reproducible across runs.
+                  </p>
+                  <ul className="mt-2 text-sm text-stone-500 list-disc list-inside">
+                    <li>
+                      <strong>Full:</strong> Truncates existing data and generates fresh
+                      (default: 100,000 diamonds)
+                    </li>
+                    <li>
+                      <strong>Incremental:</strong> Appends new diamonds to existing data
+                      (default: 5,000 diamonds)
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex items-end gap-4">
+                <div className="flex-1 max-w-xs">
+                  <Select
+                    label="Mode"
+                    value={seedMode}
+                    onChange={(e) => setSeedMode(e.target.value as 'full' | 'incremental')}
+                    options={[
+                      { value: 'full', label: 'Full (truncate + insert)' },
+                      { value: 'incremental', label: 'Incremental (append)' },
+                    ]}
+                  />
+                </div>
+                <div className="flex-1 max-w-xs">
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                    Count (optional)
+                  </label>
+                  <input
+                    type="number"
+                    value={seedCount}
+                    onChange={(e) => setSeedCount(e.target.value)}
+                    placeholder={seedMode === 'full' ? '100000' : '5000'}
+                    min="1"
+                    max="500000"
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowSeedModal(true)}
+                  icon={<Database className="w-4 h-4" />}
+                  disabled={seedMutation.isPending}
+                >
+                  Seed Data
+                </Button>
+              </div>
+
+              {seedMode === 'full' && (
+                <Alert variant="warning">
+                  Full mode will truncate all existing demo feed inventory data before
+                  generating new records.
+                </Alert>
               )}
             </div>
           </Card>
@@ -390,6 +487,12 @@ export function Triggers() {
             />
             <div className="mt-4 space-y-4">
               <div>
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">Seed Demo Feed:</p>
+                <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
+                  npm run seed -w @diamond/demo-feed-seed -- [full|incremental]
+                </code>
+              </div>
+              <div>
                 <p className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">Run Scheduler:</p>
                 <code className="block p-2 bg-stone-800 text-stone-100 rounded text-sm font-mono">
                   npm run dev:scheduler
@@ -424,6 +527,21 @@ export function Triggers() {
         </div>
 
         {/* Modals */}
+        <ConfirmModal
+          isOpen={showSeedModal}
+          onClose={() => setShowSeedModal(false)}
+          onConfirm={() => seedMutation.mutate()}
+          title={`Seed Demo Feed — ${seedMode === 'full' ? 'Full' : 'Incremental'}`}
+          message={
+            seedMode === 'full'
+              ? `This will truncate all existing demo feed data and generate ${seedCount ? parseInt(seedCount, 10).toLocaleString() : '100,000'} new diamonds. This may take a moment.`
+              : `This will append ${seedCount ? parseInt(seedCount, 10).toLocaleString() : '5,000'} new diamonds to the existing demo feed data.`
+          }
+          confirmText="Seed Data"
+          loading={seedMutation.isPending}
+          variant={seedMode === 'full' ? 'danger' : 'primary'}
+        />
+
         <ConfirmModal
           isOpen={showSchedulerModal}
           onClose={() => setShowSchedulerModal(false)}

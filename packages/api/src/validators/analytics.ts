@@ -63,3 +63,10 @@ export const resumeConsolidateSchema = z.object({
 });
 
 export type ResumeConsolidateBody = z.infer<typeof resumeConsolidateSchema>;
+
+export const demoSeedSchema = z.object({
+  mode: z.enum(['full', 'incremental']).default('full'),
+  count: z.coerce.number().int().positive().max(500000).optional(),
+});
+
+export type DemoSeedBody = z.infer<typeof demoSeedSchema>;
