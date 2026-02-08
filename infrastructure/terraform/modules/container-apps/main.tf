@@ -131,6 +131,12 @@ resource "azurerm_container_app" "api" {
         value = var.environment_tag
       }
 
+      # Demo feed API URL for seed proxy
+      env {
+        name  = "DEMO_FEED_API_URL"
+        value = "https://${azurerm_container_app.demo_feed_api.ingress[0].fqdn}"
+      }
+
       # Database pooling configuration
       env {
         name  = "PG_POOL_MAX"

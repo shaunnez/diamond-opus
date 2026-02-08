@@ -23,10 +23,12 @@ import {
   triggerConsolidateSchema,
   retryWorkersSchema,
   resumeConsolidateSchema,
+  demoSeedSchema,
   type TriggerSchedulerBody,
   type TriggerConsolidateBody,
   type RetryWorkersBody,
   type ResumeConsolidateBody,
+  type DemoSeedBody,
 } from "../validators/index.js";
 
 const router = Router();
@@ -710,6 +712,96 @@ router.post(
           },
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================================================
+// Seed Demo Feed Data
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/triggers/demo-seed:
+ *   post:
+ *     summary: Generate test data for the demo feed
+ *     description: |
+ *       Seeds the demo_feed_inventory table with deterministic test diamonds.
+ *       Proxies to the demo-feed-api service.
+ *     tags:
+ *       - Triggers
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               mode:
+ *                 type: string
+ *                 enum: [full, incremental]
+ *                 default: full
+ *                 description: full truncates and re-inserts; incremental appends
+ *               count:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 500000
+ *                 description: Number of diamonds to generate
+ *     responses:
+ *       200:
+ *         description: Seed completed
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       503:
+ *         description: Demo feed API not configured
+ */
+router.post(
+  "/demo-seed",
+  validateBody(demoSeedSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = req.body as DemoSeedBody;
+      const demoFeedApiUrl = optionalEnv("DEMO_FEED_API_URL", "");
+
+      if (!demoFeedApiUrl) {
+        res.status(503).json({
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message:
+              "Demo feed API URL not configured. Set DEMO_FEED_API_URL environment variable.",
+          },
+          manual_command: `npm run seed -w @diamond/demo-feed-seed -- ${body.mode}`,
+        });
+        return;
+      }
+
+      const seedUrl = `${demoFeedApiUrl}/api/seed`;
+      const response = await fetch(seedUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: body.mode,
+          ...(body.count ? { count: body.count } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          (errorBody as { error?: string })?.error ??
+            `Demo feed API returned ${response.status}`,
+        );
+      }
+
+      const result = await response.json();
+      res.json({ data: result });
     } catch (error) {
       next(error);
     }

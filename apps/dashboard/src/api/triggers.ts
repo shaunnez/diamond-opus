@@ -144,3 +144,25 @@ export async function resumeConsolidation(runId: string): Promise<ResumeConsolid
   }
   return response.data.data;
 }
+
+// Demo seed types
+export interface DemoSeedResponse {
+  message: string;
+  mode: 'full' | 'incremental';
+  inserted: number;
+}
+
+// Seed demo feed data
+export async function triggerDemoSeed(
+  mode: 'full' | 'incremental',
+  count?: number
+): Promise<DemoSeedResponse> {
+  const response = await api.post<{ data: DemoSeedResponse } | { error: unknown; manual_command: string }>(
+    '/triggers/demo-seed',
+    { mode, ...(count ? { count } : {}) }
+  );
+  if ('error' in response.data) {
+    throw new Error((response.data.error as { message: string }).message);
+  }
+  return response.data.data;
+}
