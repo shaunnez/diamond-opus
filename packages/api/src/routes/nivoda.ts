@@ -76,7 +76,9 @@ router.post(
 
       const adapter = new NivodaAdapter();
 
-      const result = await adapter.createHold(diamond.offerId);
+      // NOTE: createHold expects diamond.id (internal UUID), NOT diamond.offerId
+      // The Nivoda adapter handles the ID mapping internally
+      const result = await adapter.createHold(diamond.id);
 
       await createHoldHistory(
         diamond.id,
