@@ -329,13 +329,13 @@ export class NivodaAdapter {
     });
   }
 
-  async createHold(diamondId: string): Promise<NivodaHoldResponse> {
+  async createHold(supplierStoneId: string): Promise<NivodaHoldResponse> {
     return this.executeWithTokenRefresh(async (token) => {
       const response = await this.client.request<CreateHoldResponse>(
         CREATE_HOLD_MUTATION,
         {
           token,
-          productId: diamondId
+          productId: supplierStoneId
         }
       );
       return response.as.create_hold;
