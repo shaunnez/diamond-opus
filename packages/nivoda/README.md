@@ -69,7 +69,7 @@ const response = await adapter.searchDiamonds(
 );
 
 // Create hold on diamond
-const hold = await adapter.createHold(offerId);
+const hold = await adapter.createHold(diamondId);
 
 // Create purchase order
 const order = await adapter.createOrder(
