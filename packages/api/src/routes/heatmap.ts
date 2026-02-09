@@ -191,7 +191,6 @@ interface RunHeatmapBody {
   dense_zone_threshold?: number;
   dense_zone_step?: number;
   max_total_records?: number;
-  lab_grown?: boolean;
   feed?: string;
 }
 
@@ -244,9 +243,6 @@ interface RunHeatmapBody {
  *                 type: number
  *                 default: 0
  *                 description: Cap on total records (0 = unlimited)
- *               lab_grown:
- *                 type: boolean
- *                 description: Filter for lab-grown diamonds only
  *               feed:
  *                 type: string
  *                 default: nivoda
@@ -274,12 +270,14 @@ router.post(
       // Build base query
       const baseQuery: NivodaQuery = {
         shapes: [...DIAMOND_SHAPES],
-        sizes: { from: 0.5, to: 10 },
+        sizes: { from: 0.4, to: 15.01 },
+        has_image: true,
+        has_video: true,
+        availability: ['AVAILABLE'],
+        excludeFairPorCuts: true,
+        hideMemo: true
       };
 
-      if (body.lab_grown !== undefined) {
-        baseQuery.labgrown = body.lab_grown;
-      }
 
       // Build heatmap config from request
       const heatmapConfig: HeatmapConfig = {
@@ -321,7 +319,6 @@ router.post(
           min_price: heatmapConfig.minPrice,
           max_price: heatmapConfig.maxPrice,
           max_workers: heatmapConfig.maxWorkers,
-          lab_grown: body.lab_grown,
         },
         result: transformed,
       }).catch((err) => {
@@ -361,8 +358,6 @@ router.post(
  *               max_price:
  *                 type: number
  *                 default: 100000
- *               lab_grown:
- *                 type: boolean
  *               feed:
  *                 type: string
  *                 default: nivoda
@@ -387,12 +382,13 @@ router.post(
 
       const baseQuery: NivodaQuery = {
         shapes: [...DIAMOND_SHAPES],
-        sizes: { from: 0.5, to: 10 },
+        sizes: { from: 0.4, to: 15.01 },
+        has_image: true,
+        has_video: true,
+        availability: ['AVAILABLE'],
+        excludeFairPorCuts: true,
+        hideMemo: true
       };
-
-      if (body.lab_grown !== undefined) {
-        baseQuery.labgrown = body.lab_grown;
-      }
 
       // Use larger steps for preview (faster, fewer API calls)
       const heatmapConfig: HeatmapConfig = {
@@ -421,7 +417,6 @@ router.post(
           min_price: heatmapConfig.minPrice,
           max_price: heatmapConfig.maxPrice,
           max_workers: heatmapConfig.maxWorkers,
-          lab_grown: body.lab_grown,
         },
         result: transformed,
       }).catch((err) => {

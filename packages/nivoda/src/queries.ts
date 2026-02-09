@@ -18,21 +18,6 @@ export const DIAMONDS_COUNT_QUERY = gql`
   }
 `;
 
-/**
- * When NIVODA_DISABLE_STAGING_FIELDS=true, excludes fields that cause
- * GraphQL enum validation errors on the Nivoda staging API:
- * - clarity (DiamondClarity enum)
- * - floInt/floCol (DiamondFluorescence enum)
- * - labgrown_type (LabgrownType enum)
- */
-// const disableStagingFields = process.env.NIVODA_DISABLE_STAGING_FIELDS === 'true';
-
-//               ${disableStagingFields ? '# clarity excluded - DiamondClarity enum issue on staging' : 'clarity'}
-
-//               ${disableStagingFields ? '# floInt excluded - DiamondFluorescence enum issue on staging' : 'floInt'}
-//               ${disableStagingFields ? '# floCol excluded - DiamondFluorescence enum issue on staging' : 'floCol'}
-//               ${disableStagingFields ? '# labgrown_type excluded - LabgrownType enum issue on staging' : 'labgrown_type'}
-//               ${disableStagingFields ? '# labgrown excluded - LabgrownType enum issue on staging' : 'labgrown'}
 
 export const DIAMONDS_BY_QUERY = gql`
   query DiamondsByQuery(
@@ -59,9 +44,11 @@ export const DIAMONDS_BY_QUERY = gql`
           markup_discount
           diamond {
             id
+            # todo: remove these
             availability
             HoldId
             NivodaStockId
+            # todo: end remove these
             supplierStockId
             image
             video
@@ -80,6 +67,16 @@ export const DIAMONDS_BY_QUERY = gql`
             show_certificate_number
             return_window
             CertificateType
+            # todo mapping here
+            scs_certificate
+            country_of_polishing
+            other
+            supplierStockId
+            v360 {
+              id
+              url
+            }
+            # todo end mapping here
             delivery_time {
               express_timeline_applicable
               min_business_days
@@ -116,6 +113,46 @@ export const DIAMONDS_BY_QUERY = gql`
               cut_style
               keyToSymbols
               comments
+              # todo mapping here
+              f_color
+              f_intensity
+              f_overtone
+              colorShade
+              brown
+              green
+              blue
+              gray
+              mix_tinge
+              milky
+              bowtie
+              eyeclean
+              starLength
+              lowerGirdle
+              clarity
+              floInt
+              floCol
+              labgrown_type
+              labgrown
+              image
+              video
+              country_of_origin
+              v360 {
+                id
+                url
+              }
+              product_videos {
+                id
+                url
+                loupe360_url
+                type
+              }
+              product_images {
+                id
+                url
+                loupe360_url
+                type
+              }
+              # todo end mapping here
             }
             supplier {
               id

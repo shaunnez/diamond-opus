@@ -48,7 +48,6 @@ export function Heatmap() {
   const [minPrice, setMinPrice] = useState('0');
   const [maxPrice, setMaxPrice] = useState('100000');
   const [maxWorkers, setMaxWorkers] = useState('30');
-  const [labGrown, setLabGrown] = useState<boolean | undefined>(undefined);
   const [result, setResult] = useState<HeatmapResult | null>(null);
 
   // Fetch heatmap history for the selected feed
@@ -107,9 +106,6 @@ export function Heatmap() {
       feed,
     };
 
-    if (labGrown !== undefined) {
-      options.lab_grown = labGrown;
-    }
 
     if (isPreview) {
       previewMutation.mutate(options);
@@ -242,39 +238,7 @@ export function Heatmap() {
             </div>
 
             <div className="mt-4 flex items-center gap-6">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Diamond Type:</span>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="labGrown"
-                    checked={labGrown === undefined}
-                    onChange={() => setLabGrown(undefined)}
-                    className="text-primary-600"
-                  />
-                  <span className="text-sm text-stone-600 dark:text-stone-400">All</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="labGrown"
-                    checked={labGrown === false}
-                    onChange={() => setLabGrown(false)}
-                    className="text-primary-600"
-                  />
-                  <span className="text-sm text-stone-600 dark:text-stone-400">Natural</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="labGrown"
-                    checked={labGrown === true}
-                    onChange={() => setLabGrown(true)}
-                    className="text-primary-600"
-                  />
-                  <span className="text-sm text-stone-600 dark:text-stone-400">Lab Grown</span>
-                </label>
-              </div>
+              
             </div>
 
             <div className="mt-6 flex gap-3">

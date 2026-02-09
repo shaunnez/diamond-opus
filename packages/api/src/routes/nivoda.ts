@@ -12,7 +12,7 @@ import {
   updateHoldStatus,
   insertErrorLog,
 } from "@diamond/database";
-import type { Diamond } from "@diamond/shared";
+import { DIAMOND_SHAPES, type Diamond } from "@diamond/shared";
 
 const router = Router();
 
@@ -395,7 +395,18 @@ router.post(
         labgrown?: boolean;
         has_image?: boolean;
         has_video?: boolean;
-      } = {};
+        availability?: string[];
+        excludeFairPorCuts?: boolean;
+        hideMemo?: boolean;
+      } = {
+        shapes: [...DIAMOND_SHAPES],
+        sizes: { from: 0.4, to: 15.01 },
+        has_image: true,
+        has_video: true,
+        availability: ['AVAILABLE'],
+        excludeFairPorCuts: true,
+        hideMemo: true
+      };
 
       if (price_min !== undefined || price_max !== undefined) {
         query.dollar_value = {};
@@ -530,12 +541,25 @@ router.post(
 
       const adapter = new NivodaAdapter();
 
-      const query: {
+     const query: {
         dollar_value?: { from?: number; to?: number };
         sizes?: { from?: number; to?: number };
         shapes?: string[];
         labgrown?: boolean;
-      } = {};
+        has_image?: boolean;
+        has_video?: boolean;
+        availability?: string[];
+        excludeFairPorCuts?: boolean;
+        hideMemo?: boolean;
+      } = {
+        shapes: [...DIAMOND_SHAPES],
+        sizes: { from: 0.4, to: 15.01 },
+        has_image: true,
+        has_video: true,
+        availability: ['AVAILABLE'],
+        excludeFairPorCuts: true,
+        hideMemo: true
+      };
 
       if (price_min !== undefined || price_max !== undefined) {
         query.dollar_value = {};
