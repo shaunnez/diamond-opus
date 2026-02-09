@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Package, RefreshCw } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Package, RefreshCw, Plus, ShoppingCart } from 'lucide-react';
 import { getOrders, type PurchaseHistoryItem } from '../api/analytics';
+import { createOrder, type CreateOrderOptions } from '../api/nivoda';
 import { PageContainer } from '../components/layout/Layout';
 import {
   Card,
   CardHeader,
   Button,
+  Input,
   PageLoader,
   Alert,
   Pagination,
+  Modal,
+  useToast,
 } from '../components/ui';
 import { formatRelativeTime, truncateId } from '../utils/formatters';
 
@@ -27,7 +31,16 @@ function OrderStatusBadge({ status }: { status: string }) {
 }
 
 export function Orders() {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [page, setPage] = useState(1);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [orderForm, setOrderForm] = useState<CreateOrderOptions>({
+    offer_id: '',
+    destination_id: '',
+    reference: '',
+    comments: '',
+  });
   const limit = 20;
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -36,6 +49,38 @@ export function Orders() {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
+
+  const createOrderMutation = useMutation({
+    mutationFn: (options: CreateOrderOptions) => createOrder(options),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setShowCreateModal(false);
+      setOrderForm({ offer_id: '', destination_id: '', reference: '', comments: '' });
+      addToast({ variant: 'success', title: 'Order created successfully' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to create order',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
+  });
+
+  const handleCreateOrder = () => {
+    createOrderMutation.mutate({
+      offer_id: orderForm.offer_id,
+      destination_id: orderForm.destination_id || undefined,
+      reference: orderForm.reference || undefined,
+      comments: orderForm.comments || undefined,
+    });
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setOrderForm({ offer_id: '', destination_id: '', reference: '', comments: '' });
+    createOrderMutation.reset();
+  };
 
   if (isLoading) return <PageLoader />;
 
@@ -48,9 +93,14 @@ export function Orders() {
             Purchase history tracked in Supabase
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => refetch()} icon={<RefreshCw className="w-4 h-4" />}>
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => refetch()} icon={<RefreshCw className="w-4 h-4" />}>
+            Refresh
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)} icon={<Plus className="w-4 h-4" />}>
+            Create Order
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -122,6 +172,65 @@ export function Orders() {
           </>
         )}
       </Card>
+
+      <Modal
+        isOpen={showCreateModal}
+        onClose={closeCreateModal}
+        title="Create Order"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeCreateModal}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleCreateOrder}
+              loading={createOrderMutation.isPending}
+              disabled={!orderForm.offer_id.trim()}
+              icon={<ShoppingCart className="w-4 h-4" />}
+            >
+              Create Order
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600 dark:text-stone-300">
+            Create a purchase order for a diamond using its Nivoda offer ID. The diamond must exist in the local database.
+          </p>
+          <Input
+            label="Offer ID"
+            value={orderForm.offer_id}
+            onChange={(e) => setOrderForm((prev) => ({ ...prev, offer_id: e.target.value }))}
+            placeholder="Enter the Nivoda offer ID"
+          />
+          <Input
+            label="Destination ID (optional)"
+            value={orderForm.destination_id ?? ''}
+            onChange={(e) => setOrderForm((prev) => ({ ...prev, destination_id: e.target.value }))}
+            placeholder="Your Nivoda destination ID"
+          />
+          <Input
+            label="Reference (optional)"
+            value={orderForm.reference ?? ''}
+            onChange={(e) => setOrderForm((prev) => ({ ...prev, reference: e.target.value }))}
+            placeholder="Your internal order reference"
+          />
+          <Input
+            label="Comments (optional)"
+            value={orderForm.comments ?? ''}
+            onChange={(e) => setOrderForm((prev) => ({ ...prev, comments: e.target.value }))}
+            placeholder="Order notes or comments"
+          />
+          {createOrderMutation.isError && (
+            <Alert variant="error" title="Failed to create order">
+              {createOrderMutation.error instanceof Error
+                ? createOrderMutation.error.message
+                : 'An unknown error occurred'}
+            </Alert>
+          )}
+        </div>
+      </Modal>
     </PageContainer>
   );
 }

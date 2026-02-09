@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Hand, XCircle, RefreshCw } from 'lucide-react';
+import { Hand, XCircle, RefreshCw, Plus } from 'lucide-react';
 import { getHolds, type HoldHistoryItem } from '../api/analytics';
-import { cancelHold } from '../api/nivoda';
+import { cancelHold, placeHold } from '../api/nivoda';
 import { PageContainer } from '../components/layout/Layout';
 import {
   Card,
   CardHeader,
   Button,
+  Input,
   PageLoader,
   Alert,
   Pagination,
+  Modal,
   ConfirmModal,
   useToast,
 } from '../components/ui';
@@ -37,6 +39,8 @@ export function Holds() {
   const { addToast } = useToast();
   const [page, setPage] = useState(1);
   const [cancellingHold, setCancellingHold] = useState<HoldHistoryItem | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [holdOfferId, setHoldOfferId] = useState('');
   const limit = 20;
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -62,6 +66,23 @@ export function Holds() {
     },
   });
 
+  const createHoldMutation = useMutation({
+    mutationFn: (offerId: string) => placeHold(offerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['holds'] });
+      setShowCreateModal(false);
+      setHoldOfferId('');
+      addToast({ variant: 'success', title: 'Hold placed successfully' });
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to place hold',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
+  });
+
   if (isLoading) return <PageLoader />;
 
   return (
@@ -73,9 +94,14 @@ export function Holds() {
             Diamond hold history tracked in Supabase
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => refetch()} icon={<RefreshCw className="w-4 h-4" />}>
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => refetch()} icon={<RefreshCw className="w-4 h-4" />}>
+            Refresh
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)} icon={<Plus className="w-4 h-4" />}>
+            Create Hold
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -177,6 +203,58 @@ export function Holds() {
           {(cancelMutation.error as Error).message}
         </Alert>
       )}
+
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          setHoldOfferId('');
+          createHoldMutation.reset();
+        }}
+        title="Create Hold"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowCreateModal(false);
+                setHoldOfferId('');
+                createHoldMutation.reset();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => createHoldMutation.mutate(holdOfferId)}
+              loading={createHoldMutation.isPending}
+              disabled={!holdOfferId.trim()}
+              icon={<Hand className="w-4 h-4" />}
+            >
+              Place Hold
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600 dark:text-stone-300">
+            Place a hold on a diamond using its Nivoda offer ID. The diamond must exist in the local database.
+          </p>
+          <Input
+            label="Offer ID"
+            value={holdOfferId}
+            onChange={(e) => setHoldOfferId(e.target.value)}
+            placeholder="Enter the Nivoda offer ID"
+          />
+          {createHoldMutation.isError && (
+            <Alert variant="error" title="Failed to place hold">
+              {createHoldMutation.error instanceof Error
+                ? createHoldMutation.error.message
+                : 'An unknown error occurred'}
+            </Alert>
+          )}
+        </div>
+      </Modal>
     </PageContainer>
   );
 }
