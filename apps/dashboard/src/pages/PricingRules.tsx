@@ -58,6 +58,7 @@ export function PricingRules() {
   const [editingRule, setEditingRule] = useState<PricingRule | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [formData, setFormData] = useState<RuleFormData>(emptyFormData);
+  const [feedFilter, setFeedFilter] = useState<string>('all');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['pricing-rules'],
@@ -156,6 +157,18 @@ export function PricingRules() {
     return `${percentage >= 0 ? '+' : ''}${percentage.toFixed(1)}%`;
   };
 
+  // Get unique feeds for filter
+  const uniqueFeeds = Array.from(
+    new Set(data?.rules.map((r) => r.feed).filter((f): f is string => !!f))
+  ).sort();
+
+  // Apply feed filter
+  const filteredRules = data?.rules.filter((rule) => {
+    if (feedFilter === 'all') return true;
+    if (feedFilter === 'none') return !rule.feed;
+    return rule.feed === feedFilter;
+  }) ?? [];
+
   return (
     <>
       <Header />
@@ -184,6 +197,29 @@ export function PricingRules() {
             The first matching rule is applied. If no rule matches, a default 15% markup is used.
           </Alert>
 
+          {/* Feed Filter */}
+          <Card>
+            <div className="p-4">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                  Filter by Feed:
+                </label>
+                <Select
+                  value={feedFilter}
+                  onChange={(e) => setFeedFilter(e.target.value)}
+                  options={[
+                    { value: 'all', label: 'All Feeds' },
+                    { value: 'none', label: 'No Feed (default)' },
+                    ...uniqueFeeds.map((feed) => ({ value: feed, label: feed })),
+                  ]}
+                />
+                <span className="text-sm text-stone-500 dark:text-stone-400">
+                  Showing {filteredRules.length} of {data?.total ?? 0} rules
+                </span>
+              </div>
+            </div>
+          </Card>
+
           {/* Rules Table */}
           <Card>
             <CardHeader
@@ -205,6 +241,9 @@ export function PricingRules() {
                         Priority
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Feed
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Criteria
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
@@ -219,10 +258,17 @@ export function PricingRules() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-200 dark:divide-stone-600">
-                    {data?.rules.map((rule) => (
+                    {filteredRules.map((rule) => (
                       <tr key={rule.id} className="hover:bg-stone-50 dark:hover:bg-stone-700/50">
                         <td className="px-4 py-3">
                           <Badge variant="neutral">{rule.priority}</Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {rule.feed ? (
+                            <Badge variant="primary">{rule.feed}</Badge>
+                          ) : (
+                            <span className="text-stone-400 dark:text-stone-500 text-sm">All</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
@@ -243,16 +289,12 @@ export function PricingRules() {
                                 {rule.lab_grown ? 'Lab Grown' : 'Natural'}
                               </Badge>
                             ) : null}
-                            {rule.feed ? (
-                              <Badge variant="neutral">{rule.feed}</Badge>
-                            ) : null}
                             {rule.carat_min === undefined &&
                               rule.carat_max === undefined &&
                               !rule.shapes?.length &&
-                              rule.lab_grown === undefined &&
-                              !rule.feed && (
+                              rule.lab_grown === undefined && (
                                 <span className="text-stone-400 dark:text-stone-500 text-sm italic">
-                                  Matches all diamonds
+                                  All
                                 </span>
                               )}
                           </div>
@@ -291,9 +333,16 @@ export function PricingRules() {
                         </td>
                       </tr>
                     ))}
+                    {filteredRules.length === 0 && data?.rules && data.rules.length > 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-stone-500 dark:text-stone-400">
+                          No rules match the selected feed filter.
+                        </td>
+                      </tr>
+                    )}
                     {data?.rules.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-stone-500 dark:text-stone-400">
+                        <td colSpan={6} className="px-4 py-8 text-center text-stone-500 dark:text-stone-400">
                           No pricing rules configured. Add a rule to get started.
                         </td>
                       </tr>
