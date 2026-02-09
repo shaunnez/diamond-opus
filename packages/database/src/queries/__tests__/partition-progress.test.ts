@@ -3,7 +3,7 @@
  * Demonstrates how the continuation pattern handles duplicates and out-of-order messages.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock in-memory database for testing
 interface MockPartitionProgressRow {

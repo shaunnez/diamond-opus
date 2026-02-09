@@ -18,12 +18,6 @@ import {
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
   MAX_SCHEDULER_RECORDS,
-  RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
-  RATE_LIMIT_WINDOW_MS,
-  RATE_LIMIT_MAX_WAIT_MS,
-  RATE_LIMIT_BASE_DELAY_MS,
-  FULL_RUN_START_DATE,
-  INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES,
   createLogger,
   generateTraceId,
   type WorkItemMessage,
@@ -32,7 +26,7 @@ import {
 
 console.log('[scheduler] @diamond/shared imported successfully');
 
-import { createRunMetadata, closePool, acquireRateLimitToken, insertErrorLog } from "@diamond/database";
+import { createRunMetadata, closePool,  insertErrorLog } from "@diamond/database";
 
 console.log('[scheduler] @diamond/database imported successfully');
 

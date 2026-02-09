@@ -1,4 +1,4 @@
-import type { Diamond, Logger } from '@diamond/shared';
+import type { Diamond } from '@diamond/shared';
 
 /**
  * Generic query structure for any feed.

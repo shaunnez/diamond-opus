@@ -116,7 +116,7 @@ app.get('/api/diamonds', async (req, res) => {
 
     const result = await query<Record<string, unknown>>(
       `SELECT * FROM demo_feed_inventory ${where}
-       ORDER BY ${orderBy} ${orderDir}
+       ORDER BY ${orderBy} ${orderDir}, stone_id ASC
        LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
       params
     );

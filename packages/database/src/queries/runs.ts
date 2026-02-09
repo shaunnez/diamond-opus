@@ -156,7 +156,7 @@ export async function incrementCompletedWorkers(
 /**
  * @deprecated No longer needed - counts are computed from partition_progress
  */
-export async function incrementFailedWorkers(runId: string): Promise<void> {
+export async function incrementFailedWorkers(): Promise<void> {
   // No-op - partition_progress.failed is set by markPartitionFailed()
 }
 

@@ -6,7 +6,7 @@ import {
   updatePricingRule,
   deactivatePricingRule,
 } from "@diamond/database";
-import { badRequest, notFound } from "../middleware/index.js";
+import { badRequest } from "../middleware/index.js";
 
 const router = Router();
 

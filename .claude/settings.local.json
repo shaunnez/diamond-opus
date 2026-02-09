@@ -6,7 +6,8 @@
       "Bash(npm run test:*)",
       "Bash(npm run typecheck:*)",
       "Bash(terraform fmt:*)",
-      "Bash(terraform validate:*)"
+      "Bash(terraform validate:*)",
+      "Bash(npm run build:backend:*)"
     ]
   }
 }
