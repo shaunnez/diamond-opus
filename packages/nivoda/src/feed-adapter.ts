@@ -27,8 +27,8 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
       ? { from: query.sizeRange.from, to: query.sizeRange.to }
       : undefined,
     dollar_value: query.priceRange
-      ? { from: query.priceRange.from, to: query.priceRange.to }
-      : undefined,
+  ? { from: Math.floor(query.priceRange.from), to: Math.floor(query.priceRange.to) }
+  : undefined,
     updated: query.updatedRange
       ? { from: query.updatedRange.from, to: query.updatedRange.to }
       : undefined,
