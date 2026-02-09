@@ -229,13 +229,15 @@ export interface Watermark {
   lastRunCompletedAt?: string;
 }
 
-export async function getWatermark(): Promise<Watermark | null> {
-  const response = await api.get<{ data: Watermark | null }>('/analytics/watermark');
+export async function getWatermark(feed?: string): Promise<Watermark | null> {
+  const params = feed ? `?feed=${feed}` : '';
+  const response = await api.get<{ data: Watermark | null }>(`/analytics/watermark${params}`);
   return response.data.data;
 }
 
-export async function updateWatermark(watermark: Watermark): Promise<Watermark> {
-  const response = await api.put<{ data: Watermark }>('/analytics/watermark', watermark);
+export async function updateWatermark(watermark: Watermark, feed?: string): Promise<Watermark> {
+  const params = feed ? `?feed=${feed}` : '';
+  const response = await api.put<{ data: Watermark }>(`/analytics/watermark${params}`, watermark);
   return response.data.data;
 }
 
