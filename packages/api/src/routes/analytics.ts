@@ -99,7 +99,16 @@ router.get('/summary', async (_req: Request, res: Response, next: NextFunction) 
 // Watermark (Azure Blob Storage)
 // ============================================================================
 
-router.get('/watermark', async (_req: Request, res: Response, next: NextFunction) => {
+const VALID_WATERMARK_FEEDS = ['nivoda', 'demo'] as const;
+
+function resolveWatermarkBlobName(feed?: string): string {
+  if (feed && VALID_WATERMARK_FEEDS.includes(feed as typeof VALID_WATERMARK_FEEDS[number])) {
+    return `${feed}.json`;
+  }
+  return WATERMARK_BLOB_NAME;
+}
+
+router.get('/watermark', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const client = getBlobServiceClient();
     if (!client) {
@@ -109,8 +118,10 @@ router.get('/watermark', async (_req: Request, res: Response, next: NextFunction
       return;
     }
 
+    const feed = req.query.feed as string | undefined;
+    const blobName = resolveWatermarkBlobName(feed);
     const containerClient = client.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
-    const blobClient = containerClient.getBlobClient(WATERMARK_BLOB_NAME);
+    const blobClient = containerClient.getBlobClient(blobName);
 
     try {
       const downloadResponse = await blobClient.download();
@@ -150,9 +161,11 @@ router.put('/watermark', async (req: Request, res: Response, next: NextFunction)
       lastRunCompletedAt,
     };
 
+    const feed = req.query.feed as string | undefined;
+    const blobName = resolveWatermarkBlobName(feed);
     const containerClient = client.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
     await containerClient.createIfNotExists();
-    const blobClient = containerClient.getBlockBlobClient(WATERMARK_BLOB_NAME);
+    const blobClient = containerClient.getBlockBlobClient(blobName);
     const content = JSON.stringify(watermark);
 
     await blobClient.upload(content, content.length, {

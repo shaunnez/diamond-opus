@@ -45,11 +45,15 @@ import {
   truncateId,
 } from '../utils/formatters';
 
+const FEEDS = ['nivoda', 'demo'] as const;
+type Feed = typeof FEEDS[number];
+
 export function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [editWatermark, setEditWatermark] = useState(false);
+  const [editingFeed, setEditingFeed] = useState<Feed>('nivoda');
   const [watermarkDate, setWatermarkDate] = useState('');
 
   const {
@@ -89,21 +93,38 @@ export function Dashboard() {
   });
 
   const {
-    data: watermark,
-    refetch: refetchWatermark,
+    data: nivodaWatermark,
+    refetch: refetchNivodaWatermark,
   } = useQuery({
-    queryKey: ['watermark'],
-    queryFn: getWatermark,
+    queryKey: ['watermark', 'nivoda'],
+    queryFn: () => getWatermark('nivoda'),
     refetchInterval: 60000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
+  const {
+    data: demoWatermark,
+    refetch: refetchDemoWatermark,
+  } = useQuery({
+    queryKey: ['watermark', 'demo'],
+    queryFn: () => getWatermark('demo'),
+    refetchInterval: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const watermarks: Record<Feed, Watermark | null | undefined> = {
+    nivoda: nivodaWatermark,
+    demo: demoWatermark,
+  };
+
   const updateWatermarkMutation = useMutation({
-    mutationFn: (wm: Watermark) => updateWatermark(wm),
+    mutationFn: ({ wm, feed }: { wm: Watermark; feed: Feed }) => updateWatermark(wm, feed),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['watermark'] });
-      refetchWatermark();
+      refetchNivodaWatermark();
+      refetchDemoWatermark();
       setEditWatermark(false);
       addToast({ variant: 'success', title: 'Watermark updated' });
     },
@@ -120,22 +141,25 @@ export function Dashboard() {
     refetchSummary();
     refetchRuns();
     refetchFailed();
-    refetchWatermark();
+    refetchNivodaWatermark();
+    refetchDemoWatermark();
   };
 
   const [watermarkRunId, setWatermarkRunId] = useState('');
   const [watermarkCompletedAt, setWatermarkCompletedAt] = useState('');
 
-  const openWatermarkEdit = () => {
-    if (watermark?.lastUpdatedAt) {
-      const d = new Date(watermark.lastUpdatedAt);
+  const openWatermarkEdit = (feed: Feed) => {
+    const wm = watermarks[feed];
+    setEditingFeed(feed);
+    if (wm?.lastUpdatedAt) {
+      const d = new Date(wm.lastUpdatedAt);
       setWatermarkDate(d.toISOString().slice(0, 16));
     } else {
       setWatermarkDate('');
     }
-    setWatermarkRunId(watermark?.lastRunId ?? '');
-    if (watermark?.lastRunCompletedAt) {
-      const d = new Date(watermark.lastRunCompletedAt);
+    setWatermarkRunId(wm?.lastRunId ?? '');
+    if (wm?.lastRunCompletedAt) {
+      const d = new Date(wm.lastRunCompletedAt);
       setWatermarkCompletedAt(d.toISOString().slice(0, 16));
     } else {
       setWatermarkCompletedAt('');
@@ -147,11 +171,14 @@ export function Dashboard() {
     if (!watermarkDate) return;
     const iso = new Date(watermarkDate).toISOString();
     updateWatermarkMutation.mutate({
-      lastUpdatedAt: iso,
-      lastRunId: watermarkRunId || undefined,
-      lastRunCompletedAt: watermarkCompletedAt
-        ? new Date(watermarkCompletedAt).toISOString()
-        : undefined,
+      wm: {
+        lastUpdatedAt: iso,
+        lastRunId: watermarkRunId || undefined,
+        lastRunCompletedAt: watermarkCompletedAt
+          ? new Date(watermarkCompletedAt).toISOString()
+          : undefined,
+      },
+      feed: editingFeed,
     });
   };
 
@@ -172,57 +199,69 @@ export function Dashboard() {
     );
   }
 
-  const watermarkDisplay = watermark?.lastUpdatedAt
-    ? new Date(watermark.lastUpdatedAt).toLocaleString()
-    : 'Not set';
+  // Use nivoda watermark for the "Last Sync" stat card
+  const primaryWatermark = nivodaWatermark;
 
   return (
     <>
       <Header onRefresh={handleRefresh} />
       <PageContainer>
-        {/* Watermark Card */}
-        <Card className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
-                <Bookmark className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
-                  Watermark (Azure Blob)
-                </p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Controls when incremental runs start from
-                </p>
-              </div>
+        {/* Watermarks */}
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
+              <Bookmark className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             </div>
-            <Button variant="ghost" size="sm" onClick={openWatermarkEdit} icon={<Pencil className="w-4 h-4" />}>
-              Edit
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Updated At</p>
-              <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-                {watermarkDisplay}
+            <div>
+              <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                Watermarks (Azure Blob)
               </p>
-            </div>
-            <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run ID</p>
-              <p className="text-sm font-mono text-stone-900 dark:text-stone-100">
-                {watermark?.lastRunId ? truncateId(watermark.lastRunId, 12) : 'Not set'}
-              </p>
-            </div>
-            <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run Completed At</p>
-              <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-                {watermark?.lastRunCompletedAt
-                  ? new Date(watermark.lastRunCompletedAt).toLocaleString()
-                  : 'Not set'}
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Controls when incremental runs start from, per feed
               </p>
             </div>
           </div>
-        </Card>
+          {FEEDS.map((feed) => {
+            const wm = watermarks[feed];
+            const wmDisplay = wm?.lastUpdatedAt
+              ? new Date(wm.lastUpdatedAt).toLocaleString()
+              : 'Not set';
+            return (
+              <Card key={feed}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-stone-900 dark:text-stone-100 capitalize">
+                    {feed}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => openWatermarkEdit(feed)} icon={<Pencil className="w-3.5 h-3.5" />}>
+                    Edit
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Updated At</p>
+                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      {wmDisplay}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run ID</p>
+                    <p className="text-sm font-mono text-stone-900 dark:text-stone-100">
+                      {wm?.lastRunId ? truncateId(wm.lastRunId, 12) : 'Not set'}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run Completed At</p>
+                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      {wm?.lastRunCompletedAt
+                        ? new Date(wm.lastRunCompletedAt).toLocaleString()
+                        : 'Not set'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -239,10 +278,10 @@ export function Dashboard() {
           <StatCard
             title="Last Sync"
             value={
-              watermark?.lastRunCompletedAt
-                ? formatRelativeTime(watermark.lastRunCompletedAt)
-                : watermark?.lastUpdatedAt
-                ? formatRelativeTime(watermark.lastUpdatedAt)
+              primaryWatermark?.lastRunCompletedAt
+                ? formatRelativeTime(primaryWatermark.lastRunCompletedAt)
+                : primaryWatermark?.lastUpdatedAt
+                ? formatRelativeTime(primaryWatermark.lastUpdatedAt)
                 : 'Never'
             }
             icon={<Clock className="w-5 h-5" />}
@@ -467,7 +506,7 @@ export function Dashboard() {
         <Modal
           isOpen={editWatermark}
           onClose={() => setEditWatermark(false)}
-          title="Edit Watermark"
+          title={`Edit Watermark — ${editingFeed}`}
           footer={
             <>
               <Button variant="secondary" onClick={() => setEditWatermark(false)}>
