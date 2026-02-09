@@ -1,10 +1,9 @@
 import axios, { AxiosError } from 'axios';
-import { optionalEnv } from '@diamond/shared';
 
 const API_KEY_STORAGE_KEY = 'diamond_api_key';
 
 // Use VITE_API_URL from env, fallback to relative path for development proxy
-const apiBaseUrl = optionalEnv('API_URL', ''); 
+const apiBaseUrl = import.meta.env.VITE_API_URL || '/api/v2';
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
