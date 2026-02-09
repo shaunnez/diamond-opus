@@ -36,7 +36,7 @@ export interface FeedBulkRawDiamond {
 /** Diamond type without computed/DB-generated fields */
 export type MappedDiamond = Omit<
   Diamond,
-  'id' | 'createdAt' | 'updatedAt' | 'retailPrice' | 'markupRatio' | 'rating'
+  'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'rating'
 >;
 
 /**

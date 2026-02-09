@@ -35,7 +35,7 @@ await engine.loadRules();
 
 // Apply pricing to a diamond
 const pricedDiamond = engine.applyPricing(baseDiamond);
-// pricedDiamond now has: retailPriceCents, markupRatio, rating
+// pricedDiamond now has: priceModelPriceCents, markupRatio, rating
 ```
 
 ### Singleton Pattern
@@ -63,7 +63,7 @@ const pricing = engine.calculatePricing({
 
 // pricing = {
 //   supplierPriceCents: 500000,
-//   retailPriceCents: 575000,   // with 1.15x markup
+//   priceModelPriceCents: 575000,   // with 1.15x markup
 //   pricePerCaratCents: 333333, // per carat
 //   markupRatio: 1.15,
 //   rating: 5,
@@ -149,7 +149,7 @@ interface PricingRule {
 ## Pricing Calculation
 
 ```
-retailPriceCents = round(supplierPriceCents * markupRatio)
+priceModelPriceCents = round(supplierPriceCents * markupRatio)
 pricePerCaratCents = round(supplierPriceCents / carats)
 ```
 
@@ -269,7 +269,7 @@ describe('PricingEngine', () => {
     const diamond = createTestDiamond({ supplierPriceCents: 100000 });
     const result = engine.applyPricing(diamond);
 
-    expect(result.retailPriceCents).toBe(125000);
+    expect(result.priceModelPriceCents).toBe(125000);
     expect(result.markupRatio).toBe(1.25);
   });
 });

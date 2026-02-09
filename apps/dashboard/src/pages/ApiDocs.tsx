@@ -1,9 +1,16 @@
 import { Header } from '../components/layout/Header';
-import { optionalEnv } from '@diamond/shared';
+import { getApiBaseUrl } from '../api/client';
 
 function getSwaggerUrl(): string {
-  const apiBaseUrl = optionalEnv('API_URL', '') + '/api-docs'; 
-  return apiBaseUrl;
+  const apiBaseUrl = getApiBaseUrl();
+  // Strip /api/v2 suffix to get the base API origin
+  try {
+    const url = new URL(apiBaseUrl);
+    return `${url.origin}/api-docs`;
+  } catch {
+    // Relative URL - strip path suffix and append /api-docs
+    return '/api-docs';
+  }
 }
 
 export function ApiDocs() {

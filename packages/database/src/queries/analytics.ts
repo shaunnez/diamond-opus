@@ -605,9 +605,9 @@ export async function getFeedStats(): Promise<FeedStats[]> {
       COUNT(*) FILTER (WHERE availability = 'available') as available_diamonds,
       COUNT(*) FILTER (WHERE availability = 'on_hold') as on_hold_diamonds,
       COUNT(*) FILTER (WHERE availability = 'sold') as sold_diamonds,
-      COALESCE(AVG(price_model_price), 0) as avg_price,
-      COALESCE(MIN(price_model_price), 0) as min_price,
-      COALESCE(MAX(price_model_price), 0) as max_price,
+      COALESCE(AVG(feed_price), 0) as avg_price,
+      COALESCE(MIN(feed_price), 0) as min_price,
+      COALESCE(MAX(feed_price), 0) as max_price,
       MAX(updated_at) as last_updated
      FROM diamonds
      WHERE status = 'active'
@@ -836,7 +836,7 @@ const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
   diamonds: [
     'id', 'feed', 'supplier_stone_id', 'offer_id', 'shape', 'carats', 'color', 'clarity',
     'cut', 'polish', 'symmetry', 'fluorescence', 'lab_grown', 'treated',
-    'price_model_price', 'price_per_carat', 'retail_price',
+    'feed_price', 'price_per_carat', 'price_model_price',
     'markup_ratio', 'rating', 'availability', 'raw_availability',
     'image_url', 'video_url', 'certificate_lab', 'certificate_number',
     'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',

@@ -61,7 +61,7 @@ describe('mapNivodaItemToDiamond', () => {
     const item = createMockItem();
     const result = mapNivodaItemToDiamond(item);
 
-    expect(result.priceModelPrice).toBe(1500.50);
+    expect(result.feedPrice).toBe(1500.50);
     expect(result.pricePerCarat).toBe(1500.50 / 1.5);
   });
 

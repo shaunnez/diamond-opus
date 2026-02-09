@@ -44,9 +44,9 @@ describe('Diamond Database Queries', () => {
           fluorescence: 'None',
           lab_grown: false,
           treated: false,
-          price_model_price: '5000.00',
+          feed_price: '5000.00',
           price_per_carat: '5000.00',
-          retail_price: '5750.00',
+          price_model_price: '5750.00',
           markup_ratio: '1.15',
           rating: 5,
           availability: 'available',
@@ -79,7 +79,7 @@ describe('Diamond Database Queries', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe('diamond-1');
       expect(result.data[0].carats).toBe(1.0);
-      expect(result.data[0].priceModelPrice).toBe(5000);
+      expect(result.data[0].feedPrice).toBe(5000);
       expect(result.pagination.total).toBe(1);
       expect(result.pagination.page).toBe(1);
       expect(result.pagination.limit).toBe(50);
@@ -154,9 +154,9 @@ describe('Diamond Database Queries', () => {
         fluorescence: 'None',
         lab_grown: false,
         treated: false,
-        price_model_price: '7500.00',
+        feed_price: '7500.00',
         price_per_carat: '5000.00',
-        retail_price: null,
+        price_model_price: null,
         markup_ratio: null,
         rating: null,
         availability: 'available',
@@ -185,7 +185,7 @@ describe('Diamond Database Queries', () => {
       expect(result).not.toBeNull();
       expect(result!.id).toBe('diamond-1');
       expect(result!.carats).toBe(1.5);
-      expect(result!.priceModelPrice).toBe(7500);
+      expect(result!.feedPrice).toBe(7500);
     });
 
     it('should return null when not found', async () => {

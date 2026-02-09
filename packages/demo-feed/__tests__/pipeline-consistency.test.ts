@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { DemoFeedAdapter } from '../src/adapter.js';
-import { scanHeatmap, createPartitions, type DensityChunk } from '@diamond/feed-registry';
+import { scanHeatmap } from '@diamond/feed-registry';
 import type { FeedQuery } from '@diamond/feed-registry';
 
 /**

@@ -219,7 +219,7 @@ interface ConsolidateMessage {
   clarity: item.diamond.clarity,
 
   // Pricing (in dollars)
-  priceModelPrice: item.price,
+  feedPrice: item.price,
 
   // Availability mapping
   availability: mapAvailability(item.availability),
@@ -236,7 +236,7 @@ await engine.loadRules();
 
 const result = engine.calculatePricing(diamond);
 // Returns:
-// - retailPriceCents: supplier_price * markup_ratio
+// - priceModelPriceCents: supplier_price * markup_ratio
 // - pricePerCaratCents: supplier_price / carats
 // - markupRatio: from matched rule
 // - rating: from matched rule (1-10)

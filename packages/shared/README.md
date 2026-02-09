@@ -163,7 +163,7 @@ interface Diamond {
   treated: boolean;
   supplierPriceCents: number;
   pricePerCaratCents: number;
-  retailPriceCents?: number;
+  priceModelPriceCents?: number;
   markupRatio?: number;
   rating?: number;
   availability: AvailabilityStatus;

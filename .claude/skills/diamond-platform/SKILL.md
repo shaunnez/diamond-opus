@@ -180,7 +180,7 @@ DO UPDATE SET payload = $3, payload_hash = $4, run_id = $5, updated_at = NOW();
 ### Calculation
 
 ```typescript
-const retail_price_cents = Math.round(supplier_price_cents * markup_ratio);
+const price_model_price_cents = Math.round(supplier_price_cents * markup_ratio);
 const price_per_carat_cents = Math.round(supplier_price_cents / carats);
 ```
 

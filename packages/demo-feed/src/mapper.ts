@@ -26,7 +26,7 @@ export function mapDemoItemToDiamond(
   item: DemoFeedItem,
 ): Omit<
   Diamond,
-  'id' | 'createdAt' | 'updatedAt' | 'retailPrice' | 'markupRatio' | 'rating'
+  'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'rating'
 > {
   return {
     feed: 'demo',
@@ -42,7 +42,7 @@ export function mapDemoItemToDiamond(
     fluorescence: item.fluorescence_level ?? undefined,
     labGrown: item.is_lab_created,
     treated: item.is_treated,
-    priceModelPrice: item.asking_price_usd,
+    feedPrice: item.asking_price_usd,
     pricePerCarat: item.price_per_ct_usd,
     availability: mapAvailability(item.availability_status),
     rawAvailability: item.availability_status,
@@ -65,7 +65,7 @@ export function mapRawPayloadToDiamond(
   payload: Record<string, unknown>,
 ): Omit<
   Diamond,
-  'id' | 'createdAt' | 'updatedAt' | 'retailPrice' | 'markupRatio' | 'rating'
+  'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'rating'
 > {
   return mapDemoItemToDiamond(payload as unknown as DemoFeedItem);
 }

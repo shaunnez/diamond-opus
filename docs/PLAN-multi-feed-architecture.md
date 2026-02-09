@@ -135,7 +135,7 @@ export interface FeedAdapter {
 
   /** Map raw payload to canonical Diamond (minus computed fields) */
   mapRawToDiamond(payload: Record<string, unknown>): Omit<Diamond,
-    'id' | 'createdAt' | 'updatedAt' | 'retailPrice' | 'markupRatio' | 'rating'
+    'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'rating'
   >;
 
   // --- Lifecycle ---
@@ -811,7 +811,7 @@ export function mapDemoItemToDiamond(item: DemoItem) {
     fluorescence: item.fluorescence_intensity,
     labGrown: item.is_lab_created,
     treated: false,
-    priceModelPrice: item.asking_price_usd,
+    feedPrice: item.asking_price_usd,
     pricePerCarat: item.price_per_carat_usd ?? (item.asking_price_usd / item.weight_ct),
     availability: mapAvailability(item.availability_status),
     rawAvailability: item.availability_status,

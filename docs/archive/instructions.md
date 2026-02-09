@@ -230,7 +230,7 @@ CREATE TABLE diamonds (
   -- Pricing (cents to avoid float issues)
   supplier_price_cents BIGINT NOT NULL,
   price_per_carat_cents BIGINT NOT NULL,
-  retail_price_cents BIGINT,
+  price_model_price_cents BIGINT,
   markup_ratio DECIMAL(5,4),
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 

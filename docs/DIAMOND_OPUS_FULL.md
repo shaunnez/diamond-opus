@@ -576,7 +576,7 @@ interface Diamond {
   treated: boolean;
   supplierPriceCents: number;
   pricePerCaratCents: number;
-  retailPriceCents?: number;
+  priceModelPriceCents?: number;
   markupRatio?: number;
   rating?: number;
   availability: AvailabilityStatus;
@@ -1277,7 +1277,7 @@ await engine.loadRules();
 
 // Apply pricing to a diamond
 const pricedDiamond = engine.applyPricing(baseDiamond);
-// pricedDiamond now has: retailPriceCents, markupRatio, rating
+// pricedDiamond now has: priceModelPriceCents, markupRatio, rating
 ```
 
 ### Singleton Pattern
@@ -1305,7 +1305,7 @@ const pricing = engine.calculatePricing({
 
 // pricing = {
 //   supplierPriceCents: 500000,
-//   retailPriceCents: 575000,   // with 1.15x markup
+//   priceModelPriceCents: 575000,   // with 1.15x markup
 //   pricePerCaratCents: 333333, // per carat
 //   markupRatio: 1.15,
 //   rating: 5,
@@ -1391,7 +1391,7 @@ interface PricingRule {
 ## Pricing Calculation
 
 ```
-retailPriceCents = round(supplierPriceCents * markupRatio)
+priceModelPriceCents = round(supplierPriceCents * markupRatio)
 pricePerCaratCents = round(supplierPriceCents / carats)
 ```
 
@@ -1511,7 +1511,7 @@ describe('PricingEngine', () => {
     const diamond = createTestDiamond({ supplierPriceCents: 100000 });
     const result = engine.applyPricing(diamond);
 
-    expect(result.retailPriceCents).toBe(125000);
+    expect(result.priceModelPriceCents).toBe(125000);
     expect(result.markupRatio).toBe(1.25);
   });
 });
@@ -2535,7 +2535,7 @@ interface ConsolidateMessage {
   clarity: item.diamond.clarity,
 
   // Pricing (in dollars)
-  priceModelPrice: item.price,
+  feedPrice: item.price,
 
   // Availability mapping
   availability: mapAvailability(item.availability),
@@ -2552,7 +2552,7 @@ await engine.loadRules();
 
 const result = engine.calculatePricing(diamond);
 // Returns:
-// - retailPriceCents: supplier_price * markup_ratio
+// - priceModelPriceCents: supplier_price * markup_ratio
 // - pricePerCaratCents: supplier_price / carats
 // - markupRatio: from matched rule
 // - rating: from matched rule (1-10)
@@ -3771,9 +3771,9 @@ CREATE TABLE diamonds (
   treated BOOLEAN DEFAULT FALSE,
 
   -- Pricing (dollars as decimals)
-  price_model_price DECIMAL(12,2) NOT NULL,
+  feed_price DECIMAL(12,2) NOT NULL,
   price_per_carat DECIMAL(12,2) NOT NULL,
-  retail_price DECIMAL(12,2),          -- price_model_price * markup
+  price_model_price DECIMAL(12,2),          -- feed_price * markup
   markup_ratio DECIMAL(5,4),           -- e.g., 1.1500
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 
@@ -3940,7 +3940,7 @@ CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity)
   WHERE status = 'active';
 
 -- Price filtering
-CREATE INDEX idx_diamonds_price ON diamonds(price_model_price)
+CREATE INDEX idx_diamonds_price ON diamonds(feed_price)
   WHERE status = 'active';
 
 -- Common filters
@@ -3989,8 +3989,8 @@ SELECT * FROM diamonds
 WHERE status = 'active'
   AND shape = 'ROUND'
   AND carats BETWEEN 1.0 AND 2.0
-  AND price_model_price BETWEEN 1000 AND 5000
-ORDER BY price_model_price ASC
+  AND feed_price BETWEEN 1000 AND 5000
+ORDER BY feed_price ASC
 LIMIT 50;
 ```
 
@@ -4016,8 +4016,8 @@ SELECT
   d.shape,
   d.carats,
   d.lab_grown,
+  d.feed_price,
   d.price_model_price,
-  d.retail_price,
   d.markup_ratio,
   d.rating
 FROM diamonds d

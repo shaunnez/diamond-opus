@@ -50,9 +50,9 @@ export function createMockDiamond(overrides: Partial<Diamond> = {}): Diamond {
     fluorescence: 'None',
     labGrown: false,
     treated: false,
-    priceModelPrice: 5000, // $5,000
+    feedPrice: 5000, // $5,000
     pricePerCarat: 5000,
-    retailPrice: 5750, // 15% markup
+    priceModelPrice: 5750, // 15% markup
     markupRatio: 1.15,
     rating: 5,
     availability: 'available',
@@ -73,7 +73,7 @@ export function createMockDiamonds(
   return Array.from({ length: count }, (_, i) =>
     createMockDiamond({
       carats: 0.5 + i * 0.1,
-      priceModelPrice: 1000 + i * 500,
+      feedPrice: 1000 + i * 500,
       ...overrides,
     })
   );

@@ -66,7 +66,7 @@ const adapter = new DemoFeedAdapter('https://my-demo-api.example.com');
 | `polish_grade` | `polish` |
 | `symmetry_grade` | `symmetry` |
 | `fluorescence_level` | `fluorescence` |
-| `asking_price_usd` | `priceModelPrice` |
+| `asking_price_usd` | `feedPrice` |
 | `price_per_ct_usd` | `pricePerCarat` |
 | `is_lab_created` | `labGrown` |
 | `cert_lab` | `certificateLab` |

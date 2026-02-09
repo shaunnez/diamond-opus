@@ -13,13 +13,13 @@ const createMockRule = (overrides: Partial<PricingRule> = {}): PricingRule => ({
 });
 
 const createMockDiamond = (
-  overrides: Partial<Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'priceModelPrice'>> = {}
-): Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'priceModelPrice'> => ({
+  overrides: Partial<Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPrice'>> = {}
+): Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPrice'> => ({
   carats: 1.0,
   shape: 'ROUND',
   labGrown: false,
   feed: 'nivoda',
-  priceModelPrice: 1000,
+  feedPrice: 1000,
   ...overrides,
 });
 
@@ -118,17 +118,17 @@ describe('PricingEngine', () => {
     it('should calculate retail price with markup', () => {
       engine.setRules([createMockRule({ markupRatio: 1.25 })]);
 
-      const diamond = createMockDiamond({ priceModelPrice: 1000 });
+      const diamond = createMockDiamond({ feedPrice: 1000 });
       const pricing = engine.calculatePricing(diamond);
 
-      expect(pricing.retailPrice).toBe(1250);
+      expect(pricing.priceModelPrice).toBe(1250);
       expect(pricing.markupRatio).toBe(1.25);
     });
 
     it('should calculate price per carat', () => {
       engine.setRules([createMockRule()]);
 
-      const diamond = createMockDiamond({ priceModelPrice: 1500, carats: 1.5 });
+      const diamond = createMockDiamond({ feedPrice: 1500, carats: 1.5 });
       const pricing = engine.calculatePricing(diamond);
 
       expect(pricing.pricePerCarat).toBe(1000);
@@ -155,11 +155,11 @@ describe('PricingEngine', () => {
     it('should use default markup when no rule matches', () => {
       engine.setRules([createMockRule({ shapes: ['EMERALD'] })]);
 
-      const diamond = createMockDiamond({ shape: 'ROUND', priceModelPrice: 1000 });
+      const diamond = createMockDiamond({ shape: 'ROUND', feedPrice: 1000 });
       const pricing = engine.calculatePricing(diamond);
 
       expect(pricing.markupRatio).toBe(1.15);
-      expect(pricing.retailPrice).toBe(1150);
+      expect(pricing.priceModelPrice).toBe(1150);
       expect(pricing.matchedRuleId).toBeUndefined();
     });
   });
@@ -178,7 +178,7 @@ describe('PricingEngine', () => {
         clarity: 'VS1',
         labGrown: false,
         treated: false,
-        priceModelPrice: 1000,
+        feedPrice: 1000,
         pricePerCarat: 1000,
         availability: 'available' as const,
         status: 'active' as const,
@@ -186,7 +186,7 @@ describe('PricingEngine', () => {
 
       const pricedDiamond = engine.applyPricing(baseDiamond);
 
-      expect(pricedDiamond.retailPrice).toBe(1300);
+      expect(pricedDiamond.priceModelPrice).toBe(1300);
       expect(pricedDiamond.markupRatio).toBe(1.3);
       expect(pricedDiamond.rating).toBe(7);
     });

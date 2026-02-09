@@ -120,9 +120,9 @@ CREATE TABLE diamonds (
   treated BOOLEAN DEFAULT FALSE,
 
   -- Pricing (dollars as decimals)
-  price_model_price DECIMAL(12,2) NOT NULL,
+  feed_price DECIMAL(12,2) NOT NULL,
   price_per_carat DECIMAL(12,2) NOT NULL,
-  retail_price DECIMAL(12,2),          -- price_model_price * markup
+  price_model_price DECIMAL(12,2),          -- feed_price * markup
   markup_ratio DECIMAL(5,4),           -- e.g., 1.1500
   rating INTEGER CHECK (rating BETWEEN 1 AND 10),
 
@@ -289,7 +289,7 @@ CREATE INDEX idx_diamonds_search ON diamonds(shape, carats, color, clarity)
   WHERE status = 'active';
 
 -- Price filtering
-CREATE INDEX idx_diamonds_price ON diamonds(price_model_price)
+CREATE INDEX idx_diamonds_price ON diamonds(feed_price)
   WHERE status = 'active';
 
 -- Common filters
@@ -338,8 +338,8 @@ SELECT * FROM diamonds
 WHERE status = 'active'
   AND shape = 'ROUND'
   AND carats BETWEEN 1.0 AND 2.0
-  AND price_model_price BETWEEN 1000 AND 5000
-ORDER BY price_model_price ASC
+  AND feed_price BETWEEN 1000 AND 5000
+ORDER BY feed_price ASC
 LIMIT 50;
 ```
 
@@ -365,8 +365,8 @@ SELECT
   d.shape,
   d.carats,
   d.lab_grown,
+  d.feed_price,
   d.price_model_price,
-  d.retail_price,
   d.markup_ratio,
   d.rating
 FROM diamonds d

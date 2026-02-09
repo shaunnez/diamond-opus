@@ -12,7 +12,7 @@ export const diamondSearchSchema = z.object({
   price_max: z.coerce.number().positive().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(50),
-  sort_by: z.enum(['created_at', 'price_model_price', 'carats', 'color', 'clarity']).default('created_at'),
+  sort_by: z.enum(['created_at', 'feed_price', 'carats', 'color', 'clarity']).default('created_at'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
 });
 

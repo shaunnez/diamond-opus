@@ -63,19 +63,19 @@ export class PricingEngine {
   }
 
   calculatePricing(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'priceModelPrice'>
+    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPrice'>
   ): PricingResult {
     const matchedRule = this.findMatchingRule(diamond);
 
     const markupRatio = matchedRule?.markupRatio ?? DEFAULT_MARKUP_RATIO;
     const rating = matchedRule?.rating;
 
-    const retailPrice = Math.round(diamond.priceModelPrice * markupRatio * 100) / 100;
-    const pricePerCarat = diamond.carats ? Math.round((diamond.priceModelPrice / diamond.carats) * 100) / 100 : 0;
+    const priceModelPrice = Math.round(diamond.feedPrice * markupRatio * 100) / 100;
+    const pricePerCarat = diamond.carats ? Math.round((diamond.feedPrice / diamond.carats) * 100) / 100 : 0;
 
     return {
-      priceModelPrice: diamond.priceModelPrice,
-      retailPrice,
+      feedPrice: diamond.feedPrice,
+      priceModelPrice,
       pricePerCarat,
       markupRatio,
       rating,
@@ -84,13 +84,13 @@ export class PricingEngine {
   }
 
   applyPricing(
-    diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'retailPrice' | 'markupRatio' | 'rating'>
+    diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'rating'>
   ): Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'> {
     const pricing = this.calculatePricing(diamond);
 
     return {
       ...diamond,
-      retailPrice: pricing.retailPrice,
+      priceModelPrice: pricing.priceModelPrice,
       markupRatio: pricing.markupRatio,
       rating: pricing.rating,
       pricePerCarat: pricing.pricePerCarat,
