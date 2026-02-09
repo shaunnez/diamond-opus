@@ -64,42 +64,52 @@ router.post(
       // Track in Supabase - look up diamond by offer_id
       const diamond = (await getDiamondByOfferId(offer_id)) as Diamond | null;
 
-      if (diamond) {
-        const adapter = new NivodaAdapter();
+      if (!diamond) {
+        res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Diamond not found",
+          },
+        });
+        return;
+      }
 
-        const result = await adapter.createHold(diamond.id);
+      const adapter = new NivodaAdapter();
 
-        await createHoldHistory(
-          diamond.id,
-          diamond.feed,
-          diamond.offerId,
-          result.id,
-          result.denied,
-          result.until ? new Date(result.until) : undefined,
-        );
+      // NOTE: createHold expects diamond.id (internal UUID), NOT diamond.offerId
+      // The Nivoda adapter handles the ID mapping internally
+      const result = await adapter.createHold(diamond.id);
 
-        if (!result.denied) {
-          await updateDiamondAvailability(diamond.id, "on_hold", result.id);
-          res.json({
-            data: {
-              hold_id: result.id,
-              denied: result.denied,
-              until: result.until,
-              message: "Hold placed successfully",
-            },
-          });
-        } else {
-          res.status(400).json({
-            error: {
-              code: "HOLD_DENIED",
-              message: "Hold request was denied by Nivoda",
-            },
-            data: {
-              hold_id: result.id,
-              denied: true,
-            },
-          });
-        }
+      await createHoldHistory(
+        diamond.id,
+        diamond.feed,
+        diamond.offerId,
+        result.id,
+        result.denied,
+        result.until ? new Date(result.until) : undefined,
+      );
+
+      if (!result.denied) {
+        await updateDiamondAvailability(diamond.id, "on_hold", result.id);
+        res.json({
+          data: {
+            hold_id: result.id,
+            denied: result.denied,
+            until: result.until,
+            message: "Hold placed successfully",
+          },
+        });
+      } else {
+        res.status(400).json({
+          error: {
+            code: "HOLD_DENIED",
+            message: "Hold request was denied by Nivoda",
+          },
+          data: {
+            hold_id: result.id,
+            denied: true,
+          },
+        });
       }
     } catch (error) {
       insertErrorLog(

@@ -123,13 +123,22 @@ export function Dashboard() {
     refetchWatermark();
   };
 
+  const [watermarkRunId, setWatermarkRunId] = useState('');
+  const [watermarkCompletedAt, setWatermarkCompletedAt] = useState('');
+
   const openWatermarkEdit = () => {
     if (watermark?.lastUpdatedAt) {
-      // Convert ISO to datetime-local format
       const d = new Date(watermark.lastUpdatedAt);
       setWatermarkDate(d.toISOString().slice(0, 16));
     } else {
       setWatermarkDate('');
+    }
+    setWatermarkRunId(watermark?.lastRunId ?? '');
+    if (watermark?.lastRunCompletedAt) {
+      const d = new Date(watermark.lastRunCompletedAt);
+      setWatermarkCompletedAt(d.toISOString().slice(0, 16));
+    } else {
+      setWatermarkCompletedAt('');
     }
     setEditWatermark(true);
   };
@@ -139,8 +148,10 @@ export function Dashboard() {
     const iso = new Date(watermarkDate).toISOString();
     updateWatermarkMutation.mutate({
       lastUpdatedAt: iso,
-      lastRunId: watermark?.lastRunId,
-      lastRunCompletedAt: watermark?.lastRunCompletedAt,
+      lastRunId: watermarkRunId || undefined,
+      lastRunCompletedAt: watermarkCompletedAt
+        ? new Date(watermarkCompletedAt).toISOString()
+        : undefined,
     });
   };
 
@@ -171,30 +182,45 @@ export function Dashboard() {
       <PageContainer>
         {/* Watermark Card */}
         <Card className="mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
                 <Bookmark className="w-5 h-5 text-primary-600 dark:text-primary-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-500 dark:text-stone-400">
+                <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
                   Watermark (Azure Blob)
                 </p>
-                <p className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-                  {watermarkDisplay}
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Controls when incremental runs start from
                 </p>
-                {watermark?.lastRunId && (
-                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                    Last run: {truncateId(watermark.lastRunId, 8)}
-                    {watermark.lastRunCompletedAt &&
-                      ` (completed ${formatRelativeTime(watermark.lastRunCompletedAt)})`}
-                  </p>
-                )}
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={openWatermarkEdit} icon={<Pencil className="w-4 h-4" />}>
               Edit
             </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Updated At</p>
+              <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                {watermarkDisplay}
+              </p>
+            </div>
+            <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run ID</p>
+              <p className="text-sm font-mono text-stone-900 dark:text-stone-100">
+                {watermark?.lastRunId ? truncateId(watermark.lastRunId, 12) : 'Not set'}
+              </p>
+            </div>
+            <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run Completed At</p>
+              <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                {watermark?.lastRunCompletedAt
+                  ? new Date(watermark.lastRunCompletedAt).toLocaleString()
+                  : 'Not set'}
+              </p>
+            </div>
           </div>
         </Card>
 
@@ -460,9 +486,9 @@ export function Dashboard() {
         >
           <div className="space-y-4">
             <p className="text-sm text-stone-600 dark:text-stone-300">
-              Set the watermark date to control when incremental runs start from.
-              This is the <code className="bg-stone-100 dark:bg-stone-700 px-1 rounded">lastUpdatedAt</code> field
-              in the Azure Blob Storage watermark file.
+              Edit the watermark stored in Azure Blob Storage. The{' '}
+              <code className="bg-stone-100 dark:bg-stone-700 px-1 rounded">lastUpdatedAt</code> field
+              controls when incremental runs start from.
             </p>
             <div>
               <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
@@ -473,6 +499,29 @@ export function Dashboard() {
                 className="input"
                 value={watermarkDate}
                 onChange={(e) => setWatermarkDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                Last Run ID (optional)
+              </label>
+              <input
+                type="text"
+                className="input font-mono"
+                value={watermarkRunId}
+                onChange={(e) => setWatermarkRunId(e.target.value)}
+                placeholder="UUID of the last run"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                Last Run Completed At (optional)
+              </label>
+              <input
+                type="datetime-local"
+                className="input"
+                value={watermarkCompletedAt}
+                onChange={(e) => setWatermarkCompletedAt(e.target.value)}
               />
             </div>
             {updateWatermarkMutation.isError && (

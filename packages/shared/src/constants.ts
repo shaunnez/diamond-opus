@@ -86,6 +86,7 @@ export const SERVICE_BUS_QUEUES = {
 
 export const BLOB_CONTAINERS = {
   WATERMARKS: 'watermarks',
+  HEATMAPS: 'heatmaps',
 } as const;
 
 export const WATERMARK_BLOB_NAME = 'nivoda.json';

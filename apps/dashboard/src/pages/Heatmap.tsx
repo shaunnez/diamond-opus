@@ -1,7 +1,14 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { Activity, BarChart3, Clock, Layers, Play, Zap } from 'lucide-react';
-import { runHeatmap, previewHeatmap, type HeatmapResult, type RunHeatmapOptions } from '../api/heatmap';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Activity, BarChart3, Clock, History, Layers, Play, RefreshCw, Zap } from 'lucide-react';
+import {
+  runHeatmap,
+  previewHeatmap,
+  getHeatmapHistory,
+  type HeatmapResult,
+  type HeatmapHistoryEntry,
+  type RunHeatmapOptions,
+} from '../api/heatmap';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -13,7 +20,7 @@ import {
   Alert,
   useToast,
 } from '../components/ui';
-import { formatNumber, formatDuration } from '../utils/formatters';
+import { formatNumber, formatDuration, formatRelativeTime } from '../utils/formatters';
 
 // Color scale for density visualization
 function getDensityColor(count: number, maxCount: number): string {
@@ -36,6 +43,7 @@ function formatPrice(price: number): string {
 
 export function Heatmap() {
   const { addToast } = useToast();
+  const [feed, setFeed] = useState('nivoda');
   const [mode, setMode] = useState<'single-pass' | 'two-pass'>('single-pass');
   const [minPrice, setMinPrice] = useState('0');
   const [maxPrice, setMaxPrice] = useState('100000');
@@ -43,10 +51,18 @@ export function Heatmap() {
   const [labGrown, setLabGrown] = useState<boolean | undefined>(undefined);
   const [result, setResult] = useState<HeatmapResult | null>(null);
 
+  // Fetch heatmap history for the selected feed
+  const historyQuery = useQuery({
+    queryKey: ['heatmap-history', feed],
+    queryFn: () => getHeatmapHistory(feed),
+    retry: false,
+  });
+
   const runMutation = useMutation({
     mutationFn: (options: RunHeatmapOptions) => runHeatmap(options),
     onSuccess: (data) => {
       setResult(data);
+      historyQuery.refetch();
       addToast({
         variant: 'success',
         title: 'Heatmap scan complete',
@@ -66,6 +82,7 @@ export function Heatmap() {
     mutationFn: (options: RunHeatmapOptions) => previewHeatmap(options),
     onSuccess: (data) => {
       setResult(data);
+      historyQuery.refetch();
       addToast({
         variant: 'success',
         title: 'Preview complete',
@@ -87,6 +104,7 @@ export function Heatmap() {
       min_price: parseInt(minPrice, 10) || 0,
       max_price: parseInt(maxPrice, 10) || 100000,
       max_workers: parseInt(maxWorkers, 10) || 30,
+      feed,
     };
 
     if (labGrown !== undefined) {
@@ -98,6 +116,15 @@ export function Heatmap() {
     } else {
       runMutation.mutate(options);
     }
+  };
+
+  const loadFromHistory = (entry: HeatmapHistoryEntry) => {
+    setResult(entry.result);
+    addToast({
+      variant: 'success',
+      title: 'Loaded from history',
+      message: `Loaded ${entry.scan_type} scan from ${new Date(entry.scanned_at).toLocaleString()}`,
+    });
   };
 
   const isLoading = runMutation.isPending || previewMutation.isPending;
@@ -121,6 +148,62 @@ export function Heatmap() {
               Analyze diamond inventory density by price range to optimize worker partitioning
             </p>
           </div>
+
+          {/* Last Scan History */}
+          <Card>
+            <CardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  Last Scan History
+                </span>
+              }
+              subtitle={`Feed: ${feed}`}
+              action={
+                <div className="flex items-center gap-3">
+                  <Select
+                    label=""
+                    value={feed}
+                    onChange={(e) => setFeed(e.target.value)}
+                    options={[
+                      { value: 'nivoda', label: 'Nivoda' },
+                      { value: 'demo', label: 'Demo' },
+                    ]}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => historyQuery.refetch()}
+                    disabled={historyQuery.isFetching}
+                    icon={<RefreshCw className={`w-4 h-4 ${historyQuery.isFetching ? 'animate-spin' : ''}`} />}
+                  >
+                    Refresh
+                  </Button>
+                </div>
+              }
+            />
+            {historyQuery.isError && (
+              <Alert variant="warning" className="mb-4">
+                Could not load scan history. Azure Storage may not be configured.
+              </Alert>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Last Full Run */}
+              <HistoryCard
+                title="Last Full Scan"
+                entry={historyQuery.data?.run ?? null}
+                isLoading={historyQuery.isLoading}
+                onLoad={loadFromHistory}
+              />
+              {/* Last Preview */}
+              <HistoryCard
+                title="Last Preview Scan"
+                entry={historyQuery.data?.preview ?? null}
+                isLoading={historyQuery.isLoading}
+                onLoad={loadFromHistory}
+              />
+            </div>
+          </Card>
 
           {/* Configuration */}
           <Card>
@@ -455,7 +538,90 @@ export function Heatmap() {
   );
 }
 
-// Helper function to group density chunks into larger price bands for visualization
+// ============================================================================
+// History Card component
+// ============================================================================
+
+function HistoryCard({
+  title,
+  entry,
+  isLoading,
+  onLoad,
+}: {
+  title: string;
+  entry: HeatmapHistoryEntry | null;
+  isLoading: boolean;
+  onLoad: (entry: HeatmapHistoryEntry) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="border border-stone-200 dark:border-stone-700 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-stone-700 dark:text-stone-300">{title}</h4>
+        <div className="mt-2 animate-pulse space-y-2">
+          <div className="h-4 bg-stone-200 rounded w-3/4" />
+          <div className="h-4 bg-stone-200 rounded w-1/2" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!entry) {
+    return (
+      <div className="border border-stone-200 dark:border-stone-700 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-stone-700 dark:text-stone-300">{title}</h4>
+        <p className="mt-2 text-sm text-stone-400">No scan recorded yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-stone-200 dark:border-stone-700 rounded-lg p-4">
+      <div className="flex items-start justify-between">
+        <h4 className="text-sm font-medium text-stone-700 dark:text-stone-300">{title}</h4>
+        <Button variant="secondary" size="sm" onClick={() => onLoad(entry)}>
+          Load Results
+        </Button>
+      </div>
+      <div className="mt-3 space-y-1.5">
+        <div className="flex justify-between text-sm">
+          <span className="text-stone-500">Scanned</span>
+          <span className="text-stone-700 dark:text-stone-300">
+            {formatRelativeTime(entry.scanned_at)}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-stone-500">Total Records</span>
+          <span className="text-stone-700 dark:text-stone-300 font-medium">
+            {formatNumber(entry.result.total_records)}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-stone-500">Partitions</span>
+          <span className="text-stone-700 dark:text-stone-300">
+            {entry.result.worker_count}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-stone-500">Duration</span>
+          <span className="text-stone-700 dark:text-stone-300">
+            {formatDuration(entry.result.stats.scan_duration_ms)}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-stone-500">API Calls</span>
+          <span className="text-stone-700 dark:text-stone-300">
+            {entry.result.stats.api_calls}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Helper function to group density chunks into larger price bands
+// ============================================================================
+
 function groupIntoPriceBands(
   densityMap: { min_price: number; max_price: number; count: number }[],
   numBands: number

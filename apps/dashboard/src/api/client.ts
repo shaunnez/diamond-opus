@@ -12,6 +12,10 @@ export const api = axios.create({
   },
 });
 
+export function getApiBaseUrl(): string {
+  return apiBaseUrl;
+}
+
 // Add API key to requests
 api.interceptors.request.use((config) => {
   const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);

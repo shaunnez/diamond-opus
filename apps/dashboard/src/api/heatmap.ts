@@ -38,6 +38,20 @@ export interface RunHeatmapOptions {
   dense_zone_step?: number;
   max_total_records?: number;
   lab_grown?: boolean;
+  feed?: string;
+}
+
+export interface HeatmapHistoryEntry {
+  scanned_at: string;
+  scan_type: 'run' | 'preview';
+  feed: string;
+  config: Record<string, unknown>;
+  result: HeatmapResult;
+}
+
+export interface HeatmapHistoryResponse {
+  run: HeatmapHistoryEntry | null;
+  preview: HeatmapHistoryEntry | null;
 }
 
 export async function runHeatmap(options: RunHeatmapOptions = {}): Promise<HeatmapResult> {
@@ -47,5 +61,10 @@ export async function runHeatmap(options: RunHeatmapOptions = {}): Promise<Heatm
 
 export async function previewHeatmap(options: Partial<RunHeatmapOptions> = {}): Promise<HeatmapResult> {
   const response = await api.post<{ data: HeatmapResult }>('/heatmap/preview', options);
+  return response.data.data;
+}
+
+export async function getHeatmapHistory(feed: string): Promise<HeatmapHistoryResponse> {
+  const response = await api.get<{ data: HeatmapHistoryResponse }>(`/heatmap/history/${feed}`);
   return response.data.data;
 }
