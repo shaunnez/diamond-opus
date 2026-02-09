@@ -265,7 +265,7 @@ export function PricingRules() {
                         </td>
                         <td className="px-4 py-3">
                           {rule.feed ? (
-                            <Badge variant="primary">{rule.feed}</Badge>
+                            <Badge variant="info">{rule.feed}</Badge>
                           ) : (
                             <span className="text-stone-400 dark:text-stone-500 text-sm">All</span>
                           )}
