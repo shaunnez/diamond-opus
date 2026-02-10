@@ -104,12 +104,15 @@ async function processWorkItemPage(
     return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
-  // Build query using generic FeedQuery
+  // Build query using the same base query as the heatmap (includes shapes, sizeRange, etc.),
+  // then overlay the partition-specific price range
+  const baseQuery = adapter.buildBaseQuery(
+    workItem.updatedFrom ?? '',
+    workItem.updatedTo ?? '',
+  );
   const query: FeedQuery = {
+    ...baseQuery,
     priceRange: { from: workItem.minPrice, to: workItem.maxPrice },
-    updatedRange: workItem.updatedFrom && workItem.updatedTo
-      ? { from: workItem.updatedFrom, to: workItem.updatedTo }
-      : undefined,
   };
 
   // Order by createdAt ASC for deterministic pagination
