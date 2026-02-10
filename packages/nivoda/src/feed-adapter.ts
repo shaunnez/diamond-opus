@@ -33,7 +33,7 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
       ? { from: query.updatedRange.from, to: query.updatedRange.to }
       : undefined,
     has_image: true,
-    has_video: true,
+    has_v360: true,
     availability: ['AVAILABLE'],
     excludeFairPoorCuts: true,
     hideMemo: true

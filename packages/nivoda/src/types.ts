@@ -136,7 +136,7 @@ export interface NivodaQuery {
   shapes?: string[];
   labgrown?: boolean;
   has_image?: boolean;
-  has_video?: boolean;
+  has_v360?: boolean;
   availability?: string[];
   excludeFairPoorCuts?: boolean;
   hideMemo?: boolean;

@@ -272,7 +272,7 @@ router.post(
         shapes: [...DIAMOND_SHAPES],
         sizes: { from: 0.4, to: 15.01 },
         has_image: true,
-        has_video: true,
+        has_v360: true,
         availability: ['AVAILABLE'],
         excludeFairPoorCuts: true,
         hideMemo: true
@@ -384,7 +384,7 @@ router.post(
         shapes: [...DIAMOND_SHAPES],
         sizes: { from: 0.4, to: 15.01 },
         has_image: true,
-        has_video: true,
+        has_v360: true,
         availability: ['AVAILABLE'],
         excludeFairPoorCuts: true,
         hideMemo: true
