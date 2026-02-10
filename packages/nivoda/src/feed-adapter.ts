@@ -86,7 +86,7 @@ export class NivodaFeedAdapter implements FeedAdapter {
   buildBaseQuery(updatedFrom: string, updatedTo: string): FeedQuery {
     return {
       shapes: [...DIAMOND_SHAPES],
-      sizeRange: { from: 0.5, to: 10 },
+      sizeRange: { from: 0.4, to: 15.01 },
       updatedRange: { from: updatedFrom, to: updatedTo },
     };
   }

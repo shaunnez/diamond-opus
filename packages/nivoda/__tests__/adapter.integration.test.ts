@@ -49,7 +49,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
     it('should return count for basic query', async () => {
       const count = await adapter.getDiamondsCount({
         shapes: ['ROUND'],
-        sizes: { from: 0.5, to: 10 },
+        sizes: { from: 0.4, to: 15.01 },
       });
 
       expect(typeof count).toBe('number');
@@ -63,7 +63,7 @@ describe.skipIf(!hasCredentials)('NivodaAdapter Integration', () => {
 
       const query: NivodaQuery = {
         shapes: ['ROUND'],
-        sizes: { from: 0.5, to: 10 },
+        sizes: { from: 0.4, to: 15.01 },
         updated: {
           from: oneMonthAgo.toISOString(),
           to: now.toISOString(),
