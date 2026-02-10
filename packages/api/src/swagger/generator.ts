@@ -31,31 +31,11 @@ IMPORTANT: When using API key authentication, HMAC authentication will NOT be at
 If the API key is invalid, the request will be rejected immediately.
 
 Use either API key OR HMAC authentication, not both.`,
-        },
-        HmacAuth: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'X-Signature',
-          description: `HMAC-SHA256 authentication. Required headers:
-- X-Client-Id: Client identifier
-- X-Timestamp: Unix timestamp (seconds)
-- X-Signature: HMAC-SHA256 signature
-
-Signature computation:
-\`\`\`
-canonical_string = METHOD + '\\n' + PATH + '\\n' + TIMESTAMP + '\\n' + SHA256(BODY)
-signature = HMAC-SHA256(CLIENT_SECRET, canonical_string)
-\`\`\`
-
-Timestamp must be within ±5 minutes of server time.
-
-IMPORTANT: HMAC authentication is only attempted when NO X-API-Key header is provided.
-Use either API key OR HMAC authentication, not both.`,
-        },
+        }
       },
     },
   },
-  apis: [path.join(__dirname, '../routes/*.ts'), path.join(__dirname, '../routes/*.js')],
+  apis: [path.join(__dirname, '../routes/diamonds.ts')],
 };
 
 const spec = swaggerJsdoc(options);
