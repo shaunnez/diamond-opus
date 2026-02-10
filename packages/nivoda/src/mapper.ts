@@ -159,7 +159,8 @@ export function mapNivodaItemToDiamond(
   const { diamond } = item;
   const { certificate } = diamond;
 
-  const feedPrice = item.price;
+  const feedPrice = item.price / 100; // Nivoda returns cents, store as dollars
+  const diamondPrice = item.diamond_price != null ? item.diamond_price / 100 : undefined;
   const carats = certificate.carats ?? undefined;
   const pricePerCarat = carats ? feedPrice / carats : 0;
 
@@ -178,6 +179,7 @@ export function mapNivodaItemToDiamond(
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
     feedPrice,
+    diamondPrice,
     pricePerCarat,
     availability: mapAvailability(diamond.availability),
     rawAvailability: diamond.availability,

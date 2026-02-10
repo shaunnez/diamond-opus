@@ -4,10 +4,10 @@ import type { NivodaItem } from '../src/types.js';
 
 const createMockItem = (overrides: Partial<NivodaItem> = {}): NivodaItem => ({
   id: 'offer-123',
-  price: 1500.50,
+  price: 150050, // cents ($1,500.50)
   discount: 10,
-  diamond_price: 1400,
-  markup_price: 100.50,
+  diamond_price: 140000, // cents ($1,400.00)
+  markup_price: 10050, // cents ($100.50)
   markup_discount: 5,
   diamond: {
     id: 'diamond-456',
@@ -57,11 +57,12 @@ describe('mapNivodaItemToDiamond', () => {
     expect(result.clarity).toBe('VS1');
   });
 
-  it('should calculate prices correctly', () => {
+  it('should convert prices from cents to dollars correctly', () => {
     const item = createMockItem();
     const result = mapNivodaItemToDiamond(item);
 
-    expect(result.feedPrice).toBe(1500.50);
+    expect(result.feedPrice).toBe(1500.50); // 150050 cents → $1,500.50
+    expect(result.diamondPrice).toBe(1400); // 140000 cents → $1,400.00
     expect(result.pricePerCarat).toBe(1500.50 / 1.5);
   });
 

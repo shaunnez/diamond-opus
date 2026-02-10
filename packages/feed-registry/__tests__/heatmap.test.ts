@@ -14,7 +14,7 @@ import type { FeedAdapter, FeedQuery, FeedSearchOptions, FeedSearchResult, FeedB
  * 1. Partition boundaries have no gaps or overlaps (half-open → inclusive conversion)
  * 2. Sum of partition totalRecords equals heatmap totalRecords
  * 3. Worker count stays within bounds
- * 4. The queryWithPriceRange -0.01 conversion is consistent
+ * 4. The queryWithPriceRange -1 conversion is consistent (integer dollar_value)
  */
 
 // --- Mock FeedAdapter ---
@@ -88,7 +88,7 @@ function createMockAdapter(items: MockInventoryItem[]): FeedAdapter {
 function generateItems(count: number, priceMin: number, priceMax: number): MockInventoryItem[] {
   return Array.from({ length: count }, (_, i) => ({
     stone_id: `ITEM-${String(i + 1).padStart(7, '0')}`,
-    price: Math.round((priceMin + (priceMax - priceMin) * (i / Math.max(count - 1, 1))) * 100) / 100,
+    price: Math.round(priceMin + (priceMax - priceMin) * (i / Math.max(count - 1, 1))),
   }));
 }
 
@@ -132,7 +132,7 @@ describe('createPartitions', () => {
     expect(partitions).toHaveLength(1);
     expect(partitions[0].partitionId).toBe('partition-0');
     expect(partitions[0].minPrice).toBe(0);
-    expect(partitions[0].maxPrice).toBe(499.99); // chunk.max - 0.01
+    expect(partitions[0].maxPrice).toBe(499); // chunk.max - 1
     expect(partitions[0].totalRecords).toBe(100);
   });
 
@@ -154,8 +154,8 @@ describe('createPartitions', () => {
   it('partition boundaries should have no gaps when using inclusive maxPrice', () => {
     // Simulates the full heatmap → partition → worker flow.
     // Half-open chunks: [0,100), [100,200), [200,500)
-    // Partitions convert to inclusive: maxPrice = chunk.max - 0.01
-    // So partition 0 covers [0, 99.99], partition 1 covers [100, 199.99], etc.
+    // Partitions convert to inclusive: maxPrice = chunk.max - 1
+    // So partition 0 covers [0, 99], partition 1 covers [100, 199], etc.
     const chunks: DensityChunk[] = [
       { min: 0, max: 100, count: 50 },
       { min: 100, max: 200, count: 50 },
@@ -165,23 +165,23 @@ describe('createPartitions', () => {
 
     expect(partitions).toHaveLength(3);
 
-    // Verify no gaps: partition[N+1].minPrice should be partition[N].maxPrice + 0.01
+    // Verify no gaps: partition[N+1].minPrice should be partition[N].maxPrice + 1
     for (let i = 0; i < partitions.length - 1; i++) {
       const gap = partitions[i + 1].minPrice - partitions[i].maxPrice;
-      // gap should be 0.01 (the smallest price unit for DECIMAL(12,2))
-      expect(gap).toBeCloseTo(0.01, 2);
+      // gap should be 1 (dollar_value is an integer range)
+      expect(gap).toBe(1);
     }
   });
 
-  it('partition maxPrice should always be chunk.max - 0.01', () => {
+  it('partition maxPrice should always be chunk.max - 1', () => {
     const chunks: DensityChunk[] = [
       { min: 0, max: 1000, count: 500 },
       { min: 1000, max: 5000, count: 500 },
     ];
     const partitions = createPartitions(chunks, 2);
 
-    expect(partitions[0].maxPrice).toBe(999.99);
-    expect(partitions[1].maxPrice).toBe(4999.99);
+    expect(partitions[0].maxPrice).toBe(999);
+    expect(partitions[1].maxPrice).toBe(4999);
   });
 
   it('should handle maxTotalRecords cap', () => {

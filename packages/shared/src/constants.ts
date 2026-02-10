@@ -1,4 +1,3 @@
-export const RECORDS_PER_WORKER = 5000;
 export const WORKER_PAGE_SIZE = 30;
 /** Number of raw diamonds to fetch per consolidation cycle */
 export const CONSOLIDATOR_BATCH_SIZE = 2000;

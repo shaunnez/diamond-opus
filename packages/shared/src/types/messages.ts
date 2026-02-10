@@ -10,12 +10,8 @@ export interface WorkItemMessage {
   minPrice: number;
   /** Maximum price filter in dollars (inclusive) */
   maxPrice: number;
-  /** Expected total records in this price range */
-  totalRecords: number;
-  /** Offset start within the filtered result set (typically 0) */
-  offsetStart: number;
-  /** Offset end within the filtered result set (typically equals totalRecords) */
-  offsetEnd: number;
+  /** Estimated total records in this price range (from heatmap - may differ from actual) */
+  estimatedRecords: number;
   /** Current page offset for continuation pattern (page to fetch) */
   offset: number;
   /** Page size for this work item (typically 30) */

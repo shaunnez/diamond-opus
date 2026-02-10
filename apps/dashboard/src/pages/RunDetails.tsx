@@ -119,11 +119,12 @@ export function RunDetails() {
     return aNum - bNum;
   });
 
-  // Calculate total expected records from all workers
-  const totalExpectedRecords = workers.reduce((sum, worker) => {
-    const workItemTotal = worker.workItemPayload?.totalRecords as number | undefined;
-    return sum + (workItemTotal || 0);
+  // Calculate heatmap estimate (approximate - may differ from actual records processed)
+  const heatmapEstimate = workers.reduce((sum, worker) => {
+    const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
+    return sum + (estimate || 0);
   }, 0);
+  const isRunFinished = run.status === 'completed' || run.status === 'failed' || run.status === 'partial';
 
   // Calculate live duration for running jobs
   const displayDuration = run.status === 'running'
@@ -132,16 +133,16 @@ export function RunDetails() {
 
   // Calculate estimated time remaining for running jobs
   const getEstimatedTimeRemaining = (): string | null => {
-    if (run.status !== 'running' || totalExpectedRecords === 0 || run.totalRecordsProcessed === 0) {
+    if (run.status !== 'running' || heatmapEstimate === 0 || run.totalRecordsProcessed === 0) {
       return null;
     }
 
     const elapsedMs = Date.now() - new Date(run.startedAt).getTime();
     const elapsedSeconds = elapsedMs / 1000;
     const processingRate = run.totalRecordsProcessed / elapsedSeconds; // records per second
-    const remainingRecords = totalExpectedRecords - run.totalRecordsProcessed;
+    const remainingRecords = Math.max(0, heatmapEstimate - run.totalRecordsProcessed);
 
-    if (processingRate === 0) {
+    if (processingRate === 0 || remainingRecords === 0) {
       return null;
     }
 
@@ -154,12 +155,15 @@ export function RunDetails() {
   const estimatedTimeRemaining = getEstimatedTimeRemaining();
 
   const getWorkerProgress = (worker: WorkerRun): number | null => {
-    if (!worker.workItemPayload || typeof worker.workItemPayload.totalRecords !== 'number') {
-      return null;
-    }
-    const totalRecords = worker.workItemPayload.totalRecords as number;
-    if (totalRecords === 0) return 100;
-    return Math.min(100, (worker.recordsProcessed / totalRecords) * 100);
+    // Completed workers are 100% by definition (they processed all available data)
+    if (worker.status === 'completed') return 100;
+
+    const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
+    if (!estimate || estimate === 0) return null;
+
+    // Use max(estimate, actual) as denominator to prevent >100%
+    const denominator = Math.max(estimate, worker.recordsProcessed);
+    return Math.min(100, (worker.recordsProcessed / denominator) * 100);
   };
 
   const workerColumns = [
@@ -210,15 +214,17 @@ export function RunDetails() {
       key: 'recordsProcessed',
       header: 'Records',
       render: (w: WorkerRun) => {
-        const totalRecords = w.workItemPayload?.totalRecords as number | undefined;
-        if (totalRecords) {
-          return (
-            <span className="text-xs">
-              {formatNumber(w.recordsProcessed)} / {formatNumber(totalRecords)}
-            </span>
-          );
+        const estimate = (w.workItemPayload?.estimatedRecords ?? w.workItemPayload?.totalRecords) as number | undefined;
+        // Completed workers: show actual count only (estimate is irrelevant)
+        if (w.status === 'completed' || !estimate) {
+          return formatNumber(w.recordsProcessed);
         }
-        return formatNumber(w.recordsProcessed);
+        // Running/failed: show actual / ~estimate
+        return (
+          <span className="text-xs">
+            {formatNumber(w.recordsProcessed)} / ~{formatNumber(estimate)}
+          </span>
+        );
       },
     },
     {
@@ -336,14 +342,14 @@ export function RunDetails() {
             <div>
               <p className="text-xs sm:text-sm text-stone-500">Records</p>
               <p className="text-base sm:text-lg font-semibold text-stone-900 dark:text-stone-100">
-                {totalExpectedRecords > 0
-                  ? `${formatNumber(run.totalRecordsProcessed)} / ${formatNumber(totalExpectedRecords)}`
-                  : formatNumber(run.totalRecordsProcessed)
+                {isRunFinished || heatmapEstimate === 0
+                  ? formatNumber(run.totalRecordsProcessed)
+                  : `${formatNumber(run.totalRecordsProcessed)} / ~${formatNumber(heatmapEstimate)}`
                 }
               </p>
-              {totalExpectedRecords > 0 && (
+              {!isRunFinished && heatmapEstimate > 0 && (
                 <p className="text-xs text-stone-500 mt-0.5">
-                  {Math.round((run.totalRecordsProcessed / totalExpectedRecords) * 100)}% complete
+                  {Math.round(Math.min(100, (run.totalRecordsProcessed / Math.max(heatmapEstimate, run.totalRecordsProcessed)) * 100))}% complete
                 </p>
               )}
             </div>
@@ -381,12 +387,12 @@ export function RunDetails() {
                 total={run.expectedWorkers}
               />
             </div>
-            {totalExpectedRecords > 0 && (
+            {heatmapEstimate > 0 && !isRunFinished && (
               <div>
                 <p className="text-xs font-medium text-stone-700 dark:text-stone-300 mb-2">Record Progress</p>
                 <RecordProgress
                   processed={run.totalRecordsProcessed}
-                  total={totalExpectedRecords}
+                  total={Math.max(heatmapEstimate, run.totalRecordsProcessed)}
                 />
               </div>
             )}
