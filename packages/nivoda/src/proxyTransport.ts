@@ -46,8 +46,8 @@ export class ProxyGraphqlTransport {
         (error as any).query = query.substring(0, 100);
         throw error;
       }
-
-      return JSON.parse(text) as T;
+      
+      return JSON.parse(text).data as T;
     } catch (error) {
       clearTimeout(timeout);
 
