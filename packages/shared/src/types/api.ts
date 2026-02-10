@@ -63,3 +63,13 @@ export interface ApiErrorResponse {
     message: string;
   };
 }
+
+export interface NivodaConfig {
+  endpoint: string;
+  proxyEnabled: boolean;
+  proxyUrl?: string;
+}
+
+export interface SystemConfig {
+  nivoda: NivodaConfig;
+}

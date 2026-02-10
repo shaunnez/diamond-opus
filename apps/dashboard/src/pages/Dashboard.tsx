@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Pencil,
   Bookmark,
+  Server,
 } from 'lucide-react';
 import {
   getDashboardSummary,
@@ -23,6 +24,7 @@ import {
   type RecentFailedWorker,
   type Watermark,
 } from '../api/analytics';
+import { getSystemConfig } from '../api/system';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -118,6 +120,16 @@ export function Dashboard() {
     nivoda: nivodaWatermark,
     demo: demoWatermark,
   };
+
+  const {
+    data: systemConfig,
+  } = useQuery({
+    queryKey: ['system-config'],
+    queryFn: getSystemConfig,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity, // Config rarely changes
+  });
 
   const updateWatermarkMutation = useMutation({
     mutationFn: ({ wm, feed }: { wm: Watermark; feed: Feed }) => updateWatermark(wm, feed),
@@ -262,6 +274,53 @@ export function Dashboard() {
             );
           })}
         </div>
+
+        {/* Nivoda Configuration */}
+        {systemConfig && (
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
+                <Server className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                  Nivoda API Configuration
+                </p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Backend API endpoint and proxy routing status
+                </p>
+              </div>
+            </div>
+            <Card>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                  <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">API Endpoint</p>
+                  <p className="text-sm font-mono text-stone-900 dark:text-stone-100 break-all">
+                    {systemConfig.nivoda.endpoint}
+                  </p>
+                </div>
+                <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                  <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Proxy Status</p>
+                  <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                    {systemConfig.nivoda.proxyEnabled ? (
+                      <span className="text-success-600 dark:text-success-400">✓ Enabled</span>
+                    ) : (
+                      <span className="text-stone-500 dark:text-stone-400">Direct</span>
+                    )}
+                  </p>
+                </div>
+                {systemConfig.nivoda.proxyEnabled && systemConfig.nivoda.proxyUrl && (
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Proxy URL</p>
+                    <p className="text-sm font-mono text-stone-900 dark:text-stone-100 break-all">
+                      {systemConfig.nivoda.proxyUrl}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
