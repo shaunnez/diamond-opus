@@ -167,6 +167,8 @@ jobs:
           TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
           TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+          TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
+          TF_VAR_nivoda_proxy_base_url: ${{ secrets.NIVODA_PROXY_BASE_URL }}
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
@@ -189,6 +191,8 @@ jobs:
           TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
           TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+          TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
+          TF_VAR_nivoda_proxy_base_url: ${{ secrets.NIVODA_PROXY_BASE_URL }}
         run: terraform apply -auto-approve tfplan
 
       - name: Verify Consolidator Scale Rules
