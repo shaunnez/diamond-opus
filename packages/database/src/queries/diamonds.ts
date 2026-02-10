@@ -67,7 +67,6 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     ratio: row.ratio ? parseFloat(row.ratio) : undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
-    fancyColor: row.fancy_color ?? undefined,
     feedPrice: parseFloat(row.feed_price),
     diamondPrice: row.diamond_price ? parseFloat(row.diamond_price) : undefined,
     pricePerCarat: parseFloat(row.price_per_carat),
