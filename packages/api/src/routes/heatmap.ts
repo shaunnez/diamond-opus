@@ -275,7 +275,7 @@ router.post(
         has_v360: true,
         availability: ['AVAILABLE'],
         excludeFairPoorCuts: true,
-        hideMemo: true
+        hide_memo: true
       };
 
 
@@ -387,7 +387,7 @@ router.post(
         has_v360: true,
         availability: ['AVAILABLE'],
         excludeFairPoorCuts: true,
-        hideMemo: true
+        hide_memo: true
       };
 
       // Use larger steps for preview (faster, fewer API calls)
