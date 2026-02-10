@@ -34,6 +34,7 @@ export class DemoFeedAdapter implements FeedAdapter {
     initialStep: 200,
     maxWorkers: 100,
     minRecordsPerWorker: 500,
+    priceGranularity: 0.01, // Demo feed uses decimal prices
   };
 
   private baseUrl: string;

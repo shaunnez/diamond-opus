@@ -127,7 +127,7 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
       partitionId: worker.partitionId,
       minPrice: workItem.minPrice,
       maxPrice: workItem.maxPrice,
-      totalRecords: workItem.totalRecords,
+      estimatedRecords: workItem.estimatedRecords,
       resumeOffset: workItem.offset,
     });
 

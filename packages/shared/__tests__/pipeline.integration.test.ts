@@ -82,9 +82,7 @@ describe('Pipeline Message Flow', () => {
       expect(message.partitionId).toBeDefined();
       expect(typeof message.minPrice).toBe('number');
       expect(typeof message.maxPrice).toBe('number');
-      expect(typeof message.totalRecords).toBe('number');
-      expect(typeof message.offsetStart).toBe('number');
-      expect(typeof message.offsetEnd).toBe('number');
+      expect(typeof message.estimatedRecords).toBe('number');
     });
 
     it('should allow optional updatedFrom/updatedTo for incremental runs', () => {

@@ -68,6 +68,7 @@ export interface Diamond {
   labGrown: boolean;
   treated: boolean;
   feedPrice: number;
+  diamondPrice?: number;
   pricePerCarat: number;
   priceModelPrice?: number;
   markupRatio?: number;
