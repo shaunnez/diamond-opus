@@ -44,11 +44,9 @@ export const DIAMONDS_BY_QUERY = gql`
           markup_discount
           diamond {
             id
-            # todo: remove these
             availability
             HoldId
             NivodaStockId
-            # todo: end remove these
             supplierStockId
             image
             video
@@ -67,7 +65,6 @@ export const DIAMONDS_BY_QUERY = gql`
             show_certificate_number
             return_window
             CertificateType
-            # todo mapping here
             scs_certificate
             country_of_polishing
             other
@@ -76,7 +73,6 @@ export const DIAMONDS_BY_QUERY = gql`
               id
               url
             }
-            # todo end mapping here
             delivery_time {
               express_timeline_applicable
               min_business_days
@@ -113,7 +109,6 @@ export const DIAMONDS_BY_QUERY = gql`
               cut_style
               keyToSymbols
               comments
-              # todo mapping here
               f_color
               f_intensity
               f_overtone
@@ -152,7 +147,6 @@ export const DIAMONDS_BY_QUERY = gql`
                 loupe360_url
                 type
               }
-              # todo end mapping here
             }
             supplier {
               id

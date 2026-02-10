@@ -350,6 +350,9 @@ export function Nivoda() {
                             {item.diamond.certificate.cut && (
                               <Badge variant="neutral">{item.diamond.certificate.cut}</Badge>
                             )}
+                            {item.diamond.certificate.f_color && (
+                              <Badge variant="warning">{item.diamond.certificate.f_intensity ? `${item.diamond.certificate.f_intensity} ` : ''}{item.diamond.certificate.f_color}</Badge>
+                            )}
                             {item.diamond.certificate.lab_grown && (
                               <Badge variant="info">Lab Grown</Badge>
                             )}

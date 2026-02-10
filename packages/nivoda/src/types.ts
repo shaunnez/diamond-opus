@@ -43,6 +43,11 @@ export interface NivodaCertificate {
   f_color?: string;
   f_intensity?: string;
   f_overtone?: string;
+  colorShade?: string;
+  mix_tinge?: string;
+  starLength?: number;
+  lowerGirdle?: number;
+  country_of_origin?: string;
 }
 
 export interface NivodaSupplier {
@@ -145,6 +150,8 @@ export interface NivodaQuery {
   hide_memo?: boolean;
   /** Filter by diamond update timestamp. Use ISO 8601 date strings. */
   updated?: NivodaDateRange;
+  /** Filter by luster grade. Nivoda query-only parameter (not returned in response). */
+  luster?: number[];
 }
 
 export interface NivodaHoldResponse {

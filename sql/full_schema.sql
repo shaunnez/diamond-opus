@@ -109,6 +109,12 @@ CREATE TABLE IF NOT EXISTS "public"."diamonds" (
     "price_model_price" numeric(12,2) NOT NULL,
     "price_per_carat" numeric(12,2) NOT NULL,
     "feed_price" numeric(12,2) NOT NULL,
+    "diamond_price" numeric(12,2),
+    "fancy_color" "text",
+    "fancy_intensity" "text",
+    "fancy_overtone" "text",
+    "fluorescence_intensity" "text",
+    "ratio" numeric(5,3),
     CONSTRAINT "diamonds_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 10)))
 );
 
@@ -516,6 +522,16 @@ CREATE INDEX "idx_diamonds_price" ON "public"."diamonds" USING "btree" ("feed_pr
 
 
 CREATE INDEX "idx_diamonds_search" ON "public"."diamonds" USING "btree" ("shape", "carats", "color", "clarity") WHERE ("status" = 'active'::"text");
+
+CREATE INDEX "idx_diamonds_fancy_color" ON "public"."diamonds" USING "btree" ("fancy_color") WHERE ("status" = 'active'::"text" AND "fancy_color" IS NOT NULL);
+CREATE INDEX "idx_diamonds_fancy_intensity" ON "public"."diamonds" USING "btree" ("fancy_intensity") WHERE ("status" = 'active'::"text" AND "fancy_intensity" IS NOT NULL);
+CREATE INDEX "idx_diamonds_fluorescence_intensity" ON "public"."diamonds" USING "btree" ("fluorescence_intensity") WHERE ("status" = 'active'::"text");
+CREATE INDEX "idx_diamonds_ratio" ON "public"."diamonds" USING "btree" ("ratio") WHERE ("status" = 'active'::"text" AND "ratio" IS NOT NULL);
+CREATE INDEX "idx_diamonds_polish" ON "public"."diamonds" USING "btree" ("polish") WHERE ("status" = 'active'::"text");
+CREATE INDEX "idx_diamonds_symmetry" ON "public"."diamonds" USING "btree" ("symmetry") WHERE ("status" = 'active'::"text");
+CREATE INDEX "idx_diamonds_certificate_lab" ON "public"."diamonds" USING "btree" ("certificate_lab") WHERE ("status" = 'active'::"text");
+CREATE INDEX "idx_diamonds_measurements_gin" ON "public"."diamonds" USING GIN ("measurements" "jsonb_path_ops") WHERE ("status" = 'active'::"text");
+CREATE INDEX "idx_diamonds_attributes_gin" ON "public"."diamonds" USING GIN ("attributes" "jsonb_path_ops") WHERE ("status" = 'active'::"text");
 
 
 

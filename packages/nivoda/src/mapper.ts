@@ -82,6 +82,14 @@ function mapMeasurements(
     measurements.culetCondition = certificate.culet_condition;
     hasValue = true;
   }
+  if (certificate.starLength !== undefined) {
+    measurements.starLength = certificate.starLength;
+    hasValue = true;
+  }
+  if (certificate.lowerGirdle !== undefined) {
+    measurements.lowerGirdle = certificate.lowerGirdle;
+    hasValue = true;
+  }
 
   return hasValue ? measurements : undefined;
 }
@@ -136,6 +144,18 @@ function mapAttributes(
     attributes.comments = diamond.certificate.comments;
     hasValue = true;
   }
+  if (diamond.certificate.country_of_origin !== undefined) {
+    attributes.countryOfOrigin = diamond.certificate.country_of_origin;
+    hasValue = true;
+  }
+  if (diamond.certificate.colorShade !== undefined) {
+    attributes.colorShade = diamond.certificate.colorShade;
+    hasValue = true;
+  }
+  if (diamond.certificate.mix_tinge !== undefined) {
+    attributes.mixTinge = diamond.certificate.mix_tinge;
+    hasValue = true;
+  }
 
   return hasValue ? attributes : undefined;
 }
@@ -151,6 +171,29 @@ function mapFancyColor(certificate: NivodaItem["diamond"]["certificate"]): strin
   if (certificate.f_color) parts.push(certificate.f_color);
   if (certificate.f_overtone) parts.push(certificate.f_overtone);
   return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
+function parseFluorescenceIntensity(floInt?: string): string | undefined {
+  if (!floInt) return undefined;
+  const normalized = floInt.toUpperCase().replace(/[\s-]+/g, '_');
+  const mapping: Record<string, string> = {
+    NONE: 'NONE',
+    NON: 'NONE',
+    FAINT: 'FAINT',
+    FNT: 'FAINT',
+    MEDIUM: 'MEDIUM',
+    MED: 'MEDIUM',
+    STRONG: 'STRONG',
+    STG: 'STRONG',
+    VERY_STRONG: 'VERY_STRONG',
+    VST: 'VERY_STRONG',
+  };
+  return mapping[normalized] ?? normalized;
+}
+
+function computeRatio(length?: number, width?: number): number | undefined {
+  if (!length || !width || width === 0) return undefined;
+  return Math.round((length / width) * 1000) / 1000;
 }
 
 export function mapNivodaItemToDiamond(
@@ -184,6 +227,11 @@ export function mapNivodaItemToDiamond(
     polish: certificate.polish ?? undefined,
     symmetry: certificate.symmetry ?? undefined,
     fluorescence: mapFluorescence(certificate.floInt, certificate.floCol),
+    fluorescenceIntensity: parseFluorescenceIntensity(certificate.floInt),
+    fancyColor: certificate.f_color ?? undefined,
+    fancyIntensity: certificate.f_intensity ?? undefined,
+    fancyOvertone: certificate.f_overtone ?? undefined,
+    ratio: computeRatio(certificate.length, certificate.width),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
     fancyColor: mapFancyColor(certificate),
