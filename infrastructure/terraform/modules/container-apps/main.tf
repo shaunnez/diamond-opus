@@ -106,7 +106,7 @@ resource "azurerm_container_app" "api" {
       }
 
       dynamic "env" {
-        for_each = var.internal_service_token != "" ? [1] : []
+        for_each = var.internal_service_token != "" ? ["enabled"] : []
         content {
           name        = "INTERNAL_SERVICE_TOKEN"
           secret_name = "internal-service-token"
@@ -332,7 +332,7 @@ resource "azurerm_container_app" "worker" {
 
       # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
       dynamic "env" {
-        for_each = var.nivoda_proxy_base_url != "" ? [1] : []
+        for_each = var.nivoda_proxy_base_url != "" ? ["enabled"] : []
         content {
           name  = "NIVODA_PROXY_BASE_URL"
           value = var.nivoda_proxy_base_url
@@ -340,7 +340,7 @@ resource "azurerm_container_app" "worker" {
       }
 
       dynamic "env" {
-        for_each = var.internal_service_token != "" ? [1] : []
+        for_each = var.internal_service_token != "" ? ["enabled"] : []
         content {
           name        = "INTERNAL_SERVICE_TOKEN"
           secret_name = "internal-service-token"
@@ -700,7 +700,7 @@ resource "azurerm_container_app_job" "scheduler" {
 
       # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
       dynamic "env" {
-        for_each = var.nivoda_proxy_base_url != "" ? [1] : []
+        for_each = var.nivoda_proxy_base_url != "" ? ["enabled"] : []
         content {
           name  = "NIVODA_PROXY_BASE_URL"
           value = var.nivoda_proxy_base_url
@@ -708,7 +708,7 @@ resource "azurerm_container_app_job" "scheduler" {
       }
 
       dynamic "env" {
-        for_each = var.internal_service_token != "" ? [1] : []
+        for_each = var.internal_service_token != "" ? ["enabled"] : []
         content {
           name        = "INTERNAL_SERVICE_TOKEN"
           secret_name = "internal-service-token"
