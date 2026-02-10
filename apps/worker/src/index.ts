@@ -104,6 +104,16 @@ async function processWorkItemPage(
     return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
+if (workItem.offset >= workItem.offsetEnd) {
+  log.info("Offset reached offsetEnd, marking partition as completed", {
+    offset: workItem.offset,
+    offsetEnd: workItem.offsetEnd,
+  });
+
+  await completePartition(workItem.runId, workItem.partitionId, workItem.offset);
+  return { recordsProcessed: 0, hasMore: false, skipped: false };
+}
+
   // Build query using generic FeedQuery
   const query: FeedQuery = {
     priceRange: { from: workItem.minPrice, to: workItem.maxPrice },
@@ -170,7 +180,9 @@ async function processWorkItemPage(
   const newOffset = workItem.offset + response.items.length;
 
   // Check if we have more pages
-  const hasMore = response.items.length === workItem.limit;
+  // const hasMore = response.items.length === workItem.limit;
+
+const hasMore = response.items.length === workItem.limit && newOffset < workItem.offsetEnd;
 
   if (hasMore) {
     const updated = await updatePartitionOffset(
