@@ -136,9 +136,9 @@ export interface NivodaQuery {
   shapes?: string[];
   labgrown?: boolean;
   has_image?: boolean;
-  has_video?: boolean;
+  has_v360?: boolean;
   availability?: string[];
-  excludeFairPorCuts?: boolean;
+  excludeFairPoorCuts?: boolean;
   hideMemo?: boolean;
   /** Filter by diamond update timestamp. Use ISO 8601 date strings. */
   updated?: NivodaDateRange;

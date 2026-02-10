@@ -354,7 +354,7 @@ router.post(
  *                 type: boolean
  *               has_image:
  *                 type: boolean
- *               has_video:
+ *               has_v360:
  *                 type: boolean
  *               offset:
  *                 type: integer
@@ -381,7 +381,7 @@ router.post(
         shapes,
         lab_grown,
         has_image,
-        has_video,
+        has_v360,
         offset = 0,
         limit = 20,
       } = req.body;
@@ -394,17 +394,17 @@ router.post(
         shapes?: string[];
         labgrown?: boolean;
         has_image?: boolean;
-        has_video?: boolean;
+        has_v360?: boolean;
         availability?: string[];
-        excludeFairPorCuts?: boolean;
+        excludeFairPoorCuts?: boolean;
         hideMemo?: boolean;
       } = {
         shapes: [...DIAMOND_SHAPES],
         sizes: { from: 0.4, to: 15.01 },
         has_image: true,
-        has_video: true,
+        has_v360: true,
         availability: ['AVAILABLE'],
-        excludeFairPorCuts: true,
+        excludeFairPoorCuts: true,
         hideMemo: true
       };
 
@@ -440,8 +440,8 @@ router.post(
         query.has_image = has_image;
       }
 
-      if (has_video !== undefined) {
-        query.has_video = has_video;
+      if (has_v360 !== undefined) {
+        query.has_v360 = has_v360;
       }
 
       const result = await adapter.searchDiamonds(query, {
@@ -547,17 +547,17 @@ router.post(
         shapes?: string[];
         labgrown?: boolean;
         has_image?: boolean;
-        has_video?: boolean;
+        has_v360?: boolean;
         availability?: string[];
-        excludeFairPorCuts?: boolean;
+        excludeFairPoorCuts?: boolean;
         hideMemo?: boolean;
       } = {
         shapes: [...DIAMOND_SHAPES],
         sizes: { from: 0.4, to: 15.01 },
         has_image: true,
-        has_video: true,
+        has_v360: true,
         availability: ['AVAILABLE'],
-        excludeFairPorCuts: true,
+        excludeFairPoorCuts: true,
         hideMemo: true
       };
 

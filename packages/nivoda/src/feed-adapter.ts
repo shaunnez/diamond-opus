@@ -33,12 +33,12 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
       ? { from: query.updatedRange.from, to: query.updatedRange.to }
       : undefined,
     has_image: true,
-    has_video: true,
+    has_v360: true,
     availability: ['AVAILABLE'],
-    excludeFairPorCuts: true,
+    excludeFairPoorCuts: true,
     hideMemo: true
   };
-  console.log('Converted FeedQuery to NivodaQuery:', nivodaQuery);
+  console.log('Converted FeedQuery to NivodaQuery:', JSON.stringify(nivodaQuery, null, 2));
   return nivodaQuery
 }
 

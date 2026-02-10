@@ -49,7 +49,7 @@ export interface NivodaSearchOptions {
   carat_min?: number;
   carat_max?: number;
   has_image?: boolean;
-  has_video?: boolean;
+  has_v360?: boolean;
   offset?: number;
   limit?: number;
 }
