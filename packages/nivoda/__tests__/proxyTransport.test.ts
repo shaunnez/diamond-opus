@@ -46,7 +46,7 @@ describe('ProxyGraphqlTransport', () => {
 
     const result = await transport.request('query { test }', { foo: 'bar' });
 
-    expect(result).toEqual(mockResponse);
+    expect(result).toEqual(mockResponse.data);
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api-test.example.com/api/v2/internal/nivoda/graphql',
       expect.objectContaining({
