@@ -77,7 +77,6 @@ export interface Diamond {
   ratio?: number;
   labGrown: boolean;
   treated: boolean;
-  fancyColor?: string;
   feedPrice: number;
   diamondPrice?: number;
   pricePerCarat: number;
