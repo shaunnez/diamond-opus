@@ -162,6 +162,28 @@ Nivoda Response:
 - All queries wrapped with `as(token: $token)` for authentication
 - Use `withRetry` utility for transient failure handling
 
+### Nivoda Proxy (Production)
+
+For production environments where Nivoda requires domain allowlisting:
+
+**Configuration:**
+- `NIVODA_PROXY_BASE_URL` - Set to the API base URL (e.g., `https://api.fourwords.co.nz`)
+- `INTERNAL_SERVICE_TOKEN` - Shared secret between workers/scheduler and the API proxy
+
+**How it works:**
+- When `NIVODA_PROXY_BASE_URL` is set, workers and scheduler route all Nivoda API calls through the internal API
+- The API acts as a proxy with a stable, allowlisted domain
+- Internal calls are authenticated via `x-internal-token` header (different from client API auth)
+
+**Performance impact:**
+- Adds ~50-100ms latency per Nivoda request (internal routing overhead)
+- API becomes a critical dependency for the ingestion pipeline
+
+**Troubleshooting:**
+- Check API logs for `nivoda_proxy_*` events
+- Trace IDs link worker requests to proxy calls
+- Token rotation requires simultaneous restart of all services to avoid 403 errors
+
 ### Nivoda Query Date Filtering
 
 All Nivoda queries (heatmap counts and worker searches) use `updatedAt` date range filters for data consistency:
@@ -215,6 +237,9 @@ Dual auth system (checked in order):
 - `packages/nivoda/src/mapper.ts` - Raw to canonical transformation
 - `packages/pricing-engine/src/engine.ts` - Pricing rule matching
 - `packages/api/src/middleware/auth.ts` - Authentication logic
+- `packages/api/src/middleware/nivodaProxyAuth.ts` - Internal proxy auth (constant-time token comparison)
+- `packages/api/src/routes/nivodaProxy.ts` - Nivoda proxy route (forwards GraphQL to Nivoda)
+- `packages/nivoda/src/proxyTransport.ts` - Proxy transport (used when NIVODA_PROXY_BASE_URL is set)
 - `packages/database/src/client.ts` - PostgreSQL connection pool
 
 ### Schema
@@ -334,6 +359,8 @@ Required variables (see `.env.example`):
 | `AZURE_RESOURCE_GROUP` | API: Resource group for scheduler job trigger |
 | `AZURE_SCHEDULER_JOB_NAME` | API: Container Apps Job name for scheduler |
 | `NIVODA_DISABLE_STAGING_FIELDS` | Set to `true` to exclude fields causing GraphQL enum errors on staging (clarity, floInt, floCol, labgrown_type) |
+| `NIVODA_PROXY_BASE_URL` | API base URL for proxy mode (e.g., `https://api.fourwords.co.nz`) |
+| `INTERNAL_SERVICE_TOKEN` | Shared secret for internal proxy authentication |
 
 ### Database Pooling (Supabase Pro Micro)
 

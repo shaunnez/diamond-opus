@@ -105,6 +105,14 @@ resource "azurerm_container_app" "api" {
         secret_name = "nivoda-password"
       }
 
+      dynamic "env" {
+        for_each = var.internal_service_token != "" ? [1] : []
+        content {
+          name        = "INTERNAL_SERVICE_TOKEN"
+          secret_name = "internal-service-token"
+        }
+      }
+
       # Environment variables for scheduler job trigger
       env {
         name  = "AZURE_SUBSCRIPTION_ID"
@@ -320,6 +328,23 @@ resource "azurerm_container_app" "worker" {
       env {
         name        = "NIVODA_PASSWORD"
         secret_name = "nivoda-password"
+      }
+
+      # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
+      dynamic "env" {
+        for_each = var.nivoda_proxy_base_url != "" ? [1] : []
+        content {
+          name  = "NIVODA_PROXY_BASE_URL"
+          value = var.nivoda_proxy_base_url
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.internal_service_token != "" ? [1] : []
+        content {
+          name        = "INTERNAL_SERVICE_TOKEN"
+          secret_name = "internal-service-token"
+        }
       }
 
       # Email alerts for run completion/failure notifications
@@ -671,6 +696,25 @@ resource "azurerm_container_app_job" "scheduler" {
         secret_name = "nivoda-password"
       }
 
+      
+
+      # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
+      dynamic "env" {
+        for_each = var.nivoda_proxy_base_url != "" ? [1] : []
+        content {
+          name  = "NIVODA_PROXY_BASE_URL"
+          value = var.nivoda_proxy_base_url
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.internal_service_token != "" ? [1] : []
+        content {
+          name        = "INTERNAL_SERVICE_TOKEN"
+          secret_name = "internal-service-token"
+        }
+      }
+      
       # Demo feed API URL for DemoFeedAdapter
       env {
         name  = "DEMO_FEED_API_URL"

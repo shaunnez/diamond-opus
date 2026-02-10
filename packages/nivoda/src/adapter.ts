@@ -9,6 +9,7 @@ import {
   randomDelay,
   WORKER_DESYNC_MIN_MS,
   WORKER_DESYNC_MAX_MS,
+  optionalEnv,
 } from '@diamond/shared';
 import {
   AUTHENTICATE_QUERY,
@@ -25,6 +26,7 @@ import type {
   NivodaOrderItemInput,
   NivodaOrder,
 } from './types.js';
+import { ProxyGraphqlTransport } from "./proxyTransport.js";
 
 interface AuthenticateResponse {
   authenticate: {
@@ -116,6 +118,11 @@ export class NivodaAdapter {
   // Track if we're currently authenticating to prevent concurrent auth calls
   private authPromise: Promise<string> | null = null;
 
+  // For testing/mocking purposes, allow overriding the transport layer (e.g. to use ProxyGraphqlTransport)
+  private transport: {
+    request<T>(query: string, variables: any): Promise<T>;
+  };
+
   constructor(
     endpoint?: string,
     username?: string,
@@ -155,6 +162,20 @@ export class NivodaAdapter {
 
     this.username = username ?? requireEnv('NIVODA_USERNAME');
     this.password = password ?? requireEnv('NIVODA_PASSWORD');
+
+    const proxyUrl = optionalEnv('NIVODA_PROXY_BASE_URL', '');
+    const internalToken = optionalEnv('INTERNAL_SERVICE_TOKEN', '');
+
+    if (proxyUrl) {
+      if (!internalToken) {
+        throw new Error(
+          'INTERNAL_SERVICE_TOKEN is required when NIVODA_PROXY_BASE_URL is set'
+        );
+      }
+      this.transport = new ProxyGraphqlTransport(proxyUrl, internalToken);
+    } else {
+      this.transport = this.client;
+    }
   }
 
   /**
@@ -194,7 +215,7 @@ export class NivodaAdapter {
     try {
       const response = await withAuthRetry(
         async () => {
-          return this.client.request<AuthenticateResponse>(
+          return this.transport.request<AuthenticateResponse>(
             AUTHENTICATE_QUERY,
             {
               username: this.username,
@@ -295,7 +316,7 @@ export class NivodaAdapter {
 
   async getDiamondsCount(query: NivodaQuery): Promise<number> {
     return this.executeWithTokenRefresh(async (token) => {
-      const response = await this.client.request<DiamondsCountResponse>(
+      const response = await this.transport.request<DiamondsCountResponse>(
         DIAMONDS_COUNT_QUERY,
         { token, query }
       );
@@ -314,7 +335,7 @@ export class NivodaAdapter {
     return this.executeWithTokenRefresh(async (token) => {
       const limit = Math.min(options.limit ?? NIVODA_MAX_LIMIT, NIVODA_MAX_LIMIT);
 
-      const response = await this.client.request<DiamondsQueryResponse>(
+      const response = await this.transport.request<DiamondsQueryResponse>(
         DIAMONDS_BY_QUERY,
         {
           token,
@@ -331,7 +352,7 @@ export class NivodaAdapter {
 
   async createHold(supplierStoneId: string): Promise<NivodaHoldResponse> {
     return this.executeWithTokenRefresh(async (token) => {
-      const response = await this.client.request<CreateHoldResponse>(
+      const response = await this.transport.request<CreateHoldResponse>(
         CREATE_HOLD_MUTATION,
         {
           token,
@@ -344,7 +365,7 @@ export class NivodaAdapter {
 
   async cancelHold(holdId: string): Promise<NivodaHoldResponse> {
     return this.executeWithTokenRefresh(async (token) => {
-      const response = await this.client.request<CancelHoldResponse>(
+      const response = await this.transport.request<CancelHoldResponse>(
         CANCEL_HOLD_MUTATION,
         {
           token,
@@ -359,7 +380,7 @@ export class NivodaAdapter {
     items: NivodaOrderItemInput[]
   ): Promise<string> {
     return this.executeWithTokenRefresh(async (token) => {
-      const response = await this.client.request<CreateOrderResponse>(
+      const response = await this.transport.request<CreateOrderResponse>(
         CREATE_ORDER_MUTATION,
         {
           token,

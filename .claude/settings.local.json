@@ -13,7 +13,8 @@
       "Bash(ls:*)",
       "Bash(npm ls:*)",
       "WebFetch(domain:api.frankfurter.dev)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

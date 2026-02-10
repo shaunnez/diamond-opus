@@ -240,6 +240,24 @@ variable "hmac_secrets" {
   }
 }
 
+
+# ============================================
+# NIVODA PROXY (OPTIONAL)
+# ============================================
+
+variable "nivoda_proxy_base_url" {
+  description = "Base URL for internal Nivoda proxy (e.g., https://api-test.fourwords.co.nz). When set, workers/scheduler can route Nivoda calls via the API to satisfy domain allowlisting."
+  type        = string
+  default     = ""
+}
+
+variable "internal_service_token" {
+  description = "Shared secret token required for internal service-to-service calls (x-internal-token). Only set in environments where internal proxy routes are enabled."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # ============================================
 # SCHEDULER CONFIGURATION
 # ============================================
