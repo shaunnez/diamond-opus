@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { requireEnv } from "@diamond/shared";
+import { optionalEnv } from "@diamond/shared";
 
 export function nivodaProxyAuth(
   req: Request,
@@ -7,7 +7,7 @@ export function nivodaProxyAuth(
   next: NextFunction,
 ) {
   const token = req.header("x-internal-token");
-  const expected = requireEnv('INTERNAL_SERVICE_TOKEN');
+  const expected = optionalEnv('INTERNAL_SERVICE_TOKEN', '');
 
   if (!expected) {
     res.status(500).json({

@@ -9,6 +9,7 @@ import {
   randomDelay,
   WORKER_DESYNC_MIN_MS,
   WORKER_DESYNC_MAX_MS,
+  optionalEnv,
 } from '@diamond/shared';
 import {
   AUTHENTICATE_QUERY,
@@ -163,8 +164,8 @@ export class NivodaAdapter {
     this.password = password ?? requireEnv('NIVODA_PASSWORD');
 
     // trigger build
-    const proxyUrl = requireEnv('NIVODA_PROXY_BASE_URL');
-    const internalToken = requireEnv('INTERNAL_SERVICE_TOKEN');
+    const proxyUrl = optionalEnv('NIVODA_PROXY_BASE_URL', '');
+    const internalToken = optionalEnv('INTERNAL_SERVICE_TOKEN', '');
     // If proxy URL is configured, use ProxyGraphqlTransport which forwards requests to the internal proxy endpoint
     if (proxyUrl) {
       this.transport = new ProxyGraphqlTransport(
