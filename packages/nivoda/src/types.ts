@@ -138,7 +138,7 @@ export interface NivodaQuery {
   has_image?: boolean;
   has_video?: boolean;
   availability?: string[];
-  excludeFairPorCuts?: boolean;
+  excludeFairPoorCuts?: boolean;
   hideMemo?: boolean;
   /** Filter by diamond update timestamp. Use ISO 8601 date strings. */
   updated?: NivodaDateRange;

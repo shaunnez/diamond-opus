@@ -396,7 +396,7 @@ router.post(
         has_image?: boolean;
         has_video?: boolean;
         availability?: string[];
-        excludeFairPorCuts?: boolean;
+        excludeFairPoorCuts?: boolean;
         hideMemo?: boolean;
       } = {
         shapes: [...DIAMOND_SHAPES],
@@ -404,7 +404,7 @@ router.post(
         has_image: true,
         has_video: true,
         availability: ['AVAILABLE'],
-        excludeFairPorCuts: true,
+        excludeFairPoorCuts: true,
         hideMemo: true
       };
 
@@ -549,7 +549,7 @@ router.post(
         has_image?: boolean;
         has_video?: boolean;
         availability?: string[];
-        excludeFairPorCuts?: boolean;
+        excludeFairPoorCuts?: boolean;
         hideMemo?: boolean;
       } = {
         shapes: [...DIAMOND_SHAPES],
@@ -557,7 +557,7 @@ router.post(
         has_image: true,
         has_video: true,
         availability: ['AVAILABLE'],
-        excludeFairPorCuts: true,
+        excludeFairPoorCuts: true,
         hideMemo: true
       };
 

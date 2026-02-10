@@ -35,10 +35,10 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
     has_image: true,
     has_video: true,
     availability: ['AVAILABLE'],
-    excludeFairPorCuts: true,
+    excludeFairPoorCuts: true,
     hideMemo: true
   };
-  console.log('Converted FeedQuery to NivodaQuery:', nivodaQuery);
+  console.log('Converted FeedQuery to NivodaQuery:', JSON.stringify(nivodaQuery, null, 2));
   return nivodaQuery
 }
 

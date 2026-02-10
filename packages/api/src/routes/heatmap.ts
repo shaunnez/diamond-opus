@@ -274,7 +274,7 @@ router.post(
         has_image: true,
         has_video: true,
         availability: ['AVAILABLE'],
-        excludeFairPorCuts: true,
+        excludeFairPoorCuts: true,
         hideMemo: true
       };
 
@@ -386,7 +386,7 @@ router.post(
         has_image: true,
         has_video: true,
         availability: ['AVAILABLE'],
-        excludeFairPorCuts: true,
+        excludeFairPoorCuts: true,
         hideMemo: true
       };
 
