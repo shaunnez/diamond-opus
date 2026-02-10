@@ -105,12 +105,9 @@ resource "azurerm_container_app" "api" {
         secret_name = "nivoda-password"
       }
 
-      dynamic "env" {
-        for_each = var.internal_service_token != "" ? toset(["enabled"]) : toset([])
-        content {
-          name        = "INTERNAL_SERVICE_TOKEN"
-          secret_name = "internal-service-token"
-        }
+      env {
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
       }
 
       # Environment variables for scheduler job trigger
@@ -245,6 +242,11 @@ resource "azurerm_container_app" "api" {
     value = var.nivoda_password
   }
 
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
+  }
+
   tags = var.tags
 }
 
@@ -331,20 +333,14 @@ resource "azurerm_container_app" "worker" {
       }
 
       # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
-      dynamic "env" {
-        for_each = var.nivoda_proxy_base_url != "" ? toset(["enabled"]) : toset([])
-        content {
-          name  = "NIVODA_PROXY_BASE_URL"
-          value = var.nivoda_proxy_base_url
-        }
+      env {
+        name  = "NIVODA_PROXY_BASE_URL"
+        value = var.nivoda_proxy_base_url
       }
 
-      dynamic "env" {
-        for_each = var.internal_service_token != "" ? toset(["enabled"]) : toset([])
-        content {
-          name        = "INTERNAL_SERVICE_TOKEN"
-          secret_name = "internal-service-token"
-        }
+      env {
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
       }
 
       # Email alerts for run completion/failure notifications
@@ -451,6 +447,11 @@ resource "azurerm_container_app" "worker" {
   secret {
     name  = "registry-password"
     value = var.container_registry_password
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
   }
 
   tags = var.tags
@@ -699,22 +700,16 @@ resource "azurerm_container_app_job" "scheduler" {
       
 
       # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
-      dynamic "env" {
-        for_each = var.nivoda_proxy_base_url != "" ? toset(["enabled"]) : toset([])
-        content {
-          name  = "NIVODA_PROXY_BASE_URL"
-          value = var.nivoda_proxy_base_url
-        }
+      env {
+        name  = "NIVODA_PROXY_BASE_URL"
+        value = var.nivoda_proxy_base_url
       }
 
-      dynamic "env" {
-        for_each = var.internal_service_token != "" ? toset(["enabled"]) : toset([])
-        content {
-          name        = "INTERNAL_SERVICE_TOKEN"
-          secret_name = "internal-service-token"
-        }
+      env {
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
       }
-      
+
       # Demo feed API URL for DemoFeedAdapter
       env {
         name  = "DEMO_FEED_API_URL"
@@ -798,6 +793,11 @@ resource "azurerm_container_app_job" "scheduler" {
   secret {
     name  = "registry-password"
     value = var.container_registry_password
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
   }
 
   tags = var.tags
