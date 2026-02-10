@@ -131,7 +131,6 @@ export const DIAMONDS_BY_QUERY = gql`
               clarity
               floInt
               floCol
-              flouresence
               labgrown_type
               labgrown
               image

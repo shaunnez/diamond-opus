@@ -31,20 +31,6 @@ import {
 } from '../components/ui';
 import { formatNumber } from '../utils/formatters';
 
-const DIAMOND_SHAPES = [
-  'ROUND',
-  'PRINCESS',
-  'CUSHION',
-  'OVAL',
-  'EMERALD',
-  'PEAR',
-  'MARQUISE',
-  'RADIANT',
-  'ASSCHER',
-  'HEART'
-];
-
-
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -63,13 +49,9 @@ export function Nivoda() {
     price_max: undefined,
     carat_min: undefined,
     carat_max: undefined,
-    shapes: [],
-    lab_grown: undefined,
     limit: 20,
     offset: 0,
   });
-  const [selectedShapes, setSelectedShapes] = useState<string[]>([]);
-  const [labGrown, setLabGrown] = useState<'any' | 'true' | 'false'>('any');
 
   // Action state
   const [selectedDiamond, setSelectedDiamond] = useState<NivodaSearchItem | null>(null);
@@ -80,24 +62,20 @@ export function Nivoda() {
 
   // Search query
   const searchQuery = useQuery({
-    queryKey: ['nivoda-search', searchOptions, selectedShapes, labGrown],
+    queryKey: ['nivoda-search', searchOptions],
     queryFn: () =>
       searchNivodaDiamonds({
-        ...searchOptions,
-        shapes: selectedShapes.length > 0 ? selectedShapes : undefined,
-        lab_grown: labGrown === 'any' ? undefined : labGrown === 'true',
+        ...searchOptions
       }),
     enabled: false, // Manual trigger
   });
 
   // Count query
   const countQuery = useQuery({
-    queryKey: ['nivoda-count', searchOptions, selectedShapes, labGrown],
+    queryKey: ['nivoda-count', searchOptions],
     queryFn: () =>
       getNivodaCount({
-        ...searchOptions,
-        shapes: selectedShapes.length > 0 ? selectedShapes : undefined,
-        lab_grown: labGrown === 'any' ? undefined : labGrown === 'true',
+        ...searchOptions
       }),
     enabled: false,
   });
@@ -175,11 +153,6 @@ export function Nivoda() {
     });
   };
 
-  const handleShapeToggle = (shape: string) => {
-    setSelectedShapes((prev) =>
-      prev.includes(shape) ? prev.filter((s) => s !== shape) : [...prev, shape]
-    );
-  };
 
   const handlePlaceHold = (item: NivodaSearchItem) => {
     setSelectedDiamond(item);
@@ -278,61 +251,6 @@ export function Nivoda() {
                 />
               </div>
 
-              {/* Shapes */}
-              <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">Shapes</label>
-                <div className="flex flex-wrap gap-2">
-                  {DIAMOND_SHAPES.map((shape) => (
-                    <button
-                      key={shape}
-                      type="button"
-                      onClick={() => handleShapeToggle(shape)}
-                      className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                        selectedShapes.includes(shape)
-                          ? 'bg-primary-100 border-primary-300 text-primary-700'
-                          : 'bg-white dark:bg-stone-700 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:border-primary-300'
-                      }`}
-                    >
-                      {shape}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lab Grown */}
-              <div className="flex items-center gap-6">
-                <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Diamond Type:</span>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="labGrown"
-                    checked={labGrown === 'any'}
-                    onChange={() => setLabGrown('any')}
-                    className="text-primary-600"
-                  />
-                  <span className="text-sm text-stone-600 dark:text-stone-400">All</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="labGrown"
-                    checked={labGrown === 'false'}
-                    onChange={() => setLabGrown('false')}
-                    className="text-primary-600"
-                  />
-                  <span className="text-sm text-stone-600 dark:text-stone-400">Natural</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="labGrown"
-                    checked={labGrown === 'true'}
-                    onChange={() => setLabGrown('true')}
-                    className="text-primary-600"
-                  />
-                  <span className="text-sm text-stone-600 dark:text-stone-400">Lab Grown</span>
-                </label>
-              </div>
 
               {/* Actions */}
               <div className="flex gap-3">

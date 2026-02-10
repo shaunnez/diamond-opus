@@ -48,8 +48,6 @@ export interface NivodaSearchOptions {
   price_max?: number;
   carat_min?: number;
   carat_max?: number;
-  shapes?: string[];
-  lab_grown?: boolean;
   has_image?: boolean;
   has_video?: boolean;
   offset?: number;
