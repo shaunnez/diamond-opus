@@ -21,7 +21,6 @@ interface DiamondRow {
   ratio: string | null;
   lab_grown: boolean;
   treated: boolean;
-  fancy_color: string | null;
   feed_price: string;
   diamond_price: string | null;
   price_per_carat: string;
