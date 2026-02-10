@@ -12,6 +12,9 @@ export interface NivodaCertificate {
   symmetry?: string;
   fluorescence?: string;
   lab_grown?: boolean;
+  f_color?: string;
+  f_intensity?: string;
+  f_overtone?: string;
 }
 
 export interface NivodaSupplier {
@@ -50,6 +53,7 @@ export interface NivodaSearchOptions {
   carat_max?: number;
   has_image?: boolean;
   has_v360?: boolean;
+  luster?: number[];
   offset?: number;
   limit?: number;
 }

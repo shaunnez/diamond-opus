@@ -36,6 +36,8 @@ export interface DiamondMeasurements {
   culetSize?: string;
   girdleCondition?: string;
   culetCondition?: string;
+  starLength?: number;
+  lowerGirdle?: number;
 }
 
 export interface DiamondAttributes {
@@ -50,6 +52,9 @@ export interface DiamondAttributes {
   cutStyle?: string;
   keyToSymbols?: string;
   comments?: string;
+  countryOfOrigin?: string;
+  colorShade?: string;
+  mixTinge?: string;
 }
 
 export interface Diamond {
@@ -65,6 +70,11 @@ export interface Diamond {
   polish?: string;
   symmetry?: string;
   fluorescence?: string;
+  fluorescenceIntensity?: string;
+  fancyColor?: string;
+  fancyIntensity?: string;
+  fancyOvertone?: string;
+  ratio?: number;
   labGrown: boolean;
   treated: boolean;
   feedPrice: number;
@@ -103,6 +113,30 @@ export interface DiamondSearchParams {
   labGrown?: boolean;
   priceMin?: number;
   priceMax?: number;
+  fancyColors?: string[];
+  fancyIntensities?: string[];
+  fluorescenceIntensities?: string[];
+  polishes?: string[];
+  symmetries?: string[];
+  ratioMin?: number;
+  ratioMax?: number;
+  tableMin?: number;
+  tableMax?: number;
+  depthPercentageMin?: number;
+  depthPercentageMax?: number;
+  crownAngleMin?: number;
+  crownAngleMax?: number;
+  pavAngleMin?: number;
+  pavAngleMax?: number;
+  labs?: string[];
+  eyeClean?: boolean;
+  noBgm?: boolean;
+  lengthMin?: number;
+  lengthMax?: number;
+  widthMin?: number;
+  widthMax?: number;
+  depthMeasurementMin?: number;
+  depthMeasurementMax?: number;
   page?: number;
   limit?: number;
   sortBy?: string;

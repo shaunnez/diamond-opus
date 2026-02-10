@@ -14,9 +14,15 @@ interface DiamondRow {
   polish: string | null;
   symmetry: string | null;
   fluorescence: string | null;
+  fluorescence_intensity: string | null;
+  fancy_color: string | null;
+  fancy_intensity: string | null;
+  fancy_overtone: string | null;
+  ratio: string | null;
   lab_grown: boolean;
   treated: boolean;
   feed_price: string;
+  diamond_price: string | null;
   price_per_carat: string;
   price_model_price: string | null;
   markup_ratio: string | null;
@@ -54,9 +60,15 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     polish: row.polish ?? undefined,
     symmetry: row.symmetry ?? undefined,
     fluorescence: row.fluorescence ?? undefined,
+    fluorescenceIntensity: row.fluorescence_intensity ?? undefined,
+    fancyColor: row.fancy_color ?? undefined,
+    fancyIntensity: row.fancy_intensity ?? undefined,
+    fancyOvertone: row.fancy_overtone ?? undefined,
+    ratio: row.ratio ? parseFloat(row.ratio) : undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
     feedPrice: parseFloat(row.feed_price),
+    diamondPrice: row.diamond_price ? parseFloat(row.diamond_price) : undefined,
     pricePerCarat: parseFloat(row.price_per_carat),
     priceModelPrice: row.price_model_price ? parseFloat(row.price_model_price) : undefined,
     markupRatio: row.markup_ratio ? parseFloat(row.markup_ratio) : undefined,
@@ -133,6 +145,129 @@ export async function searchDiamonds(
     values.push(params.priceMax);
   }
 
+  if (params.fancyColors && params.fancyColors.length > 0) {
+    conditions.push(`fancy_color = ANY($${paramIndex++})`);
+    values.push(params.fancyColors);
+  }
+
+  if (params.fancyIntensities && params.fancyIntensities.length > 0) {
+    conditions.push(`fancy_intensity = ANY($${paramIndex++})`);
+    values.push(params.fancyIntensities);
+  }
+
+  if (params.fluorescenceIntensities && params.fluorescenceIntensities.length > 0) {
+    conditions.push(`fluorescence_intensity = ANY($${paramIndex++})`);
+    values.push(params.fluorescenceIntensities);
+  }
+
+  if (params.polishes && params.polishes.length > 0) {
+    conditions.push(`polish = ANY($${paramIndex++})`);
+    values.push(params.polishes);
+  }
+
+  if (params.symmetries && params.symmetries.length > 0) {
+    conditions.push(`symmetry = ANY($${paramIndex++})`);
+    values.push(params.symmetries);
+  }
+
+  if (params.ratioMin !== undefined) {
+    conditions.push(`ratio >= $${paramIndex++}`);
+    values.push(params.ratioMin);
+  }
+
+  if (params.ratioMax !== undefined) {
+    conditions.push(`ratio <= $${paramIndex++}`);
+    values.push(params.ratioMax);
+  }
+
+  if (params.labs && params.labs.length > 0) {
+    conditions.push(`certificate_lab = ANY($${paramIndex++})`);
+    values.push(params.labs);
+  }
+
+  if (params.tableMin !== undefined) {
+    conditions.push(`(measurements->>'table')::numeric >= $${paramIndex++}`);
+    values.push(params.tableMin);
+  }
+
+  if (params.tableMax !== undefined) {
+    conditions.push(`(measurements->>'table')::numeric <= $${paramIndex++}`);
+    values.push(params.tableMax);
+  }
+
+  if (params.depthPercentageMin !== undefined) {
+    conditions.push(`(measurements->>'depthPercentage')::numeric >= $${paramIndex++}`);
+    values.push(params.depthPercentageMin);
+  }
+
+  if (params.depthPercentageMax !== undefined) {
+    conditions.push(`(measurements->>'depthPercentage')::numeric <= $${paramIndex++}`);
+    values.push(params.depthPercentageMax);
+  }
+
+  if (params.crownAngleMin !== undefined) {
+    conditions.push(`(measurements->>'crownAngle')::numeric >= $${paramIndex++}`);
+    values.push(params.crownAngleMin);
+  }
+
+  if (params.crownAngleMax !== undefined) {
+    conditions.push(`(measurements->>'crownAngle')::numeric <= $${paramIndex++}`);
+    values.push(params.crownAngleMax);
+  }
+
+  if (params.pavAngleMin !== undefined) {
+    conditions.push(`(measurements->>'pavAngle')::numeric >= $${paramIndex++}`);
+    values.push(params.pavAngleMin);
+  }
+
+  if (params.pavAngleMax !== undefined) {
+    conditions.push(`(measurements->>'pavAngle')::numeric <= $${paramIndex++}`);
+    values.push(params.pavAngleMax);
+  }
+
+  if (params.lengthMin !== undefined) {
+    conditions.push(`(measurements->>'length')::numeric >= $${paramIndex++}`);
+    values.push(params.lengthMin);
+  }
+
+  if (params.lengthMax !== undefined) {
+    conditions.push(`(measurements->>'length')::numeric <= $${paramIndex++}`);
+    values.push(params.lengthMax);
+  }
+
+  if (params.widthMin !== undefined) {
+    conditions.push(`(measurements->>'width')::numeric >= $${paramIndex++}`);
+    values.push(params.widthMin);
+  }
+
+  if (params.widthMax !== undefined) {
+    conditions.push(`(measurements->>'width')::numeric <= $${paramIndex++}`);
+    values.push(params.widthMax);
+  }
+
+  if (params.depthMeasurementMin !== undefined) {
+    conditions.push(`(measurements->>'depth')::numeric >= $${paramIndex++}`);
+    values.push(params.depthMeasurementMin);
+  }
+
+  if (params.depthMeasurementMax !== undefined) {
+    conditions.push(`(measurements->>'depth')::numeric <= $${paramIndex++}`);
+    values.push(params.depthMeasurementMax);
+  }
+
+  if (params.eyeClean !== undefined) {
+    conditions.push(`(attributes->>'eyeClean')::boolean = $${paramIndex++}`);
+    values.push(params.eyeClean);
+  }
+
+  if (params.noBgm === true) {
+    conditions.push(`(
+      (attributes->>'brown' IS NULL OR UPPER(attributes->>'brown') IN ('NONE', 'N/A', ''))
+      AND (attributes->>'green' IS NULL OR UPPER(attributes->>'green') IN ('NONE', 'N/A', ''))
+      AND (attributes->>'milky' IS NULL OR UPPER(attributes->>'milky') IN ('NONE', 'N/A', ''))
+    )`);
+  }
+
   const whereClause = conditions.join(' AND ');
   const page = params.page ?? 1;
   const limit = Math.min(params.limit ?? 50, 100);
@@ -140,7 +275,7 @@ export async function searchDiamonds(
 
   const sortBy = params.sortBy ?? 'created_at';
   const sortOrder = params.sortOrder ?? 'desc';
-  const allowedSortColumns = ['created_at', 'feed_price', 'carats', 'color', 'clarity'];
+  const allowedSortColumns = ['created_at', 'feed_price', 'carats', 'color', 'clarity', 'ratio', 'fancy_color', 'fluorescence_intensity', 'certificate_lab'];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
@@ -195,15 +330,19 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
   const result = await query<DiamondRow>(
     `INSERT INTO diamonds (
       feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
-      cut, polish, symmetry, fluorescence, lab_grown, treated,
-      feed_price, price_per_carat, price_model_price,
+      cut, polish, symmetry, fluorescence, fluorescence_intensity,
+      fancy_color, fancy_intensity, fancy_overtone, ratio,
+      lab_grown, treated,
+      feed_price, diamond_price, price_per_carat, price_model_price,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
       measurements, attributes, supplier_name, supplier_legal_name,
       status, source_updated_at
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-      $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+      $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+      $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+      $33, $34, $35, $36, $37, $38
     )
     ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
       offer_id = EXCLUDED.offer_id,
@@ -215,9 +354,15 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       polish = EXCLUDED.polish,
       symmetry = EXCLUDED.symmetry,
       fluorescence = EXCLUDED.fluorescence,
+      fluorescence_intensity = EXCLUDED.fluorescence_intensity,
+      fancy_color = EXCLUDED.fancy_color,
+      fancy_intensity = EXCLUDED.fancy_intensity,
+      fancy_overtone = EXCLUDED.fancy_overtone,
+      ratio = EXCLUDED.ratio,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
       feed_price = EXCLUDED.feed_price,
+      diamond_price = EXCLUDED.diamond_price,
       price_per_carat = EXCLUDED.price_per_carat,
       price_model_price = EXCLUDED.price_model_price,
       markup_ratio = EXCLUDED.markup_ratio,
@@ -250,9 +395,15 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.polish,
       diamond.symmetry,
       diamond.fluorescence,
+      diamond.fluorescenceIntensity,
+      diamond.fancyColor,
+      diamond.fancyIntensity,
+      diamond.fancyOvertone,
+      diamond.ratio,
       diamond.labGrown,
       diamond.treated,
       diamond.feedPrice,
+      diamond.diamondPrice,
       diamond.pricePerCarat,
       diamond.priceModelPrice,
       diamond.markupRatio,
@@ -294,9 +445,15 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const polishes: (string | null)[] = [];
   const symmetries: (string | null)[] = [];
   const fluorescences: (string | null)[] = [];
+  const fluorescenceIntensities: (string | null)[] = [];
+  const fancyColors: (string | null)[] = [];
+  const fancyIntensities: (string | null)[] = [];
+  const fancyOvertones: (string | null)[] = [];
+  const ratios: (number | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
   const feedPrice: number[] = [];
+  const diamondPrices: (number | null)[] = [];
   const pricePerCarat: number[] = [];
   const priceModelPrice: (number | null)[] = [];
   const markupRatios: (number | null)[] = [];
@@ -328,9 +485,15 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     polishes.push(d.polish ?? null);
     symmetries.push(d.symmetry ?? null);
     fluorescences.push(d.fluorescence ?? null);
+    fluorescenceIntensities.push(d.fluorescenceIntensity ?? null);
+    fancyColors.push(d.fancyColor ?? null);
+    fancyIntensities.push(d.fancyIntensity ?? null);
+    fancyOvertones.push(d.fancyOvertone ?? null);
+    ratios.push(d.ratio ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
     feedPrice.push(d.feedPrice);
+    diamondPrices.push(d.diamondPrice ?? null);
     pricePerCarat.push(d.pricePerCarat);
     priceModelPrice.push(d.priceModelPrice ?? null);
     markupRatios.push(d.markupRatio ?? null);
@@ -356,8 +519,10 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     `WITH upserted AS (
       INSERT INTO diamonds (
         feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
-        cut, polish, symmetry, fluorescence, lab_grown, treated,
-        feed_price, price_per_carat, price_model_price,
+        cut, polish, symmetry, fluorescence, fluorescence_intensity,
+        fancy_color, fancy_intensity, fancy_overtone, ratio,
+        lab_grown, treated,
+        feed_price, diamond_price, price_per_carat, price_model_price,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
         measurements, attributes, supplier_name, supplier_legal_name,
@@ -366,11 +531,12 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       SELECT * FROM UNNEST(
         $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[],
         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
-        $11::text[], $12::boolean[], $13::boolean[], $14::numeric[], $15::numeric[],
-        $16::numeric[], $17::numeric[], $18::integer[], $19::text[], $20::text[],
-        $21::text[], $22::text[], $23::text[], $24::text[], $25::text[],
-        $26::text[], $27::jsonb[], $28::jsonb[], $29::text[], $30::text[],
-        $31::text[], $32::timestamptz[]
+        $11::text[], $12::text[], $13::text[], $14::text[], $15::text[],
+        $16::numeric[], $17::boolean[], $18::boolean[], $19::numeric[], $20::numeric[],
+        $21::numeric[], $22::numeric[], $23::numeric[], $24::integer[], $25::text[],
+        $26::text[], $27::text[], $28::text[], $29::text[], $30::text[],
+        $31::text[], $32::text[], $33::jsonb[], $34::jsonb[], $35::text[],
+        $36::text[], $37::text[], $38::timestamptz[]
       )
       ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
@@ -382,9 +548,15 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         polish = EXCLUDED.polish,
         symmetry = EXCLUDED.symmetry,
         fluorescence = EXCLUDED.fluorescence,
+        fluorescence_intensity = EXCLUDED.fluorescence_intensity,
+        fancy_color = EXCLUDED.fancy_color,
+        fancy_intensity = EXCLUDED.fancy_intensity,
+        fancy_overtone = EXCLUDED.fancy_overtone,
+        ratio = EXCLUDED.ratio,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
         feed_price = EXCLUDED.feed_price,
+        diamond_price = EXCLUDED.diamond_price,
         price_per_carat = EXCLUDED.price_per_carat,
         price_model_price = EXCLUDED.price_model_price,
         markup_ratio = EXCLUDED.markup_ratio,
@@ -413,11 +585,12 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     [
       feeds, supplierStoneIds, offerIds, shapes, carats,
       colors, clarities, cuts, polishes, symmetries,
-      fluorescences, labGrowns, treateds, feedPrice, pricePerCarat,
-      priceModelPrice, markupRatios, ratings, availabilities, rawAvailabilities,
-      holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
-      certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,
-      statuses, sourceUpdatedAts,
+      fluorescences, fluorescenceIntensities, fancyColors, fancyIntensities, fancyOvertones,
+      ratios, labGrowns, treateds, feedPrice, diamondPrices,
+      pricePerCarat, priceModelPrice, markupRatios, ratings, availabilities,
+      rawAvailabilities, holdIds, imageUrls, videoUrls, certificateLabs,
+      certificateNumbers, certificatePdfUrls, measurements, attributes, supplierNames,
+      supplierLegalNames, statuses, sourceUpdatedAts,
     ]
   );
 
