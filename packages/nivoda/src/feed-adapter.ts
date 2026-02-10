@@ -21,7 +21,7 @@ import type { NivodaQuery, NivodaItem } from './types.js';
  * Converts a generic FeedQuery into a Nivoda-specific query.
  */
 function toNivodaQuery(query: FeedQuery): NivodaQuery {
-  return {
+  const nivodaQuery = {
     shapes: query.shapes ? [...query.shapes] : [...DIAMOND_SHAPES],
     sizes: query.sizeRange
       ? { from: query.sizeRange.from, to: query.sizeRange.to }
@@ -32,7 +32,14 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
     updated: query.updatedRange
       ? { from: query.updatedRange.from, to: query.updatedRange.to }
       : undefined,
+    has_image: true,
+    has_video: true,
+    availability: ['AVAILABLE'],
+    excludeFairPorCuts: true,
+    hideMemo: true
   };
+  console.log('Converted FeedQuery to NivodaQuery:', nivodaQuery);
+  return nivodaQuery
 }
 
 /**
