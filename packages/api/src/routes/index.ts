@@ -7,6 +7,7 @@ import heatmapRouter from './heatmap.js';
 import pricingRulesRouter from './pricing-rules.js';
 import nivodaRouter from './nivoda.js';
 import nivodaProxyRouter from './nivodaProxy.js';
+import systemRouter from './system.js';
 import { authMiddleware } from '../middleware/index.js';
 
 const router = Router();
@@ -23,5 +24,6 @@ router.use('/api/v2/triggers', authMiddleware, triggersRouter);
 router.use('/api/v2/heatmap', authMiddleware, heatmapRouter);
 router.use('/api/v2/pricing-rules', authMiddleware, pricingRulesRouter);
 router.use('/api/v2/nivoda', authMiddleware, nivodaRouter);
+router.use('/api/v2/system', authMiddleware, systemRouter);
 
 export default router;
