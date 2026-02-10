@@ -124,7 +124,7 @@ export function RunDetails() {
     const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
     return sum + (estimate || 0);
   }, 0);
-  const isRunFinished = run.status === 'completed' || run.status === 'failed' || run.status === 'partial';
+  const isRunFinished = run.status === 'completed' || run.status === 'failed' ; //|| run.status === 'partial';
 
   // Calculate live duration for running jobs
   const displayDuration = run.status === 'running'
