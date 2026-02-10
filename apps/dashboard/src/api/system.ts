@@ -1,5 +1,14 @@
 import { api } from './client';
-import type { SystemConfig } from '@diamond/shared';
+
+export interface NivodaConfig {
+  endpoint: string;
+  proxyEnabled: boolean;
+  proxyUrl?: string;
+}
+
+export interface SystemConfig {
+  nivoda: NivodaConfig;
+}
 
 /**
  * Fetch system configuration including Nivoda API endpoint and proxy settings
