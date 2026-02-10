@@ -135,6 +135,24 @@ variable "nivoda_password" {
   default     = "staging-nivoda-22"
 }
 
+
+# ============================================
+# NIVODA PROXY (PRODUCTION ONLY)
+# ============================================
+
+variable "nivoda_proxy_base_url" {
+  description = "Base URL for internal Nivoda proxy (e.g., https://api.fourwords.co.nz). When set, workers/scheduler route Nivoda calls via the API to satisfy domain allowlisting."
+  type        = string
+  default     = ""
+}
+
+variable "internal_service_token" {
+  description = "Shared secret token for internal service-to-service calls (x-internal-token)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 ## Alerting (Resend)
 variable "resend_api_key" {
   description = "Resend API key for alerts"

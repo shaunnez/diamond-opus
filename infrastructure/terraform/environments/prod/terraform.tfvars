@@ -53,3 +53,9 @@ nivoda_endpoint = "https://integrations.nivoda.net/api/diamonds"
 # resend_api_key   = "re_xxxxxxxxxx"               # Set via TF_VAR_resend_api_key or .local file
 # alert_email_to   = "alerts@yourdomain.com"
 # alert_email_from = "noreply@yourdomain.com"
+
+
+# Nivoda proxy (recommended for domain allowlisting)
+# Set these ONLY in production where Nivoda requires a whitelisted domain.
+# nivoda_proxy_base_url  = "https://api.fourwords.co.nz"           # Set via TF_VAR_nivoda_proxy_base_url or .local file
+# internal_service_token = "super-secret-shared-token"            # Set via TF_VAR_internal_service_token or .local file
