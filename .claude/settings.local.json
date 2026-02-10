@@ -11,7 +11,9 @@
       "Bash(npx tsc:*)",
       "Bash(node_modules/.bin/tsc:*)",
       "Bash(ls:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "WebFetch(domain:api.frankfurter.dev)",
+      "Bash(curl:*)"
     ]
   }
 }

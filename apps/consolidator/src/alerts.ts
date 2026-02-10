@@ -99,8 +99,8 @@ export async function sendAlert(subject: string, body: string): Promise<void> {
     return;
   }
 
-  const from = optionalEnv('ALERT_EMAIL_FROM', 'noreply@diamond-platform.com');
-  const to = optionalEnv('ALERT_EMAIL_TO', '');
+  const from = optionalEnv('ALERT_EMAIL_FROM', 'onboarding@resend.dev');
+  const to = optionalEnv('ALERT_EMAIL_TO', 'uksn@me.com');
 
   if (!to) {
     console.warn('ALERT_EMAIL_TO not configured, skipping alert email');

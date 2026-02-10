@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
+import type { Diamond } from '@diamond/shared';
 import {
   searchDiamonds,
   getDiamondById,
@@ -19,12 +20,24 @@ import {
   type DiamondIdParams,
   type PurchaseRequestBody,
 } from '../validators/index.js';
+import { getNzdRate } from '../services/currency.js';
 
 const router = Router();
 
 function toArray(value: string | string[] | undefined): string[] | undefined {
   if (!value) return undefined;
   return Array.isArray(value) ? value : [value];
+}
+
+function enrichWithNzd(diamond: Diamond): Diamond {
+  const rate = getNzdRate();
+  if (rate !== null) {
+    return {
+      ...diamond,
+      priceNzd: Math.round(diamond.feedPrice * rate * 100) / 100,
+    };
+  }
+  return diamond;
 }
 
 /**
@@ -130,7 +143,10 @@ router.get(
         sortOrder: query.sort_order,
       });
 
-      res.json(result);
+      res.json({
+        ...result,
+        data: result.data.map(enrichWithNzd),
+      });
     } catch (error) {
       next(error);
     }
@@ -172,7 +188,7 @@ router.get(
         throw notFound('Diamond not found');
       }
 
-      res.json({ data: diamond });
+      res.json({ data: enrichWithNzd(diamond) });
     } catch (error) {
       next(error);
     }

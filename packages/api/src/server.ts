@@ -5,6 +5,7 @@ import { optionalEnv, createLogger, generateTraceId } from "@diamond/shared";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middleware/index.js";
 import { spec } from "./swagger/generator.js";
+import { initCurrencyService } from "./services/currency.js";
 
 const logger = createLogger({ service: "api" });
 
@@ -69,9 +70,11 @@ export function createApp(): express.Application {
   return app;
 }
 
-export function startServer(): void {
+export async function startServer(): Promise<void> {
   const app = createApp();
   const port = parseInt(optionalEnv("PORT", "3000"), 10);
+
+  await initCurrencyService();
 
   app.listen(port, "0.0.0.0", () => {
     logger.info("Server started", { port });

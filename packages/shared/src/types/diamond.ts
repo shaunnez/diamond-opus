@@ -71,6 +71,7 @@ export interface Diamond {
   diamondPrice?: number;
   pricePerCarat: number;
   priceModelPrice?: number;
+  priceNzd?: number;
   markupRatio?: number;
   rating?: number;
   availability: DiamondAvailability;

@@ -121,3 +121,7 @@ export const FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z';
  * are missed due to timing issues at the boundary.
  */
 export const INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES = 15;
+
+// Currency conversion
+export const FRANKFURTER_API_URL = 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=NZD';
+export const CURRENCY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours

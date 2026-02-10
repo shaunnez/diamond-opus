@@ -8,3 +8,4 @@ export * from './analytics.js';
 export * from './partition-progress.js';
 export * from './rate-limit.js';
 export * from './error-logs.js';
+export * from './exchange-rates.js';
