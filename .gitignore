@@ -44,3 +44,5 @@ terraform.tfvars.local
 # Environment files for specific environments
 .env.staging
 .env.prod
+
+supabase/*
