@@ -1,1 +1,7 @@
-export { PricingEngine, getDefaultPricingEngine, resetDefaultPricingEngine } from './engine.js';
+export {
+  PricingEngine,
+  getDefaultPricingEngine,
+  resetDefaultPricingEngine,
+  getStoneType,
+  getBaseMargin,
+} from './engine.js';

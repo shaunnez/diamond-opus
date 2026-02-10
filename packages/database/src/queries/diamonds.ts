@@ -16,6 +16,7 @@ interface DiamondRow {
   fluorescence: string | null;
   lab_grown: boolean;
   treated: boolean;
+  fancy_color: string | null;
   feed_price: string;
   price_per_carat: string;
   price_model_price: string | null;
@@ -56,6 +57,7 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     fluorescence: row.fluorescence ?? undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
+    fancyColor: row.fancy_color ?? undefined,
     feedPrice: parseFloat(row.feed_price),
     pricePerCarat: parseFloat(row.price_per_carat),
     priceModelPrice: row.price_model_price ? parseFloat(row.price_model_price) : undefined,
@@ -195,7 +197,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
   const result = await query<DiamondRow>(
     `INSERT INTO diamonds (
       feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
-      cut, polish, symmetry, fluorescence, lab_grown, treated,
+      cut, polish, symmetry, fluorescence, lab_grown, treated, fancy_color,
       feed_price, price_per_carat, price_model_price,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
@@ -203,7 +205,8 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       status, source_updated_at
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-      $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
+      $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+      $31, $32, $33
     )
     ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
       offer_id = EXCLUDED.offer_id,
@@ -217,6 +220,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       fluorescence = EXCLUDED.fluorescence,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
+      fancy_color = EXCLUDED.fancy_color,
       feed_price = EXCLUDED.feed_price,
       price_per_carat = EXCLUDED.price_per_carat,
       price_model_price = EXCLUDED.price_model_price,
@@ -252,6 +256,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.fluorescence,
       diamond.labGrown,
       diamond.treated,
+      diamond.fancyColor,
       diamond.feedPrice,
       diamond.pricePerCarat,
       diamond.priceModelPrice,
@@ -296,6 +301,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const fluorescences: (string | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
+  const fancyColors: (string | null)[] = [];
   const feedPrice: number[] = [];
   const pricePerCarat: number[] = [];
   const priceModelPrice: (number | null)[] = [];
@@ -330,6 +336,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     fluorescences.push(d.fluorescence ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
+    fancyColors.push(d.fancyColor ?? null);
     feedPrice.push(d.feedPrice);
     pricePerCarat.push(d.pricePerCarat);
     priceModelPrice.push(d.priceModelPrice ?? null);
@@ -356,7 +363,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     `WITH upserted AS (
       INSERT INTO diamonds (
         feed, supplier_stone_id, offer_id, shape, carats, color, clarity,
-        cut, polish, symmetry, fluorescence, lab_grown, treated,
+        cut, polish, symmetry, fluorescence, lab_grown, treated, fancy_color,
         feed_price, price_per_carat, price_model_price,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
@@ -366,11 +373,11 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       SELECT * FROM UNNEST(
         $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[],
         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
-        $11::text[], $12::boolean[], $13::boolean[], $14::numeric[], $15::numeric[],
-        $16::numeric[], $17::numeric[], $18::integer[], $19::text[], $20::text[],
+        $11::text[], $12::boolean[], $13::boolean[], $14::text[], $15::numeric[],
+        $16::numeric[], $17::numeric[], $18::numeric[], $19::integer[], $20::text[],
         $21::text[], $22::text[], $23::text[], $24::text[], $25::text[],
-        $26::text[], $27::jsonb[], $28::jsonb[], $29::text[], $30::text[],
-        $31::text[], $32::timestamptz[]
+        $26::text[], $27::text[], $28::jsonb[], $29::jsonb[], $30::text[],
+        $31::text[], $32::text[], $33::timestamptz[]
       )
       ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
@@ -384,6 +391,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         fluorescence = EXCLUDED.fluorescence,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
+        fancy_color = EXCLUDED.fancy_color,
         feed_price = EXCLUDED.feed_price,
         price_per_carat = EXCLUDED.price_per_carat,
         price_model_price = EXCLUDED.price_model_price,
@@ -413,11 +421,11 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     [
       feeds, supplierStoneIds, offerIds, shapes, carats,
       colors, clarities, cuts, polishes, symmetries,
-      fluorescences, labGrowns, treateds, feedPrice, pricePerCarat,
-      priceModelPrice, markupRatios, ratings, availabilities, rawAvailabilities,
-      holdIds, imageUrls, videoUrls, certificateLabs, certificateNumbers,
-      certificatePdfUrls, measurements, attributes, supplierNames, supplierLegalNames,
-      statuses, sourceUpdatedAts,
+      fluorescences, labGrowns, treateds, fancyColors, feedPrice,
+      pricePerCarat, priceModelPrice, markupRatios, ratings, availabilities,
+      rawAvailabilities, holdIds, imageUrls, videoUrls, certificateLabs,
+      certificateNumbers, certificatePdfUrls, measurements, attributes, supplierNames,
+      supplierLegalNames, statuses, sourceUpdatedAts,
     ]
   );
 

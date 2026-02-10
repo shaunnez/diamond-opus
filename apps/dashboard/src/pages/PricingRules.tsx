@@ -9,6 +9,7 @@ import {
   type PricingRule,
   type CreatePricingRuleInput,
   type UpdatePricingRuleInput,
+  type StoneType,
 } from '../api/pricing-rules';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
@@ -24,32 +25,39 @@ import {
   useToast,
 } from '../components/ui';
 
-const DIAMOND_SHAPES = [
-  'Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear',
-  'Marquise', 'Radiant', 'Asscher', 'Heart'
-];
+const BASE_MARGINS: Record<StoneType, number> = {
+  natural: 40,
+  lab: 79,
+  fancy: 40,
+};
 
 interface RuleFormData {
   priority: string;
-  carat_min: string;
-  carat_max: string;
-  shapes: string[];
-  lab_grown: 'any' | 'true' | 'false';
+  stone_type: 'any' | StoneType;
+  price_min: string;
+  price_max: string;
   feed: string;
-  markup_ratio: string;
+  margin_modifier: string;
   rating: string;
 }
 
 const emptyFormData: RuleFormData = {
   priority: '100',
-  carat_min: '',
-  carat_max: '',
-  shapes: [],
-  lab_grown: 'any',
+  stone_type: 'any',
+  price_min: '',
+  price_max: '',
   feed: '',
-  markup_ratio: '1.15',
+  margin_modifier: '0',
   rating: '',
 };
+
+function formatModifier(modifier: number): string {
+  return `${modifier >= 0 ? '+' : ''}${modifier}%`;
+}
+
+function formatPrice(price: number): string {
+  return `$${price.toLocaleString()}`;
+}
 
 export function PricingRules() {
   const queryClient = useQueryClient();
@@ -112,12 +120,11 @@ export function PricingRules() {
   const handleOpenEdit = (rule: PricingRule) => {
     setFormData({
       priority: rule.priority.toString(),
-      carat_min: rule.carat_min?.toString() ?? '',
-      carat_max: rule.carat_max?.toString() ?? '',
-      shapes: rule.shapes ?? [],
-      lab_grown: rule.lab_grown === undefined ? 'any' : rule.lab_grown ? 'true' : 'false',
+      stone_type: rule.stone_type ?? 'any',
+      price_min: rule.price_min?.toString() ?? '',
+      price_max: rule.price_max?.toString() ?? '',
       feed: rule.feed ?? '',
-      markup_ratio: rule.markup_ratio.toString(),
+      margin_modifier: rule.margin_modifier.toString(),
       rating: rule.rating?.toString() ?? '',
     });
     setEditingRule(rule);
@@ -126,13 +133,12 @@ export function PricingRules() {
   const handleSubmit = () => {
     const input: CreatePricingRuleInput = {
       priority: parseInt(formData.priority, 10),
-      markup_ratio: parseFloat(formData.markup_ratio),
+      margin_modifier: parseFloat(formData.margin_modifier),
     };
 
-    if (formData.carat_min) input.carat_min = parseFloat(formData.carat_min);
-    if (formData.carat_max) input.carat_max = parseFloat(formData.carat_max);
-    if (formData.shapes.length > 0) input.shapes = formData.shapes;
-    if (formData.lab_grown !== 'any') input.lab_grown = formData.lab_grown === 'true';
+    if (formData.stone_type !== 'any') input.stone_type = formData.stone_type;
+    if (formData.price_min) input.price_min = parseFloat(formData.price_min);
+    if (formData.price_max) input.price_max = parseFloat(formData.price_max);
     if (formData.feed) input.feed = formData.feed;
     if (formData.rating) input.rating = parseInt(formData.rating, 10);
 
@@ -141,20 +147,6 @@ export function PricingRules() {
     } else {
       createMutation.mutate(input);
     }
-  };
-
-  const handleShapeToggle = (shape: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      shapes: prev.shapes.includes(shape)
-        ? prev.shapes.filter((s) => s !== shape)
-        : [...prev.shapes, shape],
-    }));
-  };
-
-  const formatMarkup = (ratio: number) => {
-    const percentage = (ratio - 1) * 100;
-    return `${percentage >= 0 ? '+' : ''}${percentage.toFixed(1)}%`;
   };
 
   // Get unique feeds for filter
@@ -179,7 +171,7 @@ export function PricingRules() {
             <div>
               <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Price Models</h1>
               <p className="text-stone-600 dark:text-stone-400 mt-1">
-                Manage pricing rules for diamond markup and rating
+                Manage pricing rules for diamond margin modifiers by stone type and cost
               </p>
             </div>
             <Button
@@ -192,9 +184,10 @@ export function PricingRules() {
           </div>
 
           {/* Info */}
-          <Alert variant="info" title="How Pricing Rules Work">
-            Rules are matched in order of priority (lower number = higher priority).
-            The first matching rule is applied. If no rule matches, a default 15% markup is used.
+          <Alert variant="info" title="How Dynamic Pricing Works">
+            Each diamond is classified as Natural (base: {BASE_MARGINS.natural}%), Lab (base: {BASE_MARGINS.lab}%), or Fancy (base: {BASE_MARGINS.fancy}%).
+            Rules match by stone type and cost range, applying a margin modifier to the base margin.
+            Effective margin = base margin + modifier. If no rule matches, the base margin is used with no modifier.
           </Alert>
 
           {/* Feed Filter */}
@@ -247,7 +240,7 @@ export function PricingRules() {
                         Criteria
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
-                        Markup
+                        Modifier
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Rating
@@ -272,27 +265,25 @@ export function PricingRules() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            {rule.carat_min !== undefined || rule.carat_max !== undefined ? (
+                            {rule.stone_type ? (
+                              <Badge variant={
+                                rule.stone_type === 'lab' ? 'success' :
+                                rule.stone_type === 'fancy' ? 'warning' : 'info'
+                              }>
+                                {rule.stone_type === 'natural' ? 'Natural' :
+                                 rule.stone_type === 'lab' ? 'Lab Grown' : 'Fancy'}
+                              </Badge>
+                            ) : null}
+                            {rule.price_min !== undefined || rule.price_max !== undefined ? (
                               <Badge variant="info">
-                                {rule.carat_min ?? '0'} - {rule.carat_max ?? '∞'} ct
+                                {rule.price_min !== undefined ? formatPrice(rule.price_min) : '$0'}
+                                {' - '}
+                                {rule.price_max !== undefined ? formatPrice(rule.price_max) : 'No limit'}
                               </Badge>
                             ) : null}
-                            {rule.shapes && rule.shapes.length > 0 ? (
-                              <Badge variant="info">
-                                {rule.shapes.length === 1
-                                  ? rule.shapes[0]
-                                  : `${rule.shapes.length} shapes`}
-                              </Badge>
-                            ) : null}
-                            {rule.lab_grown !== undefined ? (
-                              <Badge variant={rule.lab_grown ? 'success' : 'warning'}>
-                                {rule.lab_grown ? 'Lab Grown' : 'Natural'}
-                              </Badge>
-                            ) : null}
-                            {rule.carat_min === undefined &&
-                              rule.carat_max === undefined &&
-                              !rule.shapes?.length &&
-                              rule.lab_grown === undefined && (
+                            {!rule.stone_type &&
+                              rule.price_min === undefined &&
+                              rule.price_max === undefined && (
                                 <span className="text-stone-400 dark:text-stone-500 text-sm italic">
                                   All
                                 </span>
@@ -302,7 +293,7 @@ export function PricingRules() {
                         <td className="px-4 py-3 text-center">
                           <span className="inline-flex items-center gap-1 text-sm font-medium text-stone-900 dark:text-stone-100">
                             <DollarSign className="w-4 h-4 text-success-500" />
-                            {formatMarkup(rule.markup_ratio)}
+                            {formatModifier(rule.margin_modifier)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -379,69 +370,50 @@ export function PricingRules() {
                   </p>
                 </div>
 
-                {/* Carat Range */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Min Carats"
-                    type="number"
-                    step="0.01"
-                    value={formData.carat_min}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, carat_min: e.target.value }))
-                    }
-                    placeholder="Leave empty for no minimum"
-                  />
-                  <Input
-                    label="Max Carats"
-                    type="number"
-                    step="0.01"
-                    value={formData.carat_max}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, carat_max: e.target.value }))
-                    }
-                    placeholder="Leave empty for no maximum"
-                  />
-                </div>
-
-                {/* Shapes */}
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
-                    Shapes (leave empty to match all)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {DIAMOND_SHAPES.map((shape) => (
-                      <button
-                        key={shape}
-                        type="button"
-                        onClick={() => handleShapeToggle(shape)}
-                        className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                          formData.shapes.includes(shape)
-                            ? 'bg-primary-100 border-primary-300 text-primary-700'
-                            : 'bg-white dark:bg-stone-700 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:border-primary-300'
-                        }`}
-                      >
-                        {shape}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Lab Grown */}
+                {/* Stone Type */}
                 <div>
                   <Select
-                    label="Diamond Type"
-                    value={formData.lab_grown}
+                    label="Stone Type"
+                    value={formData.stone_type}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        lab_grown: e.target.value as 'any' | 'true' | 'false',
+                        stone_type: e.target.value as 'any' | StoneType,
                       }))
                     }
                     options={[
                       { value: 'any', label: 'Any (matches all)' },
-                      { value: 'false', label: 'Natural only' },
-                      { value: 'true', label: 'Lab Grown only' },
+                      { value: 'natural', label: `Natural (base: ${BASE_MARGINS.natural}%)` },
+                      { value: 'lab', label: `Lab Grown (base: ${BASE_MARGINS.lab}%)` },
+                      { value: 'fancy', label: `Fancy Color (base: ${BASE_MARGINS.fancy}%)` },
                     ]}
+                  />
+                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                    Fancy = has a fancy color. Lab = lab grown. Natural = everything else.
+                  </p>
+                </div>
+
+                {/* Cost Range */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Min Cost (USD)"
+                    type="number"
+                    step="0.01"
+                    value={formData.price_min}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, price_min: e.target.value }))
+                    }
+                    placeholder="Leave empty for no minimum"
+                  />
+                  <Input
+                    label="Max Cost (USD)"
+                    type="number"
+                    step="0.01"
+                    value={formData.price_max}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, price_max: e.target.value }))
+                    }
+                    placeholder="Leave empty for no maximum"
                   />
                 </div>
 
@@ -460,19 +432,24 @@ export function PricingRules() {
                   </p>
                 </div>
 
-                {/* Markup Ratio */}
+                {/* Margin Modifier */}
                 <div>
                   <Input
-                    label="Markup Ratio"
+                    label="Margin Modifier (%)"
                     type="number"
                     step="0.01"
-                    value={formData.markup_ratio}
+                    value={formData.margin_modifier}
                     onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, markup_ratio: e.target.value }))
+                      setFormData((prev) => ({ ...prev, margin_modifier: e.target.value }))
                     }
                   />
                   <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                    1.15 = 15% markup, 1.25 = 25% markup, etc.
+                    Percentage points added to base margin. e.g., 6 = +6%, -4 = -4%.
+                    {formData.stone_type !== 'any' && (
+                      <>
+                        {' '}Effective margin: {BASE_MARGINS[formData.stone_type] + (parseFloat(formData.margin_modifier) || 0)}%
+                      </>
+                    )}
                   </p>
                 </div>
 

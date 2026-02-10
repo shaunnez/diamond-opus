@@ -145,6 +145,14 @@ function mapFluorescence(floInt?: string, floCol?: string): string | undefined {
   return floCol ? `${floInt} ${floCol}` : floInt;
 }
 
+function mapFancyColor(certificate: NivodaItem["diamond"]["certificate"]): string | undefined {
+  const parts: string[] = [];
+  if (certificate.f_intensity) parts.push(certificate.f_intensity);
+  if (certificate.f_color) parts.push(certificate.f_color);
+  if (certificate.f_overtone) parts.push(certificate.f_overtone);
+  return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
 export function mapNivodaItemToDiamond(
   item: NivodaItem,
 ): Omit<
@@ -178,6 +186,7 @@ export function mapNivodaItemToDiamond(
     fluorescence: mapFluorescence(certificate.floInt, certificate.floCol),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
+    fancyColor: mapFancyColor(certificate),
     feedPrice,
     diamondPrice,
     pricePerCarat,

@@ -122,6 +122,14 @@ export const FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z';
  */
 export const INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES = 15;
 
+// Base margins by stone type (percentage)
+/** Base margin for natural diamonds */
+export const NATURAL_BASE_MARGIN = 40;
+/** Base margin for lab-grown diamonds */
+export const LAB_BASE_MARGIN = 79;
+/** Base margin for fancy colored diamonds (both lab and natural) */
+export const FANCY_BASE_MARGIN = 40;
+
 // Currency conversion
 export const FRANKFURTER_API_URL = 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=NZD';
 export const CURRENCY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours

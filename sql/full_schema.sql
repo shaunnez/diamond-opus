@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS "public"."diamonds" (
     "fluorescence" "text",
     "lab_grown" boolean DEFAULT false,
     "treated" boolean DEFAULT false,
+    "fancy_color" "text",
     "markup_ratio" numeric(5,4),
     "rating" integer,
     "availability" "text" NOT NULL,
@@ -192,17 +193,18 @@ COMMENT ON COLUMN "public"."partition_progress"."failed" IS 'True when this part
 CREATE TABLE IF NOT EXISTS "public"."pricing_rules" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "priority" integer DEFAULT 100 NOT NULL,
-    "carat_min" numeric(6,2),
-    "carat_max" numeric(6,2),
-    "shapes" "text"[],
-    "lab_grown" boolean,
+    "stone_type" "text",
+    "price_min" numeric(12,2),
+    "price_max" numeric(12,2),
     "feed" "text",
-    "markup_ratio" numeric(5,4) NOT NULL,
+    "margin_modifier" numeric(5,2) NOT NULL DEFAULT 0,
     "rating" integer,
     "active" boolean DEFAULT true,
     "created_at" timestamp with time zone DEFAULT "now"(),
     "updated_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "pricing_rules_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 10)))
+    CONSTRAINT "pricing_rules_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 10))),
+    CONSTRAINT "pricing_rules_stone_type_check" CHECK (("stone_type" IS NULL OR "stone_type" IN ('natural', 'lab', 'fancy'))),
+    CONSTRAINT "pricing_rules_price_range_check" CHECK (("price_min" IS NULL OR "price_max" IS NULL OR "price_min" <= "price_max"))
 );
 
 

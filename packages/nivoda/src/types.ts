@@ -40,6 +40,9 @@ export interface NivodaCertificate {
   cut_style?: string;
   keyToSymbols?: string;
   comments?: string;
+  f_color?: string;
+  f_intensity?: string;
+  f_overtone?: string;
 }
 
 export interface NivodaSupplier {

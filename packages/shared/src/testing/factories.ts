@@ -52,8 +52,8 @@ export function createMockDiamond(overrides: Partial<Diamond> = {}): Diamond {
     treated: false,
     feedPrice: 5000, // $5,000
     pricePerCarat: 5000,
-    priceModelPrice: 5750, // 15% markup
-    markupRatio: 1.15,
+    priceModelPrice: 7000, // 40% markup for natural
+    markupRatio: 1.40,
     rating: 5,
     availability: 'available',
     status: 'active',
@@ -88,7 +88,7 @@ export function createMockPricingRule(
   return {
     id: overrides.id ?? generateTestId('rule'),
     priority: 100,
-    markupRatio: 1.15,
+    marginModifier: 0,
     active: true,
     createdAt: new Date(),
     updatedAt: new Date(),
