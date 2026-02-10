@@ -397,7 +397,7 @@ router.post(
         has_v360?: boolean;
         availability?: string[];
         excludeFairPoorCuts?: boolean;
-        hideMemo?: boolean;
+        hide_memo?: boolean;
       } = {
         shapes: [...DIAMOND_SHAPES],
         sizes: { from: 0.4, to: 15.01 },
@@ -405,7 +405,7 @@ router.post(
         has_v360: true,
         availability: ['AVAILABLE'],
         excludeFairPoorCuts: true,
-        hideMemo: true
+        hide_memo: true
       };
 
       if (price_min !== undefined || price_max !== undefined) {
@@ -550,7 +550,7 @@ router.post(
         has_v360?: boolean;
         availability?: string[];
         excludeFairPoorCuts?: boolean;
-        hideMemo?: boolean;
+        hide_memo?: boolean;
       } = {
         shapes: [...DIAMOND_SHAPES],
         sizes: { from: 0.4, to: 15.01 },
@@ -558,7 +558,7 @@ router.post(
         has_v360: true,
         availability: ['AVAILABLE'],
         excludeFairPoorCuts: true,
-        hideMemo: true
+        hide_memo: true
       };
 
       if (price_min !== undefined || price_max !== undefined) {

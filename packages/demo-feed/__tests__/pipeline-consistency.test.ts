@@ -489,6 +489,7 @@ describe('Pipeline Consistency (boundary edge cases)', () => {
       initialStep: 100,
       maxWorkers: 10,
       minRecordsPerWorker: 1,
+      priceGranularity: 0.01,
     });
 
     // Every boundary diamond must be in exactly one partition
@@ -527,6 +528,7 @@ describe('Pipeline Consistency (boundary edge cases)', () => {
       initialStep: 200,
       maxWorkers: 10,
       minRecordsPerWorker: 1,
+      priceGranularity: 0.01,
     });
 
     expect(result.totalRecords).toBe(1);
@@ -566,6 +568,7 @@ describe('Pipeline Consistency (boundary edge cases)', () => {
       initialStep: 200,
       maxWorkers: 10,
       minRecordsPerWorker: 10,
+      priceGranularity: 0.01,
     });
 
     expect(result.totalRecords).toBe(100);

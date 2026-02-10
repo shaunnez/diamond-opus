@@ -47,6 +47,8 @@ export interface HeatmapConfig {
   coarseStep?: number;
   /** Maximum total records to process (0 = unlimited). Partitions will be truncated to stay within this limit. */
   maxTotalRecords?: number;
+  /** Minimum price increment for the feed. Used to convert half-open intervals to inclusive. Default: 1 (integer prices) */
+  priceGranularity?: number;
 }
 
 export interface HeatmapResult {
@@ -77,6 +79,7 @@ interface ScanContext {
   apiCalls: number;
   rangesScanned: number;
   log: Logger;
+  priceGranularity: number;
 }
 
 /**
@@ -124,11 +127,14 @@ export async function scanHeatmap(
     coarseStep: useTwoPassScan ? coarseStep : undefined,
   });
 
+  const priceGranularity = config.priceGranularity ?? 1;
+
   // Track scan statistics
   const scanContext: ScanContext = {
     apiCalls: 0,
     rangesScanned: 0,
     log,
+    priceGranularity,
   };
 
   // Phase 1: Heatmap Scan
@@ -203,6 +209,7 @@ export async function scanHeatmap(
     desiredWorkerCount,
     log,
     maxTotalRecords,
+    priceGranularity,
   );
 
   // workerCount is always the actual partition count (authoritative)
@@ -255,12 +262,12 @@ interface ScanRange {
 /**
  * Helper: create a count query with a price range override on the base query.
  * Uses half-open interval [from, toExclusive) — converts to inclusive by subtracting
- * the smallest price unit (0.01) since prices are DECIMAL(12,2).
+ * the feed's price granularity (default 1 for integer dollar_value like Nivoda).
  */
-function queryWithPriceRange(baseQuery: FeedQuery, from: number, toExclusive: number): FeedQuery {
+function queryWithPriceRange(baseQuery: FeedQuery, from: number, toExclusive: number, priceGranularity: number = 1): FeedQuery {
   return {
     ...baseQuery,
-    priceRange: { from, to: toExclusive - 0.01 },
+    priceRange: { from, to: toExclusive - priceGranularity },
   };
 }
 
@@ -321,7 +328,7 @@ async function buildDensityMap(
       batch.map(async (range) => {
         ctx.apiCalls++;
         // Use half-open interval: [min, max) → query [min, max-1] for inclusive APIs
-        const q = queryWithPriceRange(baseQuery, range.min, range.max);
+        const q = queryWithPriceRange(baseQuery, range.min, range.max, ctx.priceGranularity);
 
         const count = await withRetry(
           () => adapter.getCount(q),
@@ -507,7 +514,7 @@ async function coarseScan(
     const batchResults = await Promise.all(
       batch.map(async (range) => {
         ctx.apiCalls++;
-        const q = queryWithPriceRange(baseQuery, range.min, range.max);
+        const q = queryWithPriceRange(baseQuery, range.min, range.max, ctx.priceGranularity);
         const count = await withRetry(() => adapter.getCount(q), {
           onRetry: (error, attempt) => {
             ctx.log.warn("Retrying coarse scan", {
@@ -638,7 +645,7 @@ async function binarySearchBoundary(
     const mid = (low + high) / 2;
 
     ctx.apiCalls++;
-    const q = queryWithPriceRange(baseQuery, Math.floor(low), Math.floor(mid));
+    const q = queryWithPriceRange(baseQuery, Math.floor(low), Math.floor(mid), ctx.priceGranularity);
 
     const count = await withRetry(() => adapter.getCount(q), {
       onRetry: (error, attempt) => {
@@ -701,7 +708,7 @@ async function fineScanRegion(
     const results = await Promise.all(
       batch.map(async (range) => {
         ctx.apiCalls++;
-        const q = queryWithPriceRange(baseQuery, range.min, range.max);
+        const q = queryWithPriceRange(baseQuery, range.min, range.max, ctx.priceGranularity);
         const count = await withRetry(() => adapter.getCount(q), {
           onRetry: (error, attempt) => {
             ctx.log.warn("Retrying fine scan", {
@@ -769,6 +776,7 @@ export function createPartitions(
   desiredWorkerCount: number,
   logger: Logger = nullLogger,
   maxTotalRecords: number = 0,
+  priceGranularity: number = 1,
 ): WorkerPartition[] {
   if (densityMap.length === 0 || desiredWorkerCount === 0) {
     return [];
@@ -849,7 +857,7 @@ export function createPartitions(
         partitions.push({
           partitionId: `partition-${currentWorkerId}`,
           minPrice: currentBatchStart,
-          maxPrice: chunk.max - 0.01,
+          maxPrice: chunk.max - priceGranularity,
           totalRecords: currentBatchSum,
         });
 
@@ -880,7 +888,7 @@ export function createPartitions(
       partitions.push({
         partitionId: `partition-${currentWorkerId}`,
         minPrice: currentBatchStart,
-        maxPrice: chunk.max - 0.01,
+        maxPrice: chunk.max - priceGranularity,
         totalRecords: currentBatchSum,
       });
 

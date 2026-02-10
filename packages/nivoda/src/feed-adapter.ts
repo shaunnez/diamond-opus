@@ -36,9 +36,8 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
     has_v360: true,
     availability: ['AVAILABLE'],
     excludeFairPoorCuts: true,
-    hideMemo: true
+    hide_memo: true
   };
-  console.log('Converted FeedQuery to NivodaQuery:', JSON.stringify(nivodaQuery, null, 2));
   return nivodaQuery
 }
 

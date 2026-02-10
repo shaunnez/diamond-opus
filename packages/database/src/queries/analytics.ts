@@ -304,8 +304,6 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       feed: string;
       run_type: string;
       expected_workers: number;
-      completed_workers: number;
-      failed_workers: number;
       completed_workers_actual: string;
       failed_workers_actual: string;
       watermark_before: Date | null;
@@ -374,19 +372,23 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
 }
 
 function getStatusCondition(status: string): string {
+  // Use subqueries against partition_progress instead of legacy run_metadata columns
+  const completedSub = '(SELECT COUNT(*) FROM partition_progress pp WHERE pp.run_id = run_metadata.run_id AND pp.completed = TRUE)';
+  const failedSub = '(SELECT COUNT(*) FROM partition_progress pp WHERE pp.run_id = run_metadata.run_id AND pp.failed = TRUE AND pp.completed = FALSE)';
+
   switch (status) {
     case 'running':
       // Running includes stalled (stall is computed at application level)
-      return '(completed_at IS NULL AND failed_workers = 0 AND completed_workers < expected_workers)';
+      return `(completed_at IS NULL AND ${failedSub} = 0 AND ${completedSub} < expected_workers)`;
     case 'stalled':
       // Same SQL filter as running — stall detection is done in getRunStatus()
-      return '(completed_at IS NULL AND failed_workers = 0 AND completed_workers < expected_workers)';
+      return `(completed_at IS NULL AND ${failedSub} = 0 AND ${completedSub} < expected_workers)`;
     case 'completed':
-      return '((completed_at IS NOT NULL AND failed_workers = 0) OR (completed_workers >= expected_workers AND failed_workers = 0))';
+      return `((completed_at IS NOT NULL AND ${failedSub} = 0) OR (${completedSub} >= expected_workers AND ${failedSub} = 0))`;
     case 'failed':
-      return '(failed_workers > 0 AND completed_workers + failed_workers >= expected_workers)';
+      return `(${failedSub} > 0 AND ${completedSub} + ${failedSub} >= expected_workers)`;
     case 'partial':
-      return '(failed_workers > 0 AND completed_workers + failed_workers < expected_workers)';
+      return `(${failedSub} > 0 AND ${completedSub} + ${failedSub} < expected_workers)`;
     default:
       return '1=1';
   }
@@ -435,8 +437,6 @@ export async function getRunDetails(runId: string): Promise<{
       feed: string;
       run_type: string;
       expected_workers: number;
-      completed_workers: number;
-      failed_workers: number;
       watermark_before: Date | null;
       watermark_after: Date | null;
       started_at: Date;
@@ -842,7 +842,7 @@ const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
     'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',
   ],
   run_metadata: [
-    'run_id', 'run_type', 'expected_workers', 'completed_workers', 'failed_workers',
+    'run_id', 'run_type', 'expected_workers',
     'watermark_before', 'watermark_after', 'started_at', 'completed_at',
     'consolidation_started_at', 'consolidation_completed_at',
     'consolidation_processed', 'consolidation_errors', 'consolidation_total',

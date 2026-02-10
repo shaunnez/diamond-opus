@@ -162,7 +162,7 @@ interface RecordProgressProps {
 }
 
 export function RecordProgress({ processed, total, className = '' }: RecordProgressProps) {
-  const processedPercent = total > 0 ? (processed / total) * 100 : 0;
+  const processedPercent = total > 0 ? Math.min(100, (processed / total) * 100) : 0;
 
   return (
     <div className={`w-full ${className}`}>

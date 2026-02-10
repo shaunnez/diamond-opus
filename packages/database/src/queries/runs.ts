@@ -7,8 +7,6 @@ interface RunMetadataRow {
   feed: string;
   run_type: string;
   expected_workers: number;
-  completed_workers: number;
-  failed_workers: number;
   watermark_before: Date | null;
   watermark_after: Date | null;
   started_at: Date;
@@ -34,8 +32,8 @@ function mapRowToRunMetadata(row: RunMetadataRow): RunMetadata {
     feed: row.feed ?? 'nivoda',
     runType: row.run_type as RunType,
     expectedWorkers: row.expected_workers,
-    completedWorkers: row.completed_workers,
-    failedWorkers: row.failed_workers,
+    completedWorkers: 0, // Computed from partition_progress by callers
+    failedWorkers: 0, // Computed from partition_progress by callers
     watermarkBefore: row.watermark_before ?? undefined,
     watermarkAfter: row.watermark_after ?? undefined,
     startedAt: row.started_at,
@@ -142,22 +140,6 @@ export async function getRunWorkerCounts(
     expectedWorkers: row.expected_workers,
     failedWorkers: parseInt(row.failed_count, 10),
   };
-}
-
-/**
- * @deprecated No longer needed - counts are computed from partition_progress
- */
-export async function incrementCompletedWorkers(
-  runId: string
-): Promise<{ completedWorkers: number; expectedWorkers: number; failedWorkers: number }> {
-  return getRunWorkerCounts(runId);
-}
-
-/**
- * @deprecated No longer needed - counts are computed from partition_progress
- */
-export async function incrementFailedWorkers(): Promise<void> {
-  // No-op - partition_progress.failed is set by markPartitionFailed()
 }
 
 export async function completeRun(runId: string, watermarkAfter?: Date): Promise<void> {

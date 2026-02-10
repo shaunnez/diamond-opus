@@ -25,7 +25,7 @@ import {
   createWorkerRun,
   updateWorkerRun,
   updateWorkerProgress,
-  incrementCompletedWorkers,
+  getRunWorkerCounts,
   bulkUpsertRawDiamonds,
   type BulkRawDiamond,
   initializePartitionProgress,
@@ -172,6 +172,7 @@ async function processWorkItemPage(
   // Check if we have more pages
   const hasMore = response.items.length === workItem.limit;
 
+
   if (hasMore) {
     const updated = await updatePartitionOffset(
       workItem.runId,
@@ -284,7 +285,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
       await sendWorkDone(workDoneMessage);
 
       const { completedWorkers, expectedWorkers, failedWorkers } =
-        await incrementCompletedWorkers(workItem.runId);
+        await getRunWorkerCounts(workItem.runId);
 
       log.info("Worker completed", { completedWorkers, expectedWorkers, failedWorkers });
 
@@ -349,7 +350,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
     await sendWorkDone(workDoneMessage);
 
     try {
-      const { completedWorkers, expectedWorkers, failedWorkers } = await incrementCompletedWorkers(workItem.runId);
+      const { completedWorkers, expectedWorkers, failedWorkers } = await getRunWorkerCounts(workItem.runId);
       if (completedWorkers + failedWorkers >= expectedWorkers) {
         const successRate = completedWorkers / expectedWorkers;
         if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
