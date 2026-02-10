@@ -162,6 +162,7 @@ export class NivodaAdapter {
     this.username = username ?? requireEnv('NIVODA_USERNAME');
     this.password = password ?? requireEnv('NIVODA_PASSWORD');
 
+    // trigger build
     const proxyUrl = requireEnv('NIVODA_PROXY_BASE_URL');
     const internalToken = requireEnv('INTERNAL_SERVICE_TOKEN');
     // If proxy URL is configured, use ProxyGraphqlTransport which forwards requests to the internal proxy endpoint
