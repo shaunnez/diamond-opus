@@ -106,8 +106,8 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name  = "INTERNAL_SERVICE_TOKEN"
-        value = var.internal_service_token
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
       }
 
       # Environment variables for scheduler job trigger
@@ -242,6 +242,11 @@ resource "azurerm_container_app" "api" {
     value = var.nivoda_password
   }
 
+  secret {
+    name  = "internal-service-token"
+    value = coalesce(var.internal_service_token, "not-configured")
+  }
+
   tags = var.tags
 }
 
@@ -334,8 +339,8 @@ resource "azurerm_container_app" "worker" {
       }
 
       env {
-        name  = "INTERNAL_SERVICE_TOKEN"
-        value = var.internal_service_token
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
       }
 
       # Email alerts for run completion/failure notifications
@@ -442,6 +447,11 @@ resource "azurerm_container_app" "worker" {
   secret {
     name  = "registry-password"
     value = var.container_registry_password
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = coalesce(var.internal_service_token, "not-configured")
   }
 
   tags = var.tags
@@ -696,8 +706,8 @@ resource "azurerm_container_app_job" "scheduler" {
       }
 
       env {
-        name  = "INTERNAL_SERVICE_TOKEN"
-        value = var.internal_service_token
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
       }
 
       # Demo feed API URL for DemoFeedAdapter
@@ -783,6 +793,11 @@ resource "azurerm_container_app_job" "scheduler" {
   secret {
     name  = "registry-password"
     value = var.container_registry_password
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = coalesce(var.internal_service_token, "not-configured")
   }
 
   tags = var.tags
