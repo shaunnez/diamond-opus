@@ -455,7 +455,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const ratios: (number | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
-  const fancyColors: (string | null)[] = [];
+
   const feedPrice: number[] = [];
   const diamondPrices: (number | null)[] = [];
   const pricePerCarat: number[] = [];
