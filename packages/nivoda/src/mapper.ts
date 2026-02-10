@@ -234,7 +234,7 @@ export function mapNivodaItemToDiamond(
     ratio: computeRatio(certificate.length, certificate.width),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
-    fancyColor: mapFancyColor(certificate),
+    //fancyColor: mapFancyColor(certificate),
     feedPrice,
     diamondPrice,
     pricePerCarat,
