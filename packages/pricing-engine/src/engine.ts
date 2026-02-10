@@ -1,7 +1,35 @@
-import type { PricingRule, PricingResult, Diamond } from '@diamond/shared';
+import type { PricingRule, PricingResult, Diamond, StoneType } from '@diamond/shared';
+import { NATURAL_BASE_MARGIN, LAB_BASE_MARGIN, FANCY_BASE_MARGIN } from '@diamond/shared';
 import { getActivePricingRules } from '@diamond/database';
 
-const DEFAULT_MARKUP_RATIO = 1.15;
+const DEFAULT_MARGIN_MODIFIER = 0;
+
+/**
+ * Determines the stone type for a diamond.
+ * Priority: fancy (has fancyColor) > lab (labGrown) > natural
+ */
+export function getStoneType(
+  diamond: Pick<Diamond, 'labGrown' | 'fancyColor'>
+): StoneType {
+  if (diamond.fancyColor) return 'fancy';
+  if (diamond.labGrown) return 'lab';
+  return 'natural';
+}
+
+/**
+ * Returns the base margin percentage for a stone type.
+ */
+export function getBaseMargin(stoneType: StoneType): number {
+  switch (stoneType) {
+    case 'lab':
+      return LAB_BASE_MARGIN;
+    case 'fancy':
+      return FANCY_BASE_MARGIN;
+    case 'natural':
+    default:
+      return NATURAL_BASE_MARGIN;
+  }
+}
 
 export class PricingEngine {
   private rules: PricingRule[] = [];
@@ -19,23 +47,18 @@ export class PricingEngine {
 
   private matchesRule(
     rule: PricingRule,
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
+    diamond: Pick<Diamond, 'feedPrice' | 'labGrown' | 'fancyColor' | 'feed'>,
+    stoneType: StoneType
   ): boolean {
-    if (rule.caratMin !== undefined && (diamond.carats === undefined || diamond.carats < rule.caratMin)) {
+    if (rule.stoneType !== undefined && rule.stoneType !== stoneType) {
       return false;
     }
 
-    if (rule.caratMax !== undefined && (diamond.carats === undefined || diamond.carats > rule.caratMax)) {
+    if (rule.priceMin !== undefined && diamond.feedPrice < rule.priceMin) {
       return false;
     }
 
-    if (rule.shapes !== undefined && rule.shapes.length > 0) {
-      if (!rule.shapes.includes(diamond.shape)) {
-        return false;
-      }
-    }
-
-    if (rule.labGrown !== undefined && rule.labGrown !== diamond.labGrown) {
+    if (rule.priceMax !== undefined && diamond.feedPrice > rule.priceMax) {
       return false;
     }
 
@@ -47,14 +70,16 @@ export class PricingEngine {
   }
 
   findMatchingRule(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed'>
+    diamond: Pick<Diamond, 'feedPrice' | 'labGrown' | 'fancyColor' | 'feed'>
   ): PricingRule | undefined {
     if (!this.rulesLoaded) {
       throw new Error('Pricing rules not loaded. Call loadRules() first.');
     }
 
+    const stoneType = getStoneType(diamond);
+
     for (const rule of this.rules) {
-      if (this.matchesRule(rule, diamond)) {
+      if (this.matchesRule(rule, diamond, stoneType)) {
         return rule;
       }
     }
@@ -63,11 +88,15 @@ export class PricingEngine {
   }
 
   calculatePricing(
-    diamond: Pick<Diamond, 'carats' | 'shape' | 'labGrown' | 'feed' | 'feedPrice'>
+    diamond: Pick<Diamond, 'carats' | 'feedPrice' | 'labGrown' | 'fancyColor' | 'feed'>
   ): PricingResult {
+    const stoneType = getStoneType(diamond);
+    const baseMargin = getBaseMargin(stoneType);
     const matchedRule = this.findMatchingRule(diamond);
 
-    const markupRatio = matchedRule?.markupRatio ?? DEFAULT_MARKUP_RATIO;
+    const marginModifier = matchedRule?.marginModifier ?? DEFAULT_MARGIN_MODIFIER;
+    const effectiveMargin = baseMargin + marginModifier;
+    const markupRatio = 1 + effectiveMargin / 100;
     const rating = matchedRule?.rating;
 
     const priceModelPrice = Math.round(diamond.feedPrice * markupRatio * 100) / 100;
@@ -80,6 +109,10 @@ export class PricingEngine {
       markupRatio,
       rating,
       matchedRuleId: matchedRule?.id,
+      stoneType,
+      baseMargin,
+      marginModifier,
+      effectiveMargin,
     };
   }
 

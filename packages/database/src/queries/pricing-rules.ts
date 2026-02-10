@@ -1,15 +1,14 @@
-import type { PricingRule } from '@diamond/shared';
+import type { PricingRule, StoneType } from '@diamond/shared';
 import { query } from '../client.js';
 
 interface PricingRuleRow {
   id: string;
   priority: number;
-  carat_min: string | null;
-  carat_max: string | null;
-  shapes: string[] | null;
-  lab_grown: boolean | null;
+  stone_type: string | null;
+  price_min: string | null;
+  price_max: string | null;
   feed: string | null;
-  markup_ratio: string;
+  margin_modifier: string;
   rating: number | null;
   active: boolean;
   created_at: Date;
@@ -20,12 +19,11 @@ function mapRowToPricingRule(row: PricingRuleRow): PricingRule {
   return {
     id: row.id,
     priority: row.priority,
-    caratMin: row.carat_min ? parseFloat(row.carat_min) : undefined,
-    caratMax: row.carat_max ? parseFloat(row.carat_max) : undefined,
-    shapes: row.shapes ?? undefined,
-    labGrown: row.lab_grown ?? undefined,
+    stoneType: (row.stone_type as StoneType) ?? undefined,
+    priceMin: row.price_min ? parseFloat(row.price_min) : undefined,
+    priceMax: row.price_max ? parseFloat(row.price_max) : undefined,
     feed: row.feed ?? undefined,
-    markupRatio: parseFloat(row.markup_ratio),
+    marginModifier: parseFloat(row.margin_modifier),
     rating: row.rating ?? undefined,
     active: row.active,
     createdAt: row.created_at,
@@ -45,17 +43,16 @@ export async function createPricingRule(
 ): Promise<PricingRule> {
   const result = await query<PricingRuleRow>(
     `INSERT INTO pricing_rules (
-      priority, carat_min, carat_max, shapes, lab_grown, feed, markup_ratio, rating
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      priority, stone_type, price_min, price_max, feed, margin_modifier, rating
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *`,
     [
       rule.priority,
-      rule.caratMin,
-      rule.caratMax,
-      rule.shapes,
-      rule.labGrown,
+      rule.stoneType,
+      rule.priceMin,
+      rule.priceMax,
       rule.feed,
-      rule.markupRatio,
+      rule.marginModifier,
       rule.rating,
     ]
   );
@@ -74,29 +71,25 @@ export async function updatePricingRule(
     fields.push(`priority = $${paramIndex++}`);
     values.push(updates.priority);
   }
-  if (updates.caratMin !== undefined) {
-    fields.push(`carat_min = $${paramIndex++}`);
-    values.push(updates.caratMin);
+  if (updates.stoneType !== undefined) {
+    fields.push(`stone_type = $${paramIndex++}`);
+    values.push(updates.stoneType);
   }
-  if (updates.caratMax !== undefined) {
-    fields.push(`carat_max = $${paramIndex++}`);
-    values.push(updates.caratMax);
+  if (updates.priceMin !== undefined) {
+    fields.push(`price_min = $${paramIndex++}`);
+    values.push(updates.priceMin);
   }
-  if (updates.shapes !== undefined) {
-    fields.push(`shapes = $${paramIndex++}`);
-    values.push(updates.shapes);
-  }
-  if (updates.labGrown !== undefined) {
-    fields.push(`lab_grown = $${paramIndex++}`);
-    values.push(updates.labGrown);
+  if (updates.priceMax !== undefined) {
+    fields.push(`price_max = $${paramIndex++}`);
+    values.push(updates.priceMax);
   }
   if (updates.feed !== undefined) {
     fields.push(`feed = $${paramIndex++}`);
     values.push(updates.feed);
   }
-  if (updates.markupRatio !== undefined) {
-    fields.push(`markup_ratio = $${paramIndex++}`);
-    values.push(updates.markupRatio);
+  if (updates.marginModifier !== undefined) {
+    fields.push(`margin_modifier = $${paramIndex++}`);
+    values.push(updates.marginModifier);
   }
   if (updates.rating !== undefined) {
     fields.push(`rating = $${paramIndex++}`);

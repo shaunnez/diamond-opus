@@ -165,6 +165,14 @@ function mapFluorescence(floInt?: string, floCol?: string): string | undefined {
   return floCol ? `${floInt} ${floCol}` : floInt;
 }
 
+function mapFancyColor(certificate: NivodaItem["diamond"]["certificate"]): string | undefined {
+  const parts: string[] = [];
+  if (certificate.f_intensity) parts.push(certificate.f_intensity);
+  if (certificate.f_color) parts.push(certificate.f_color);
+  if (certificate.f_overtone) parts.push(certificate.f_overtone);
+  return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
 function parseFluorescenceIntensity(floInt?: string): string | undefined {
   if (!floInt) return undefined;
   const normalized = floInt.toUpperCase().replace(/[\s-]+/g, '_');
@@ -226,6 +234,7 @@ export function mapNivodaItemToDiamond(
     ratio: computeRatio(certificate.length, certificate.width),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
+    fancyColor: mapFancyColor(certificate),
     feedPrice,
     diamondPrice,
     pricePerCarat,

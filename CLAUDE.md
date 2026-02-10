@@ -243,8 +243,8 @@ Dual auth system (checked in order):
 - `packages/database/src/client.ts` - PostgreSQL connection pool
 
 ### Schema
-- `sql/bootstrap.sql` - Database schema (run manually in Supabase)
-- `sql/migrations/001_add_indexes.sql` - Performance indexes
+- `sql/full_schema.sql` - Database schema (run manually in Supabase)
+- `sql/migrations/001_dynamic_pricing_rules.sql` - Dynamic pricing migration (cost-based rules)
 
 ### Dashboard
 - `apps/dashboard/src/App.tsx` - Main app with routing
@@ -305,6 +305,11 @@ The consolidator is optimized for 500k+ records with multi-replica safety:
 1. Update rules in `pricing_rules` table (database)
 2. Logic is in `packages/pricing-engine/src/engine.ts`
 3. Rule matching: lower priority number = higher precedence
+4. **Dynamic pricing model**: Rules match by `stone_type` (natural/lab/fancy) and cost range (`price_min`/`price_max`)
+5. Base margins: Natural = 40%, Lab = 79%, Fancy = 40% (constants in `packages/shared/src/constants.ts`)
+6. Rules store `margin_modifier` (percentage points). Effective margin = base margin + modifier
+7. Markup ratio = 1 + (effective margin / 100). e.g., 79% base + 6% modifier = 85% → 1.85x
+8. Stone type derived from diamond: fancy (has `fancyColor`) > lab (`labGrown`) > natural
 
 ### Adding a new diamond attribute
 1. Update `Diamond` type in `packages/shared/src/types/diamond.ts`
@@ -393,6 +398,6 @@ Connection pooling is critical for Supabase shared pooling. Set these per-servic
 
 1. **Worker not processing**: Check Service Bus queue in Azure Portal
 2. **Consolidation skipped**: Check `run_metadata` table for failed workers
-3. **Pricing wrong**: Check `pricing_rules` table priority ordering
+3. **Pricing wrong**: Check `pricing_rules` table priority ordering, stone_type, price_min/price_max, and margin_modifier values
 4. **API 401**: Verify API key is hashed correctly, check `last_used_at`
 5. **Watermark not advancing**: Check consolidator logs for errors

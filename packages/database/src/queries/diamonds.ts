@@ -21,6 +21,7 @@ interface DiamondRow {
   ratio: string | null;
   lab_grown: boolean;
   treated: boolean;
+  fancy_color: string | null;
   feed_price: string;
   diamond_price: string | null;
   price_per_carat: string;
@@ -67,6 +68,7 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     ratio: row.ratio ? parseFloat(row.ratio) : undefined,
     labGrown: row.lab_grown,
     treated: row.treated,
+    fancyColor: row.fancy_color ?? undefined,
     feedPrice: parseFloat(row.feed_price),
     diamondPrice: row.diamond_price ? parseFloat(row.diamond_price) : undefined,
     pricePerCarat: parseFloat(row.price_per_carat),
@@ -361,6 +363,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       ratio = EXCLUDED.ratio,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
+      fancy_color = EXCLUDED.fancy_color,
       feed_price = EXCLUDED.feed_price,
       diamond_price = EXCLUDED.diamond_price,
       price_per_carat = EXCLUDED.price_per_carat,
@@ -402,6 +405,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.ratio,
       diamond.labGrown,
       diamond.treated,
+      diamond.fancyColor,
       diamond.feedPrice,
       diamond.diamondPrice,
       diamond.pricePerCarat,
@@ -452,6 +456,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const ratios: (number | null)[] = [];
   const labGrowns: boolean[] = [];
   const treateds: boolean[] = [];
+  const fancyColors: (string | null)[] = [];
   const feedPrice: number[] = [];
   const diamondPrices: (number | null)[] = [];
   const pricePerCarat: number[] = [];
@@ -492,6 +497,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     ratios.push(d.ratio ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
+    fancyColors.push(d.fancyColor ?? null);
     feedPrice.push(d.feedPrice);
     diamondPrices.push(d.diamondPrice ?? null);
     pricePerCarat.push(d.pricePerCarat);
@@ -555,6 +561,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         ratio = EXCLUDED.ratio,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
+        fancy_color = EXCLUDED.fancy_color,
         feed_price = EXCLUDED.feed_price,
         diamond_price = EXCLUDED.diamond_price,
         price_per_carat = EXCLUDED.price_per_carat,

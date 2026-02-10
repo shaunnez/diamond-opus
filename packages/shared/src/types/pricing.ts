@@ -1,12 +1,13 @@
+export type StoneType = 'natural' | 'lab' | 'fancy';
+
 export interface PricingRule {
   id: string;
   priority: number;
-  caratMin?: number;
-  caratMax?: number;
-  shapes?: string[];
-  labGrown?: boolean;
+  stoneType?: StoneType;
+  priceMin?: number;
+  priceMax?: number;
   feed?: string;
-  markupRatio: number;
+  marginModifier: number;
   rating?: number;
   active: boolean;
   createdAt: Date;
@@ -20,4 +21,8 @@ export interface PricingResult {
   markupRatio: number;
   rating?: number;
   matchedRuleId?: string;
+  stoneType: StoneType;
+  baseMargin: number;
+  marginModifier: number;
+  effectiveMargin: number;
 }

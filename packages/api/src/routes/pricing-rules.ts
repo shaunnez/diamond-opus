@@ -6,9 +6,12 @@ import {
   updatePricingRule,
   deactivatePricingRule,
 } from "@diamond/database";
+import type { StoneType } from "@diamond/shared";
 import { badRequest } from "../middleware/index.js";
 
 const router = Router();
+
+const VALID_STONE_TYPES: StoneType[] = ['natural', 'lab', 'fancy'];
 
 /**
  * @openapi
@@ -35,12 +38,11 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
         rules: rules.map((rule) => ({
           id: rule.id,
           priority: rule.priority,
-          carat_min: rule.caratMin,
-          carat_max: rule.caratMax,
-          shapes: rule.shapes,
-          lab_grown: rule.labGrown,
+          stone_type: rule.stoneType,
+          price_min: rule.priceMin,
+          price_max: rule.priceMax,
           feed: rule.feed,
-          markup_ratio: rule.markupRatio,
+          margin_modifier: rule.marginModifier,
           rating: rule.rating,
           active: rule.active,
           created_at: rule.createdAt,
@@ -72,26 +74,26 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
  *             type: object
  *             required:
  *               - priority
- *               - markup_ratio
+ *               - margin_modifier
  *             properties:
  *               priority:
  *                 type: integer
  *                 description: Rule priority (lower = higher precedence)
- *               carat_min:
+ *               stone_type:
+ *                 type: string
+ *                 enum: [natural, lab, fancy]
+ *                 description: Stone type to match
+ *               price_min:
  *                 type: number
- *               carat_max:
+ *                 description: Minimum cost (USD) to match
+ *               price_max:
  *                 type: number
- *               shapes:
- *                 type: array
- *                 items:
- *                   type: string
- *               lab_grown:
- *                 type: boolean
+ *                 description: Maximum cost (USD) to match
  *               feed:
  *                 type: string
- *               markup_ratio:
+ *               margin_modifier:
  *                 type: number
- *                 description: Markup multiplier (e.g., 1.15 for 15% markup)
+ *                 description: Margin modifier in percentage points (e.g., 6 for +6%, -4 for -4%)
  *               rating:
  *                 type: integer
  *                 minimum: 1
@@ -112,14 +114,19 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     if (body.priority === undefined) {
       throw badRequest("priority is required");
     }
-    if (body.markup_ratio === undefined) {
-      throw badRequest("markup_ratio is required");
+    if (body.margin_modifier === undefined) {
+      throw badRequest("margin_modifier is required");
     }
 
-    // Validate markup_ratio is a valid number
-    const markupRatio = parseFloat(body.markup_ratio);
-    if (isNaN(markupRatio) || markupRatio <= 0) {
-      throw badRequest("markup_ratio must be a positive number");
+    // Validate margin_modifier is a valid number
+    const marginModifier = parseFloat(body.margin_modifier);
+    if (isNaN(marginModifier)) {
+      throw badRequest("margin_modifier must be a number");
+    }
+
+    // Validate stone_type if provided
+    if (body.stone_type !== undefined && !VALID_STONE_TYPES.includes(body.stone_type)) {
+      throw badRequest("stone_type must be one of: natural, lab, fancy");
     }
 
     // Validate rating if provided
@@ -132,12 +139,11 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 
     const rule = await createPricingRule({
       priority: parseInt(body.priority, 10),
-      caratMin: body.carat_min !== undefined ? parseFloat(body.carat_min) : undefined,
-      caratMax: body.carat_max !== undefined ? parseFloat(body.carat_max) : undefined,
-      shapes: body.shapes,
-      labGrown: body.lab_grown,
+      stoneType: body.stone_type,
+      priceMin: body.price_min !== undefined ? parseFloat(body.price_min) : undefined,
+      priceMax: body.price_max !== undefined ? parseFloat(body.price_max) : undefined,
       feed: body.feed,
-      markupRatio,
+      marginModifier,
       rating: body.rating !== undefined ? parseInt(body.rating, 10) : undefined,
     });
 
@@ -145,12 +151,11 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       data: {
         id: rule.id,
         priority: rule.priority,
-        carat_min: rule.caratMin,
-        carat_max: rule.caratMax,
-        shapes: rule.shapes,
-        lab_grown: rule.labGrown,
+        stone_type: rule.stoneType,
+        price_min: rule.priceMin,
+        price_max: rule.priceMax,
         feed: rule.feed,
-        markup_ratio: rule.markupRatio,
+        margin_modifier: rule.marginModifier,
         rating: rule.rating,
         active: rule.active,
         created_at: rule.createdAt,
@@ -188,19 +193,16 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
  *             properties:
  *               priority:
  *                 type: integer
- *               carat_min:
+ *               stone_type:
+ *                 type: string
+ *                 enum: [natural, lab, fancy]
+ *               price_min:
  *                 type: number
- *               carat_max:
+ *               price_max:
  *                 type: number
- *               shapes:
- *                 type: array
- *                 items:
- *                   type: string
- *               lab_grown:
- *                 type: boolean
  *               feed:
  *                 type: string
- *               markup_ratio:
+ *               margin_modifier:
  *                 type: number
  *               rating:
  *                 type: integer
@@ -228,12 +230,11 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     // Build updates object
     const updates: {
       priority?: number;
-      caratMin?: number;
-      caratMax?: number;
-      shapes?: string[];
-      labGrown?: boolean;
+      stoneType?: StoneType;
+      priceMin?: number;
+      priceMax?: number;
       feed?: string;
-      markupRatio?: number;
+      marginModifier?: number;
       rating?: number;
       active?: boolean;
     } = {};
@@ -241,27 +242,27 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     if (body.priority !== undefined) {
       updates.priority = parseInt(body.priority, 10);
     }
-    if (body.carat_min !== undefined) {
-      updates.caratMin = body.carat_min === null ? undefined : parseFloat(body.carat_min);
+    if (body.stone_type !== undefined) {
+      if (body.stone_type !== null && !VALID_STONE_TYPES.includes(body.stone_type)) {
+        throw badRequest("stone_type must be one of: natural, lab, fancy");
+      }
+      updates.stoneType = body.stone_type === null ? undefined : body.stone_type;
     }
-    if (body.carat_max !== undefined) {
-      updates.caratMax = body.carat_max === null ? undefined : parseFloat(body.carat_max);
+    if (body.price_min !== undefined) {
+      updates.priceMin = body.price_min === null ? undefined : parseFloat(body.price_min);
     }
-    if (body.shapes !== undefined) {
-      updates.shapes = body.shapes;
-    }
-    if (body.lab_grown !== undefined) {
-      updates.labGrown = body.lab_grown;
+    if (body.price_max !== undefined) {
+      updates.priceMax = body.price_max === null ? undefined : parseFloat(body.price_max);
     }
     if (body.feed !== undefined) {
       updates.feed = body.feed;
     }
-    if (body.markup_ratio !== undefined) {
-      const markupRatio = parseFloat(body.markup_ratio);
-      if (isNaN(markupRatio) || markupRatio <= 0) {
-        throw badRequest("markup_ratio must be a positive number");
+    if (body.margin_modifier !== undefined) {
+      const marginModifier = parseFloat(body.margin_modifier);
+      if (isNaN(marginModifier)) {
+        throw badRequest("margin_modifier must be a number");
       }
-      updates.markupRatio = markupRatio;
+      updates.marginModifier = marginModifier;
     }
     if (body.rating !== undefined) {
       if (body.rating === null) {

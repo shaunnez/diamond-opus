@@ -1,14 +1,15 @@
 import { api } from './client';
 
+export type StoneType = 'natural' | 'lab' | 'fancy';
+
 export interface PricingRule {
   id: string;
   priority: number;
-  carat_min?: number;
-  carat_max?: number;
-  shapes?: string[];
-  lab_grown?: boolean;
+  stone_type?: StoneType;
+  price_min?: number;
+  price_max?: number;
   feed?: string;
-  markup_ratio: number;
+  margin_modifier: number;
   rating?: number;
   active: boolean;
   created_at: string;
@@ -22,23 +23,21 @@ export interface PricingRulesResponse {
 
 export interface CreatePricingRuleInput {
   priority: number;
-  carat_min?: number;
-  carat_max?: number;
-  shapes?: string[];
-  lab_grown?: boolean;
+  stone_type?: StoneType;
+  price_min?: number;
+  price_max?: number;
   feed?: string;
-  markup_ratio: number;
+  margin_modifier: number;
   rating?: number;
 }
 
 export interface UpdatePricingRuleInput {
   priority?: number;
-  carat_min?: number | null;
-  carat_max?: number | null;
-  shapes?: string[] | null;
-  lab_grown?: boolean | null;
+  stone_type?: StoneType | null;
+  price_min?: number | null;
+  price_max?: number | null;
   feed?: string | null;
-  markup_ratio?: number;
+  margin_modifier?: number;
   rating?: number | null;
   active?: boolean;
 }
