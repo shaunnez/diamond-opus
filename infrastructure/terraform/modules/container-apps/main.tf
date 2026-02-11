@@ -31,24 +31,24 @@ resource "azurerm_container_app_environment" "main" {
 
 # Create a public IP prefix: IPv4 Zone redundant
 resource "azurerm_public_ip_prefix" "my_ipv4" {
-  name                = "myIPv4"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  ip_version    = "IPv4"
-  prefix_length = 28
-  zones = ["1", "2", "3"]
+  name                        = "myIPv4"
+  location                    = var.location
+  resource_group_name         = var.resource_group_name
+  ip_version                  = "IPv4"
+  prefix_length               = 28
+  zones                       = ["1", "2", "3"]
 }
 
 # Create a public IP prefix: IPv6 Zone redundant
 resource "azurerm_public_ip_prefix" "my_ipv6" {
-  name                = "myIpv6"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+  name                        = "myIpv6"
+  location                    = var.location
+  resource_group_name         = var.resource_group_name
 
-  ip_version    = "IPv6"
-  prefix_length = 124
+  ip_version                  = "IPv6"
+  prefix_length               = 124
 
-  zones = ["1", "2", "3"]
+  zones                       = ["1", "2", "3"]
 }
 
 # API Container App (HTTP, external ingress)
