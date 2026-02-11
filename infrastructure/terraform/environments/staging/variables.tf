@@ -283,7 +283,7 @@ variable "dashboard_memory" {
 variable "api_min_replicas" {
   description = "Minimum API replicas"
   type        = number
-  default     = 0
+  default     = 2
 
   validation {
     condition     = var.api_min_replicas >= 0
@@ -317,7 +317,7 @@ variable "worker_min_replicas" {
 variable "worker_max_replicas" {
   description = "Maximum worker replicas (must be >= worker_min_replicas)"
   type        = number
-  default     = 30
+  default     = 200
 
   validation {
     condition     = var.worker_max_replicas >= 1
@@ -340,7 +340,7 @@ variable "consolidator_min_replicas" {
 variable "consolidator_max_replicas" {
   description = "Maximum consolidator replicas (safe with FOR UPDATE SKIP LOCKED, recommended <= 3, must be >= consolidator_min_replicas)"
   type        = number
-  default     = 2
+  default     = 3
 
   validation {
     condition     = var.consolidator_max_replicas >= 1 && var.consolidator_max_replicas <= 5

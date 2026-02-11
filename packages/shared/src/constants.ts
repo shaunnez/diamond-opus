@@ -25,18 +25,28 @@ export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 300; // 5 minutes
 
-// Rate limiting configuration for Nivoda API
-/** Maximum requests per second globally across all workers (conservative start) */
-export const RATE_LIMIT_MAX_REQUESTS_PER_WINDOW = parseInt(
-  process.env.RATE_LIMIT_MAX_REQUESTS ?? '2',
+// Nivoda proxy rate limiting (in-memory on API proxy)
+/** Max requests per second per API replica for Nivoda proxy */
+export const NIVODA_PROXY_RATE_LIMIT = parseInt(
+  process.env.NIVODA_PROXY_RATE_LIMIT ?? '50',
   10
 );
 /** Rate limit window duration in milliseconds */
-export const RATE_LIMIT_WINDOW_MS = 1000;
-/** Maximum time to wait for a rate limit token before giving up */
-export const RATE_LIMIT_MAX_WAIT_MS = 30000;
-/** Base delay between rate limit retry attempts */
-export const RATE_LIMIT_BASE_DELAY_MS = 100;
+export const NIVODA_PROXY_RATE_LIMIT_WINDOW_MS = 1000;
+/** Maximum time a queued proxy request waits before receiving 429 */
+export const NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS = parseInt(
+  process.env.NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS ?? '60000',
+  10
+);
+
+// Nivoda proxy timeout
+/** Timeout for the API proxy's upstream fetch to Nivoda (milliseconds) */
+export const NIVODA_PROXY_TIMEOUT_MS = parseInt(
+  process.env.NIVODA_PROXY_TIMEOUT_MS ?? '60000',
+  10
+);
+/** Client-side transport timeout (must be > NIVODA_PROXY_TIMEOUT_MS) */
+export const NIVODA_PROXY_TRANSPORT_TIMEOUT_MS = 65_000;
 
 // Request timeout configuration
 /** Default timeout for Nivoda API requests in milliseconds */

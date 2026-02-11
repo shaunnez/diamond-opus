@@ -169,11 +169,26 @@ For production environments where Nivoda requires domain allowlisting:
 **Configuration:**
 - `NIVODA_PROXY_BASE_URL` - Set to the API base URL (e.g., `https://api.fourwords.co.nz`)
 - `INTERNAL_SERVICE_TOKEN` - Shared secret between workers/scheduler and the API proxy
+- `NIVODA_PROXY_RATE_LIMIT` - Max requests per second per API replica (default: 50)
+- `NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS` - Max queue wait before 429 (default: 60000)
+- `NIVODA_PROXY_TIMEOUT_MS` - Upstream fetch timeout (default: 60000)
 
 **How it works:**
 - When `NIVODA_PROXY_BASE_URL` is set, workers and scheduler route all Nivoda API calls through the internal API
 - The API acts as a proxy with a stable, allowlisted domain
 - Internal calls are authenticated via `x-internal-token` header (different from client API auth)
+
+**Rate limiting:**
+- Rate limiting is enforced at the API proxy layer using an in-memory token bucket
+- Each API replica rate-limits independently — effective global rate = `per_replica_limit * num_replicas`
+- When the limit is exceeded, requests are queued (FIFO) and drained as tokens become available
+- If a queued request waits longer than `NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS`, it receives a 429 response
+- Workers already have `withRetry` that handles 429s with exponential backoff
+- Workers/scheduler do NOT have their own rate limiter — the proxy is the single throttle point
+
+**Timeouts:**
+- Proxy upstream timeout: 60 seconds (configurable via `NIVODA_PROXY_TIMEOUT_MS`)
+- Client transport timeout: 65 seconds (slightly more than proxy to get a proper 502 response)
 
 **Performance impact:**
 - Adds ~50-100ms latency per Nivoda request (internal routing overhead)
@@ -181,6 +196,7 @@ For production environments where Nivoda requires domain allowlisting:
 
 **Troubleshooting:**
 - Check API logs for `nivoda_proxy_*` events
+- Check for `nivoda_proxy_rate_limited` events if workers are getting 429s
 - Trace IDs link worker requests to proxy calls
 - Token rotation requires simultaneous restart of all services to avoid 403 errors
 
@@ -238,7 +254,8 @@ Dual auth system (checked in order):
 - `packages/pricing-engine/src/engine.ts` - Pricing rule matching
 - `packages/api/src/middleware/auth.ts` - Authentication logic
 - `packages/api/src/middleware/nivodaProxyAuth.ts` - Internal proxy auth (constant-time token comparison)
-- `packages/api/src/routes/nivodaProxy.ts` - Nivoda proxy route (forwards GraphQL to Nivoda)
+- `packages/api/src/middleware/rateLimiter.ts` - In-memory rate limiter for Nivoda proxy (token bucket with FIFO queue)
+- `packages/api/src/routes/nivodaProxy.ts` - Nivoda proxy route (rate-limited, forwards GraphQL to Nivoda)
 - `packages/nivoda/src/proxyTransport.ts` - Proxy transport (used when NIVODA_PROXY_BASE_URL is set)
 - `packages/database/src/client.ts` - PostgreSQL connection pool
 
@@ -273,6 +290,13 @@ AUTO_CONSOLIDATION_DELAY_MINUTES = 5   // Delay before auto-consolidation on par
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
 HEATMAP_MAX_WORKERS = 1000             // Max parallel workers (incremental capped to 10)
+
+// Nivoda proxy rate limiting (in-memory on API)
+NIVODA_PROXY_RATE_LIMIT = 50           // Requests/sec per API replica (env: NIVODA_PROXY_RATE_LIMIT)
+NIVODA_PROXY_RATE_LIMIT_WINDOW_MS = 1000
+NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS = 60000  // Max queue wait (env: NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS)
+NIVODA_PROXY_TIMEOUT_MS = 60000        // Upstream fetch timeout (env: NIVODA_PROXY_TIMEOUT_MS)
+NIVODA_PROXY_TRANSPORT_TIMEOUT_MS = 65000  // Client transport timeout (> proxy timeout)
 
 // Nivoda query date filtering
 FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z'  // Start date for full runs
@@ -366,6 +390,9 @@ Required variables (see `.env.example`):
 | `NIVODA_DISABLE_STAGING_FIELDS` | Set to `true` to exclude fields causing GraphQL enum errors on staging (clarity, floInt, floCol, labgrown_type) |
 | `NIVODA_PROXY_BASE_URL` | API base URL for proxy mode (e.g., `https://api.fourwords.co.nz`) |
 | `INTERNAL_SERVICE_TOKEN` | Shared secret for internal proxy authentication |
+| `NIVODA_PROXY_RATE_LIMIT` | API: Max proxy requests/sec per replica (default 50) |
+| `NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS` | API: Max queue wait before 429 (default 60000) |
+| `NIVODA_PROXY_TIMEOUT_MS` | API: Upstream fetch timeout in ms (default 60000) |
 
 ### Database Pooling (Supabase Pro Micro)
 
@@ -382,17 +409,17 @@ Connection pooling is critical for Supabase shared pooling. Set these per-servic
 
 | Service | PG_POOL_MAX | PG_IDLE_TIMEOUT_MS | PG_CONN_TIMEOUT_MS | Notes |
 |---------|-------------|--------------------|--------------------|-------|
-| Worker | 1 | 5000 | 5000 | High replica count, minimal connections |
+| Worker | 1 | 2000 | 10000 | Release idle connections fast; allow pgbouncer queuing time at 200 replicas |
 | Consolidator | 2 | 5000 | 5000 | Set CONSOLIDATOR_CONCURRENCY=2 |
-| API | 3 | 30000 | 5000 | Longer idle for HTTP keep-alive |
+| API | 2 | 30000 | 5000 | Proxy requests don't use DB; 2 is sufficient for client endpoints |
 | Scheduler | 2 | 5000 | 5000 | Short-lived job |
 
-**Scaling example** (Supabase Pro Micro ~60 pooler connections):
-- 30 worker replicas × 1 connection = 30
-- 2 consolidator replicas × 2 connections = 4
-- 3 API replicas × 3 connections = 9
+**Scaling example** (Supabase Pro Micro ~60 pooler connections, transaction mode recommended):
+- 200 worker replicas × 1 connection = 200 client connections (pgbouncer transaction mode shares backend slots)
+- 3 consolidator replicas × 2 connections = 6
+- 3 API replicas × 2 connections = 6
 - 1 scheduler × 2 connections = 2
-- **Total: 45 connections** (leaves headroom)
+- **Total client connections: 214** — with transaction mode, concurrent backend connections are much lower (~30-40) since workers are mostly idle waiting for HTTP responses
 
 ## Debugging Tips
 

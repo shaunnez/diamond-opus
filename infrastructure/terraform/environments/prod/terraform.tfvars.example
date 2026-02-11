@@ -16,13 +16,13 @@ storage_replication_type  = "GRS" # Geo-redundant for production
 storage_enable_versioning = true  # Enable blob versioning for production
 acr_sku                   = "Standard"
 
-# Scaling (production capacity)
-api_min_replicas          = 1
+# Scaling (production capacity — sized for proxy mode with 100-200 workers)
+api_min_replicas          = 2
 api_max_replicas          = 5
-worker_min_replicas       = 1
-worker_max_replicas       = 10
+worker_min_replicas       = 0
+worker_max_replicas       = 200
 consolidator_min_replicas = 1
-consolidator_max_replicas = 2
+consolidator_max_replicas = 3
 
 # Scheduler runs at 2 AM UTC daily
 scheduler_cron_expression = "0 2 * * *"
