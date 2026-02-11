@@ -142,6 +142,22 @@ resource "azurerm_container_app" "api" {
         value = "https://${azurerm_container_app.demo_feed_api.ingress[0].fqdn}"
       }
 
+      # Nivoda proxy rate limiting and timeout
+      env {
+        name  = "NIVODA_PROXY_RATE_LIMIT"
+        value = tostring(var.nivoda_proxy_rate_limit)
+      }
+
+      env {
+        name  = "NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS"
+        value = tostring(var.nivoda_proxy_rate_limit_max_wait_ms)
+      }
+
+      env {
+        name  = "NIVODA_PROXY_TIMEOUT_MS"
+        value = tostring(var.nivoda_proxy_timeout_ms)
+      }
+
       # Database pooling configuration
       env {
         name  = "PG_POOL_MAX"

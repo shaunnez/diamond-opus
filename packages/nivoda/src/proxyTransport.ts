@@ -3,7 +3,7 @@ export class ProxyGraphqlTransport {
   private readonly token: string;
   private readonly timeoutMs: number;
 
-  constructor(baseUrl: string, internalToken: string, timeoutMs = 30_000) {
+  constructor(baseUrl: string, internalToken: string, timeoutMs = 65_000) {
     this.endpoint = baseUrl.replace(/\/$/, "") + "/api/v2/internal/nivoda/graphql";
     this.token = internalToken;
     this.timeoutMs = timeoutMs;

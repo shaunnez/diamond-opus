@@ -1,34 +1,20 @@
 import { FeedRegistry } from '@diamond/feed-registry';
 import { NivodaFeedAdapter } from '@diamond/nivoda';
 import { DemoFeedAdapter } from '@diamond/demo-feed';
-import { acquireRateLimitToken } from '@diamond/database';
-import {
-  RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
-  RATE_LIMIT_WINDOW_MS,
-  RATE_LIMIT_MAX_WAIT_MS,
-  RATE_LIMIT_BASE_DELAY_MS,
-} from '@diamond/shared';
 
 /**
  * Creates a FeedRegistry with all available feed adapters registered.
  * Used by the scheduler to resolve the adapter for the configured FEED env var.
+ *
+ * Rate limiting is handled at the API proxy layer (in-memory token bucket),
+ * so the scheduler no longer needs a client-side rate limiter.
  */
 export function createFeedRegistry(): FeedRegistry {
   const registry = new FeedRegistry();
 
-  // Rate limiter for Nivoda
-  const rateLimitConfig = {
-    maxRequestsPerWindow: RATE_LIMIT_MAX_REQUESTS_PER_WINDOW,
-    windowDurationMs: RATE_LIMIT_WINDOW_MS,
-    maxWaitMs: RATE_LIMIT_MAX_WAIT_MS,
-    baseDelayMs: RATE_LIMIT_BASE_DELAY_MS,
-  };
-  const acquireRateLimit = () => acquireRateLimitToken("nivoda_global", rateLimitConfig);
-
   // Register Nivoda feed
   registry.register(new NivodaFeedAdapter({
     enableDesyncDelay: false,
-    rateLimiter: acquireRateLimit,
   }));
 
   // Register Demo feed

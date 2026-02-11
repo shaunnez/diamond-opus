@@ -1,7 +1,15 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { nivodaProxyAuth } from "../middleware/nivodaProxyAuth.js";
-import { requireEnv, createLogger } from "@diamond/shared";
+import { createRateLimiterMiddleware } from "../middleware/rateLimiter.js";
+import {
+  requireEnv,
+  createLogger,
+  NIVODA_PROXY_RATE_LIMIT,
+  NIVODA_PROXY_RATE_LIMIT_WINDOW_MS,
+  NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS,
+  NIVODA_PROXY_TIMEOUT_MS,
+} from "@diamond/shared";
 
 const router = Router();
 const logger = createLogger({ service: 'api', context: { component: 'nivoda-proxy' } });
@@ -9,9 +17,16 @@ const logger = createLogger({ service: 'api', context: { component: 'nivoda-prox
 const MAX_QUERY_SIZE = 100_000; // 100KB
 const MAX_VARIABLES_SIZE = 500_000; // 500KB
 
+const rateLimiter = createRateLimiterMiddleware({
+  maxRequestsPerWindow: NIVODA_PROXY_RATE_LIMIT,
+  windowMs: NIVODA_PROXY_RATE_LIMIT_WINDOW_MS,
+  maxWaitMs: NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS,
+});
+
 router.post(
   "/graphql",
   nivodaProxyAuth,
+  rateLimiter,
   async (req: Request, res: Response) => {
     const startTime = Date.now();
     const { query, variables, operationName } = req.body ?? {};
@@ -58,7 +73,7 @@ router.post(
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20_000);
+      const timeout = setTimeout(() => controller.abort(), NIVODA_PROXY_TIMEOUT_MS);
 
       const fetchStart = Date.now();
       const upstream = await fetch(url, {

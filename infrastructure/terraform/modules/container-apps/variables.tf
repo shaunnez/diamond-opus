@@ -258,6 +258,24 @@ variable "internal_service_token" {
   default     = ""
 }
 
+variable "nivoda_proxy_rate_limit" {
+  description = "Max Nivoda proxy requests per second per API replica (default: 50)"
+  type        = number
+  default     = 50
+}
+
+variable "nivoda_proxy_rate_limit_max_wait_ms" {
+  description = "Max wait time for rate-limited proxy requests before 429 (default: 60000)"
+  type        = number
+  default     = 60000
+}
+
+variable "nivoda_proxy_timeout_ms" {
+  description = "Timeout for Nivoda proxy upstream requests in ms (default: 60000)"
+  type        = number
+  default     = 60000
+}
+
 # ============================================
 # SCHEDULER CONFIGURATION
 # ============================================
@@ -293,50 +311,50 @@ variable "scheduler_parallelism" {
 variable "api_cpu" {
   description = "CPU allocation for API container"
   type        = number
-  default     = 0.25
+  default     = 0.5
 }
 
 variable "api_memory" {
   description = "Memory allocation for API container"
   type        = string
-  default     = "0.5Gi"
+  default     = "1Gi"
 }
 
 variable "api_min_replicas" {
   description = "Minimum replicas for API"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "api_max_replicas" {
   description = "Maximum replicas for API"
   type        = number
-  default     = 3
+  default     = 5
 }
 
 ## Worker Resources
 variable "worker_cpu" {
-  description = "CPU allocation for worker container"
+  description = "CPU allocation for worker container (I/O bound, 0.25 sufficient)"
   type        = number
-  default     = 0.5
+  default     = 0.25
 }
 
 variable "worker_memory" {
-  description = "Memory allocation for worker container"
+  description = "Memory allocation for worker container (processes 30 items/page)"
   type        = string
-  default     = "1Gi"
+  default     = "0.5Gi"
 }
 
 variable "worker_min_replicas" {
-  description = "Minimum replicas for worker"
+  description = "Minimum replicas for worker (0 = scale to zero when no messages)"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "worker_max_replicas" {
   description = "Maximum replicas for worker"
   type        = number
-  default     = 30
+  default     = 200
 }
 
 variable "worker_message_count" {
@@ -440,9 +458,9 @@ variable "dashboard_max_replicas" {
 # ============================================
 
 variable "api_pg_pool_max" {
-  description = "Max Postgres connections for API (default: 3)"
+  description = "Max Postgres connections for API (default: 2, proxy requests don't use DB)"
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "api_pg_idle_timeout_ms" {
@@ -464,15 +482,15 @@ variable "worker_pg_pool_max" {
 }
 
 variable "worker_pg_idle_timeout_ms" {
-  description = "Postgres idle timeout for worker in ms (default: 5000)"
+  description = "Postgres idle timeout for worker in ms (release connections faster between Nivoda calls)"
   type        = number
-  default     = 5000
+  default     = 2000
 }
 
 variable "worker_pg_conn_timeout_ms" {
-  description = "Postgres connection timeout for worker in ms (default: 5000)"
+  description = "Postgres connection timeout for worker in ms (allow time for pgbouncer queuing at high replica count)"
   type        = number
-  default     = 5000
+  default     = 10000
 }
 
 variable "consolidator_pg_pool_max" {
