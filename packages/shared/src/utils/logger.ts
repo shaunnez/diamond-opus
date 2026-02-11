@@ -229,3 +229,121 @@ export const nullLogger: Logger = {
   child: () => nullLogger,
   getContext: () => ({}),
 };
+
+/**
+ * Correlation context for pipeline operations.
+ * These fields are enforced as consistent key names across all services.
+ */
+export interface ServiceLogContext {
+  runId?: string;
+  partitionId?: string;
+  traceId?: string;
+}
+
+/**
+ * A service-scoped logger that enforces consistent field names.
+ * Wraps the existing Logger, injecting `service` automatically and
+ * providing a typed `withContext` method for correlation fields.
+ */
+export interface ServiceLogger extends Logger {
+  /**
+   * Create a child logger with pipeline correlation context.
+   * Enforces consistent field names (runId, partitionId, traceId).
+   */
+  withContext(ctx: ServiceLogContext): Logger;
+}
+
+/**
+ * Create a service-scoped logger that enforces consistent field names.
+ *
+ * - Automatically injects `service` into every log entry.
+ * - Provides `withContext({ runId, partitionId, traceId })` for correlation.
+ * - Wraps (not replaces) the existing createLogger infrastructure.
+ *
+ * @example
+ * ```typescript
+ * const logger = createServiceLogger('worker');
+ * logger.info('Starting');
+ *
+ * const log = logger.withContext({ runId: 'abc', partitionId: 'p1', traceId: 'xyz' });
+ * log.info('Processing partition');
+ * ```
+ */
+export function createServiceLogger(
+  serviceName: string,
+  baseContext?: LogContext,
+): ServiceLogger {
+  const inner = createLogger({
+    service: serviceName,
+    context: baseContext,
+  });
+
+  function wrapWithContext(logger: Logger): ServiceLogger {
+    const wrapped: ServiceLogger = {
+      debug: (msg, data) => logger.debug(msg, data),
+      info: (msg, data) => logger.info(msg, data),
+      warn: (msg, data) => logger.warn(msg, data),
+      error: (msg, error, data) => logger.error(msg, error, data),
+      fatal: (msg, error, data) => logger.fatal(msg, error, data),
+      child: (context) => wrapWithContext(logger.child(context)),
+      getContext: () => logger.getContext(),
+      withContext: (ctx: ServiceLogContext) => {
+        const childCtx: LogContext = {};
+        if (ctx.runId) childCtx.runId = ctx.runId;
+        if (ctx.partitionId) childCtx.partitionId = ctx.partitionId;
+        if (ctx.traceId) childCtx.traceId = ctx.traceId;
+        return wrapWithContext(logger.child(childCtx));
+      },
+    };
+    return wrapped;
+  }
+
+  return wrapWithContext(inner);
+}
+
+/**
+ * Cap error messages to a maximum length to prevent exceeding database or log size limits.
+ */
+export function capErrorMessage(message: string, maxLength = 1000): string {
+  if (message.length <= maxLength) return message;
+  return message.substring(0, maxLength) + '... (truncated)';
+}
+
+/**
+ * Safely persist an error to the error_logs table.
+ * Falls back to stdout if the persist function throws, ensuring the service never crashes
+ * due to log persistence failures.
+ *
+ * @param persistFn - The insertErrorLog function from @diamond/database
+ * @param service - Service name
+ * @param error - The caught error
+ * @param context - Optional context to persist
+ * @param logger - Optional logger for fallback stdout output
+ */
+export function safeLogError(
+  persistFn: (service: string, msg: string, stack?: string, ctx?: Record<string, unknown>) => Promise<void>,
+  service: string,
+  error: unknown,
+  context?: Record<string, unknown>,
+  logger?: Logger,
+): void {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const errorMessage = capErrorMessage(rawMessage);
+  const errorStack = error instanceof Error ? error.stack : undefined;
+
+  persistFn(service, errorMessage, errorStack, context).catch((persistError) => {
+    // Fallback to stdout — never let log persistence crash the service
+    if (logger) {
+      logger.warn('Failed to persist error log, falling back to stdout', {
+        originalError: errorMessage,
+        persistError: persistError instanceof Error ? persistError.message : String(persistError),
+      });
+    } else {
+      console.error('[log-persist-fallback]', {
+        service,
+        error: errorMessage,
+        persistError: persistError instanceof Error ? persistError.message : String(persistError),
+      });
+    }
+  });
+}

@@ -12,9 +12,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 import { query, closePool } from '@diamond/database';
-import { createLogger } from '@diamond/shared';
+import { createServiceLogger } from '@diamond/shared';
 
-const log = createLogger({ service: 'demo-feed-seed' });
+const log = createServiceLogger('demo-feed-seed');
 
 const TOTAL_DIAMONDS = parseInt(process.env.DEMO_SEED_COUNT ?? '100000', 10);
 const BATCH_SIZE = 1000;

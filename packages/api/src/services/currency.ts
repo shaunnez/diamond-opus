@@ -1,8 +1,8 @@
 import { Resend } from 'resend';
-import { createLogger, optionalEnv, FRANKFURTER_API_URL, CURRENCY_REFRESH_INTERVAL_MS } from '@diamond/shared';
+import { createServiceLogger, optionalEnv, FRANKFURTER_API_URL, CURRENCY_REFRESH_INTERVAL_MS } from '@diamond/shared';
 import { upsertExchangeRate, getExchangeRate } from '@diamond/database';
 
-const logger = createLogger({ service: 'api', context: { component: 'currency' } });
+const logger = createServiceLogger('api', { component: 'currency' });
 
 interface CachedRate {
   rate: number;

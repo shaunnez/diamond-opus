@@ -197,6 +197,9 @@ export interface ErrorLog {
 
 export interface ErrorLogsFilter {
   service?: string;
+  runId?: string;
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 }
@@ -204,6 +207,9 @@ export interface ErrorLogsFilter {
 export async function getErrorLogs(filters: ErrorLogsFilter = {}): Promise<PaginatedResponse<ErrorLog>> {
   const params = new URLSearchParams();
   if (filters.service) params.set('service', filters.service);
+  if (filters.runId) params.set('runId', filters.runId);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
   if (filters.page) params.set('page', String(filters.page));
   if (filters.limit) params.set('limit', String(filters.limit));
 

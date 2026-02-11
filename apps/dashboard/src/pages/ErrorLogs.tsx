@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Filter, X, Trash2 } from 'lucide-react';
+import { Filter, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { getErrorLogs, getErrorLogServices, clearErrorLogs, type ErrorLogsFilter, type ErrorLog } from '../api/analytics';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
@@ -8,6 +8,7 @@ import {
   Card,
   Button,
   Select,
+  Input,
   Table,
   Pagination,
   Badge,
@@ -26,6 +27,44 @@ function ServiceBadge({ service }: { service: string }) {
     api: 'neutral',
   };
   return <Badge variant={variantMap[service] || 'neutral'}>{service}</Badge>;
+}
+
+function ContextJsonView({ context }: { context: Record<string, unknown> }) {
+  const [expanded, setExpanded] = useState(false);
+  const entries = Object.entries(context);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(!expanded);
+        }}
+        className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"
+      >
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {entries.length} field{entries.length !== 1 ? 's' : ''}
+      </button>
+      {expanded ? (
+        <pre className="mt-1 text-xs font-mono bg-stone-100 dark:bg-stone-800 p-2 rounded overflow-x-auto max-h-48">
+          {JSON.stringify(context, null, 2)}
+        </pre>
+      ) : (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {entries.slice(0, 4).map(([key, value]) => (
+            <span key={key} className="text-xs text-stone-500 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded">
+              {key}: {String(value).slice(0, 30)}
+            </span>
+          ))}
+          {entries.length > 4 && (
+            <span className="text-xs text-stone-400">+{entries.length - 4} more</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ErrorLogs() {
@@ -87,7 +126,7 @@ export function ErrorLogs() {
     setFilters({ page: 1, limit: 50 });
   };
 
-  const hasActiveFilters = !!filters.service;
+  const hasActiveFilters = !!(filters.service || filters.runId || filters.from || filters.to);
 
   const columns = [
     {
@@ -109,13 +148,7 @@ export function ErrorLogs() {
         <div className="max-w-xl">
           <p className="text-sm text-stone-900 dark:text-stone-100 font-mono break-all line-clamp-2">{log.errorMessage}</p>
           {log.context && Object.keys(log.context).length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {Object.entries(log.context).map(([key, value]) => (
-                <span key={key} className="text-xs text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
-                  {key}: {String(value).slice(0, 30)}
-                </span>
-              ))}
-            </div>
+            <ContextJsonView context={log.context} />
           )}
         </div>
       ),
@@ -180,7 +213,7 @@ export function ErrorLogs() {
           </div>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-stone-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Select
                 label="Service"
                 value={filters.service || ''}
@@ -192,6 +225,28 @@ export function ErrorLogs() {
                     label: s.charAt(0).toUpperCase() + s.slice(1),
                   })),
                 ]}
+              />
+              <Input
+                label="Run ID"
+                placeholder="Filter by runId..."
+                value={filters.runId || ''}
+                onChange={(e) => handleFilterChange('runId', e.target.value)}
+              />
+              <Input
+                label="From"
+                type="datetime-local"
+                value={filters.from ? filters.from.slice(0, 16) : ''}
+                onChange={(e) =>
+                  handleFilterChange('from', e.target.value ? new Date(e.target.value).toISOString() : undefined)
+                }
+              />
+              <Input
+                label="To"
+                type="datetime-local"
+                value={filters.to ? filters.to.slice(0, 16) : ''}
+                onChange={(e) =>
+                  handleFilterChange('to', e.target.value ? new Date(e.target.value).toISOString() : undefined)
+                }
               />
             </div>
           )}
@@ -245,12 +300,12 @@ export function ErrorLogs() {
                   </div>
                   <div>
                     <p className="text-xs text-stone-500 mb-1">Error Message</p>
-                    <p className="text-sm font-mono bg-stone-50 p-3 rounded-lg break-all">{log.errorMessage}</p>
+                    <p className="text-sm font-mono bg-stone-50 dark:bg-stone-800 p-3 rounded-lg break-all">{log.errorMessage}</p>
                   </div>
                   {log.stackTrace && (
                     <div>
                       <p className="text-xs text-stone-500 mb-1">Stack Trace</p>
-                      <pre className="text-xs font-mono bg-stone-50 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
+                      <pre className="text-xs font-mono bg-stone-50 dark:bg-stone-800 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
                         {log.stackTrace}
                       </pre>
                     </div>
@@ -258,7 +313,7 @@ export function ErrorLogs() {
                   {log.context && Object.keys(log.context).length > 0 && (
                     <div>
                       <p className="text-xs text-stone-500 mb-1">Context</p>
-                      <pre className="text-xs font-mono bg-stone-50 p-3 rounded-lg overflow-x-auto">
+                      <pre className="text-xs font-mono bg-stone-50 dark:bg-stone-800 p-3 rounded-lg overflow-x-auto">
                         {JSON.stringify(log.context, null, 2)}
                       </pre>
                     </div>

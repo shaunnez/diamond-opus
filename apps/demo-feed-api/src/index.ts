@@ -13,9 +13,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 import express from 'express';
 import { query, closePool } from '@diamond/database';
-import { createLogger } from '@diamond/shared';
+import { createServiceLogger } from '@diamond/shared';
 
-const log = createLogger({ service: 'demo-feed-api' });
+const log = createServiceLogger('demo-feed-api');
 const PORT = parseInt(process.env.DEMO_FEED_API_PORT ?? '4000', 10);
 
 const app = express();

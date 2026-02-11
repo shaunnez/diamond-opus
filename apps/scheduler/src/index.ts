@@ -18,8 +18,10 @@ import {
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
   MAX_SCHEDULER_RECORDS,
-  createLogger,
+  createServiceLogger,
   generateTraceId,
+  capErrorMessage,
+  safeLogError,
   type WorkItemMessage,
   type RunType,
   FULL_RUN_START_DATE,
@@ -49,22 +51,13 @@ import { createFeedRegistry } from "./feeds.js";
 console.log('[scheduler] feeds module imported successfully');
 console.log('[scheduler] All imports complete, creating logger...');
 
-const logger = createLogger({ service: "scheduler" });
+const logger = createServiceLogger('scheduler');
 
 console.log('[scheduler] Logger created, defining run function...');
 
-// Cap error messages to prevent overly long stack traces in database
-const MAX_ERROR_MESSAGE_LENGTH = 1000;
-function capErrorMessage(message: string): string {
-  if (message.length <= MAX_ERROR_MESSAGE_LENGTH) {
-    return message;
-  }
-  return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
-}
-
 async function run(): Promise<void> {
   const traceId = generateTraceId();
-  const log = logger.child({ traceId });
+  const log = logger.withContext({ traceId });
 
   // Determine which feed to run
   const feedId = process.env.FEED ?? 'nivoda';
@@ -224,10 +217,7 @@ async function main(): Promise<void> {
     await run();
   } catch (error) {
     logger.error("Scheduler failed", error);
-    const rawErrorMessage = error instanceof Error ? error.message : String(error);
-    const errorMessage = capErrorMessage(rawErrorMessage);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    insertErrorLog('scheduler', errorMessage, errorStack).catch(() => {});
+    safeLogError(insertErrorLog, 'scheduler', error, undefined, logger);
     process.exitCode = 1;
   } finally {
     console.log('[scheduler] Cleaning up connections...');
