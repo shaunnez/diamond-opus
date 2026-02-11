@@ -167,6 +167,7 @@ jobs:
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
           TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
@@ -238,6 +239,7 @@ jobs:
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
           TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
@@ -263,6 +265,7 @@ jobs:
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
           TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
