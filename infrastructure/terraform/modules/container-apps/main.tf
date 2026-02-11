@@ -106,7 +106,16 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
+<<<<<<< Updated upstream
         name        = "INTERNAL_SERVICE_TOKEN"
+=======
+        name  = "NIVODA_PROXY_BASE_URL"
+        secret_name = "nivoda-proxy-base-url"
+      }
+
+      env {
+        name  = "INTERNAL_SERVICE_TOKEN"
+>>>>>>> Stashed changes
         secret_name = "internal-service-token"
       }
 
@@ -243,8 +252,18 @@ resource "azurerm_container_app" "api" {
   }
 
   secret {
+<<<<<<< Updated upstream
     name  = "internal-service-token"
     value = coalesce(var.internal_service_token, "not-configured")
+=======
+    name  = "nivoda-proxy-base-url"
+    value = var.nivoda_proxy_base_url
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
+>>>>>>> Stashed changes
   }
 
   tags = var.tags
@@ -332,14 +351,17 @@ resource "azurerm_container_app" "worker" {
         secret_name = "nivoda-password"
       }
 
-      # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
       env {
         name  = "NIVODA_PROXY_BASE_URL"
-        value = var.nivoda_proxy_base_url
+        secret_name = "nivoda-proxy-base-url"
       }
 
       env {
+<<<<<<< Updated upstream
         name        = "INTERNAL_SERVICE_TOKEN"
+=======
+        name  = "INTERNAL_SERVICE_TOKEN"
+>>>>>>> Stashed changes
         secret_name = "internal-service-token"
       }
 
@@ -450,8 +472,18 @@ resource "azurerm_container_app" "worker" {
   }
 
   secret {
+<<<<<<< Updated upstream
     name  = "internal-service-token"
     value = coalesce(var.internal_service_token, "not-configured")
+=======
+    name  = "nivoda-proxy-base-url"
+    value = var.nivoda_proxy_base_url
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
+>>>>>>> Stashed changes
   }
 
   tags = var.tags
@@ -696,17 +728,18 @@ resource "azurerm_container_app_job" "scheduler" {
         name        = "NIVODA_PASSWORD"
         secret_name = "nivoda-password"
       }
-
       
-
-      # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
       env {
         name  = "NIVODA_PROXY_BASE_URL"
-        value = var.nivoda_proxy_base_url
+        secret_name = "nivoda-proxy-base-url"
       }
 
       env {
+<<<<<<< Updated upstream
         name        = "INTERNAL_SERVICE_TOKEN"
+=======
+        name  = "INTERNAL_SERVICE_TOKEN"
+>>>>>>> Stashed changes
         secret_name = "internal-service-token"
       }
 
@@ -796,8 +829,18 @@ resource "azurerm_container_app_job" "scheduler" {
   }
 
   secret {
+<<<<<<< Updated upstream
     name  = "internal-service-token"
     value = coalesce(var.internal_service_token, "not-configured")
+=======
+    name  = "nivoda-proxy-base-url"
+    value = var.nivoda_proxy_base_url
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
+>>>>>>> Stashed changes
   }
 
   tags = var.tags
@@ -953,6 +996,16 @@ resource "azurerm_container_app" "dashboard" {
         name        = "NIVODA_PASSWORD"
         secret_name = "nivoda-password"
       }
+
+      env {
+        name  = "NIVODA_PROXY_BASE_URL"
+        secret_name = "nivoda-proxy-base-url"
+      }
+
+      env {
+        name  = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
+      }
     }
   }
 
@@ -992,6 +1045,17 @@ resource "azurerm_container_app" "dashboard" {
     name  = "nivoda-password"
     value = var.nivoda_password
   }
+
+  secret {
+    name  = "nivoda-proxy-base-url"
+    value = var.nivoda_proxy_base_url
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = var.internal_service_token
+  }
+  
 
   tags = var.tags
 
