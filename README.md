@@ -124,6 +124,108 @@ npm run dev:consolidator
 npm run dev:scheduler
 ```
 
+## Local Development (Docker Stack)
+
+Run the full pipeline locally with Docker Compose — no Azure account or Nivoda credentials required. The stack uses the **demo feed** to generate synthetic diamond data.
+
+### Prerequisites
+
+- Docker and Docker Compose v2
+- Node.js 20+
+
+### Architecture (Local)
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Scheduler   │────▶│  Service Bus │────▶│    Worker    │
+│  (one-shot)  │     │  (Emulator)  │     │  (consumer)  │
+└──────────────┘     └──────────────┘     └──────────────┘
+       │                                        │
+       │ watermark                            │ raw data
+       ▼                                        ▼
+┌──────────────┐                         ┌──────────────┐
+│   Azurite    │                         │  PostgreSQL  │
+│ (blob store) │                         │  (local)     │
+└──────────────┘                         └──────────────┘
+                                               │
+                   ┌──────────────┐     ┌──────────────┐
+                   │   diamonds   │◀────│ Consolidator │
+                   │   (priced)   │     │  (consumer)  │
+                   └──────────────┘     └──────────────┘
+                         │
+                   ┌─────┴─────┐
+                   │           │
+             ┌─────▼───┐ ┌────▼──────┐
+             │REST API │ │Demo Feed  │
+             │  :3000  │ │API :4000  │
+             └─────────┘ └───────────┘
+```
+
+### Quick Start
+
+```bash
+# 1. Start infrastructure (Postgres, Azurite, Service Bus Emulator)
+docker compose up -d
+
+# 2. Seed demo data (500 diamonds)
+curl -X POST http://localhost:4000/api/seed \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"full","count":500}'
+
+# 3. Start pipeline services and trigger a run
+docker compose --profile pipeline up -d worker consolidator
+docker compose --profile pipeline up scheduler
+```
+
+### Run Full E2E Tests
+
+```bash
+npm run local:e2e
+```
+
+This script:
+1. Builds all Docker images
+2. Starts infrastructure services
+3. Seeds demo data
+4. Triggers the scheduler
+5. Runs integration + E2E tests (Vitest)
+6. Tears down containers
+
+### Docker Compose Services
+
+| Service       | Port  | Description                          |
+|---------------|-------|--------------------------------------|
+| `postgres`    | 5432  | PostgreSQL 16 with schema auto-init  |
+| `azurite`     | 10000 | Azure Blob Storage emulator          |
+| `servicebus`  | 5672  | Azure Service Bus emulator (AMQP)    |
+| `api`         | 3000  | REST API                             |
+| `demo-feed-api` | 4000 | Demo diamond feed provider          |
+| `scheduler`   | —     | Job partitioner (profile: pipeline)  |
+| `worker`      | —     | Queue consumer (profile: pipeline)   |
+| `consolidator`| —     | Data transformer (profile: pipeline) |
+
+### Environment
+
+```bash
+# Copy local env template
+cp .env.local.example .env.local
+```
+
+The docker-compose.yml embeds all required environment variables for the containers. The `.env.local` file is only needed for running services outside Docker (e.g., `npm run dev:api`).
+
+### Useful Commands
+
+```bash
+# View logs
+docker compose logs -f worker consolidator
+
+# Tear down everything (including volumes)
+npm run local:down
+
+# Restart just the worker
+docker compose restart worker
+```
+
 ## Project Structure
 
 ```
