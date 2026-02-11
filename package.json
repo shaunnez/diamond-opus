@@ -24,7 +24,10 @@
     "lint": "eslint . --ext .ts",
     "swagger": "npm run swagger -w @diamond/api",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
-    "docs:generate": "bash scripts/generate-docs.sh"
+    "docs:generate": "bash scripts/generate-docs.sh",
+    "local:e2e": "bash scripts/local-e2e.sh",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose --profile pipeline down -v --remove-orphans"
   },
   "devDependencies": {
     "@types/node": "^20.19.31",

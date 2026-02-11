@@ -1,0 +1,38 @@
+{
+  "UserConfig": {
+    "Namespaces": [
+      {
+        "Name": "diamond-local",
+        "Queues": [
+          {
+            "Name": "work-items",
+            "Properties": {
+              "MaxDeliveryCount": 5,
+              "LockDuration": "PT1M",
+              "RequiresDuplicateDetection": false
+            }
+          },
+          {
+            "Name": "work-done",
+            "Properties": {
+              "MaxDeliveryCount": 5,
+              "LockDuration": "PT1M",
+              "RequiresDuplicateDetection": false
+            }
+          },
+          {
+            "Name": "consolidate",
+            "Properties": {
+              "MaxDeliveryCount": 5,
+              "LockDuration": "PT5M",
+              "RequiresDuplicateDetection": false
+            }
+          }
+        ]
+      }
+    ],
+    "Logging": {
+      "Type": "File"
+    }
+  }
+}
