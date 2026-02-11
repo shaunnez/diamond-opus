@@ -158,6 +158,7 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_image_tag: ${{ github.sha }}
           TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
@@ -182,6 +183,7 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_image_tag: ${{ github.sha }}
           TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
           TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
