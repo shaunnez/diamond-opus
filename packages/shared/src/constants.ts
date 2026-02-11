@@ -114,7 +114,7 @@ export const HEATMAP_INITIAL_STEP = 500;
 /** Target records per scan chunk for adaptive stepping */
 export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 /** Maximum workers for a full run */
-export const HEATMAP_MAX_WORKERS = 1000;
+export const HEATMAP_MAX_WORKERS = 60;
 /** Minimum records needed to spawn an additional worker */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
 
