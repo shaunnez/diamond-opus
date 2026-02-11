@@ -361,7 +361,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       ratio = EXCLUDED.ratio,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
-      fancy_color = EXCLUDED.fancy_color,
+      
       feed_price = EXCLUDED.feed_price,
       diamond_price = EXCLUDED.diamond_price,
       price_per_carat = EXCLUDED.price_per_carat,
