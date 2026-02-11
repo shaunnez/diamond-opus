@@ -163,6 +163,16 @@ resource "azurerm_container_app" "api" {
         value = tostring(var.nivoda_proxy_timeout_ms)
       }
 
+      env {
+        name  = "NIVODA_PROXY_BASE_URL"
+        value = var.nivoda_proxy_base_url
+      }
+
+      env {
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
+      }
+
       # Database pooling configuration
       env {
         name  = "PG_POOL_MAX"
