@@ -170,7 +170,6 @@ variable "database_password" {
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
   type        = string
-  default     = "https://intg-customer-staging.nivodaapi.net/api/diamonds"
 
   validation {
     condition     = length(var.nivoda_endpoint) > 0
@@ -182,7 +181,6 @@ variable "nivoda_username" {
   description = "Nivoda API username"
   type        = string
   sensitive   = true
-  default     = "testaccount@sample.com"
 
   validation {
     condition     = length(var.nivoda_username) > 0
@@ -194,7 +192,6 @@ variable "nivoda_password" {
   description = "Nivoda API password"
   type        = string
   sensitive   = true
-  default     = "staging-nivoda-22"
 
   validation {
     condition     = length(var.nivoda_password) > 0
