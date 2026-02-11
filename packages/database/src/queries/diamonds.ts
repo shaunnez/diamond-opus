@@ -495,7 +495,6 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     ratios.push(d.ratio ?? null);
     labGrowns.push(d.labGrown);
     treateds.push(d.treated);
-    fancyColors.push(d.fancyColor ?? null);
     feedPrice.push(d.feedPrice);
     diamondPrices.push(d.diamondPrice ?? null);
     pricePerCarat.push(d.pricePerCarat);

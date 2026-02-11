@@ -19,25 +19,25 @@ const variantStyles: Record<
     bg: 'bg-success-50 dark:bg-success-500/10',
     border: 'border-success-200 dark:border-success-500/30',
     icon: 'text-success-500',
-    text: 'text-success-800 dark:text-success-400',
+    text: 'text-success-800 dark:text-stone-100',
   },
   warning: {
     bg: 'bg-warning-50 dark:bg-warning-500/10',
     border: 'border-warning-200 dark:border-warning-500/30',
     icon: 'text-warning-500',
-    text: 'text-warning-800 dark:text-warning-400',
+    text: 'text-warning-800 dark:text-stone-100',
   },
   error: {
     bg: 'bg-error-50 dark:bg-error-500/10',
     border: 'border-error-200 dark:border-error-500/30',
     icon: 'text-error-500',
-    text: 'text-error-800 dark:text-error-400',
+    text: 'text-error-800 dark:text-stone-100',
   },
   info: {
     bg: 'bg-info-50 dark:bg-info-500/10',
     border: 'border-info-200 dark:border-info-500/30',
     icon: 'text-info-500',
-    text: 'text-info-800 dark:text-info-400',
+    text: 'text-info-800 dark:text-stone-100',
   },
 };
 
