@@ -10,6 +10,7 @@ import {
   WORKER_DESYNC_MIN_MS,
   WORKER_DESYNC_MAX_MS,
   optionalEnv,
+  createServiceLogger,
 } from '@diamond/shared';
 import {
   AUTHENTICATE_QUERY,
@@ -27,6 +28,8 @@ import type {
   NivodaOrder,
 } from './types.js';
 import { ProxyGraphqlTransport } from "./proxyTransport.js";
+
+const logger = createServiceLogger('nivoda-adapter');
 
 interface AuthenticateResponse {
   authenticate: {
@@ -165,6 +168,8 @@ export class NivodaAdapter {
 
     const proxyUrl = optionalEnv('NIVODA_PROXY_BASE_URL', '');
     const internalToken = optionalEnv('INTERNAL_SERVICE_TOKEN', '');
+    const nivodaEndpoint = endpoint ?? requireEnv('NIVODA_ENDPOINT');
+    const serviceName = optionalEnv('SERVICE_NAME', 'unknown');
 
     if (proxyUrl) {
       if (!internalToken) {
@@ -173,8 +178,21 @@ export class NivodaAdapter {
         );
       }
       this.transport = new ProxyGraphqlTransport(proxyUrl, internalToken);
+      logger.info('nivoda_adapter_initialized', {
+        service: serviceName,
+        transportMode: 'proxy',
+        proxyUrl,
+        nivodaEndpoint,
+        username: this.username,
+      });
     } else {
       this.transport = this.client;
+      logger.info('nivoda_adapter_initialized', {
+        service: serviceName,
+        transportMode: 'direct',
+        nivodaEndpoint,
+        username: this.username,
+      });
     }
   }
 

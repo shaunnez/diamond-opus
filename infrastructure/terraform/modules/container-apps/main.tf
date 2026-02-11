@@ -46,6 +46,11 @@ resource "azurerm_container_app" "api" {
       memory = var.api_memory
 
       env {
+        name  = "SERVICE_NAME"
+        value = "api"
+      }
+
+      env {
         name  = "PORT"
         value = "3000"
       }
@@ -299,6 +304,11 @@ resource "azurerm_container_app" "worker" {
       memory = var.worker_memory
 
       env {
+        name  = "SERVICE_NAME"
+        value = "worker"
+      }
+
+      env {
         name        = "DATABASE_HOST"
         secret_name = "database-host"
       }
@@ -508,6 +518,11 @@ resource "azurerm_container_app" "consolidator" {
       memory = var.consolidator_memory
 
       env {
+        name  = "SERVICE_NAME"
+        value = "consolidator"
+      }
+
+      env {
         name        = "DATABASE_HOST"
         secret_name = "database-host"
       }
@@ -662,6 +677,11 @@ resource "azurerm_container_app_job" "scheduler" {
       image  = "${var.container_registry_login_server}/diamond-scheduler:${var.image_tag}"
       cpu    = var.scheduler_cpu
       memory = var.scheduler_memory
+
+      env {
+        name  = "SERVICE_NAME"
+        value = "scheduler"
+      }
 
       env {
         name        = "DATABASE_HOST"
@@ -835,6 +855,11 @@ resource "azurerm_container_app" "demo_feed_api" {
       image  = "${var.container_registry_login_server}/diamond-demo-feed-api:${var.image_tag}"
       cpu    = var.demo_feed_api_cpu
       memory = var.demo_feed_api_memory
+
+      env {
+        name  = "SERVICE_NAME"
+        value = "demo-feed-api"
+      }
 
       env {
         name  = "DEMO_FEED_API_PORT"
