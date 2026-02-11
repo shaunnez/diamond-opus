@@ -37,6 +37,11 @@ output "api_url" {
   value       = module.container_apps[0].api_url
 }
 
+output "api_custom_domain_verification_id" {
+  description = "Custom domain verification ID for the API. Use as TXT record value (name: asuid.<subdomain>) when using Cloudflare proxy."
+  value       = module.container_apps[0].api_custom_domain_verification_id
+}
+
 # Output for .env file generation
 output "env_file_content" {
   description = "Content for .env file (excluding external secrets)"

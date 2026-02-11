@@ -59,3 +59,6 @@ nivoda_endpoint = "https://integrations.nivoda.net/api/diamonds"
 # Set these ONLY in production where Nivoda requires a whitelisted domain.
 # nivoda_proxy_base_url  = "https://api.fourwords.co.nz"           # Set via TF_VAR_nivoda_proxy_base_url or .local file
 # internal_service_token = "super-secret-shared-token"            # Set via TF_VAR_internal_service_token or .local file
+
+# Custom domain for API (DNS must be configured in Cloudflare first)
+# api_custom_domain_name = "api.fourwords.co.nz"                  # Set via TF_VAR_api_custom_domain_name or .local file

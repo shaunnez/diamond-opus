@@ -111,8 +111,9 @@ module "container_apps" {
   nivoda_endpoint  = var.nivoda_endpoint
   nivoda_username  = var.nivoda_username
   nivoda_password  = var.nivoda_password
-  nivoda_proxy_base_url = var.nivoda_proxy_base_url
+  nivoda_proxy_base_url  = var.nivoda_proxy_base_url
   internal_service_token = var.internal_service_token
+  api_custom_domain_name = var.api_custom_domain_name
   
   hmac_secrets     = var.hmac_secrets
   resend_api_key   = var.resend_api_key

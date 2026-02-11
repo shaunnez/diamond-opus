@@ -146,6 +146,12 @@ variable "nivoda_proxy_base_url" {
   default     = ""
 }
 
+variable "api_custom_domain_name" {
+  description = "Custom domain name for the API (e.g., api.fourwords.co.nz). DNS must be configured in Cloudflare. Leave empty to skip."
+  type        = string
+  default     = ""
+}
+
 variable "internal_service_token" {
   description = "Shared secret token for internal service-to-service calls (x-internal-token)."
   type        = string

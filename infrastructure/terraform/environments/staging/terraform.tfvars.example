@@ -48,3 +48,8 @@ alert_email_from = "noreply@yourdomain.com"
 # Optional: Nivoda proxy (leave empty for staging unless you also need domain allowlisting)
 nivoda_proxy_base_url  = "https://api-test.fourwords.co.nz"
 internal_service_token = "super-secret-shared-token"
+
+# Custom domain for API (DNS must be configured in Cloudflare first)
+# When using Cloudflare proxy, add a TXT record for verification:
+#   Name: asuid.api-test  Value: <custom_domain_verification_id from terraform output>
+api_custom_domain_name = "api-test.fourwords.co.nz"

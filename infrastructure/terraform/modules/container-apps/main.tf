@@ -281,6 +281,16 @@ resource "azurerm_container_app" "api" {
   tags = var.tags
 }
 
+# Custom domain for API (DNS must be configured separately, e.g., in Cloudflare)
+# When using Cloudflare proxy, add a TXT record for domain verification:
+#   Name: asuid.<subdomain>  Value: <custom_domain_verification_id from outputs>
+resource "azurerm_container_app_custom_domain" "api" {
+  count = var.api_custom_domain_name != "" ? 1 : 0
+
+  name             = var.api_custom_domain_name
+  container_app_id = azurerm_container_app.api.id
+}
+
 # Worker Container App (Service Bus consumer, long-running)
 resource "azurerm_container_app" "worker" {
   name                         = "${var.app_name_prefix}-worker"

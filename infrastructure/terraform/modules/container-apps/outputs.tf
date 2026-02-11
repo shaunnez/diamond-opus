@@ -68,6 +68,11 @@ output "dashboard_name" {
   value       = azurerm_container_app.dashboard.name
 }
 
+output "api_custom_domain_verification_id" {
+  description = "Custom domain verification ID for the API Container App. Use this as the value of a TXT record (name: asuid.<subdomain>) for domain verification when using Cloudflare proxy."
+  value       = azurerm_container_app.api.custom_domain_verification_id
+}
+
 output "log_analytics_workspace_id" {
   description = "ID of the Log Analytics workspace"
   value       = azurerm_log_analytics_workspace.main.id
