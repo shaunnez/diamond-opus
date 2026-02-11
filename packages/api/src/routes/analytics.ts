@@ -646,6 +646,23 @@ router.get('/orders', async (req: Request, res: Response, next: NextFunction) =>
  *           type: string
  *           enum: [scheduler, worker, consolidator, api]
  *       - in: query
+ *         name: runId
+ *         schema:
+ *           type: string
+ *         description: Filter by runId stored in context
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter logs created after this time
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter logs created before this time
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -665,11 +682,14 @@ router.get('/orders', async (req: Request, res: Response, next: NextFunction) =>
 router.get('/error-logs', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const service = req.query.service as string | undefined;
+    const runId = req.query.runId as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
     const offset = (page - 1) * limit;
 
-    const { logs, total } = await getErrorLogs({ service, limit, offset });
+    const { logs, total } = await getErrorLogs({ service, runId, from, to, limit, offset });
 
     res.json({
       data: logs,

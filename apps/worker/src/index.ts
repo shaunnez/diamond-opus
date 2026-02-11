@@ -14,7 +14,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 import {
   withRetry,
-  createLogger,
+  createServiceLogger,
+  capErrorMessage,
+  safeLogError,
   AUTO_CONSOLIDATION_SUCCESS_THRESHOLD,
   AUTO_CONSOLIDATION_DELAY_MINUTES,
   type WorkItemMessage,
@@ -47,20 +49,11 @@ import {
 import { sendAlert } from "./alerts.js";
 import { createFeedRegistry } from "./feeds.js";
 
-const baseLogger = createLogger({ service: "worker" });
+const baseLogger = createServiceLogger('worker');
 const workerId = randomUUID();
 
 // Create the feed registry once at startup - adapters are reused across messages
 const feedRegistry = createFeedRegistry();
-
-// Cap error messages to prevent overly long stack traces in database
-const MAX_ERROR_MESSAGE_LENGTH = 1000;
-function capErrorMessage(message: string): string {
-  if (message.length <= MAX_ERROR_MESSAGE_LENGTH) {
-    return message;
-  }
-  return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
-}
 
 /**
  * Process exactly one page for continuation pattern.
@@ -217,13 +210,11 @@ async function processWorkItemPage(
 }
 
 async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
-  const log = baseLogger.child({
+  const log = baseLogger.withContext({
     runId: workItem.runId,
     traceId: workItem.traceId,
-    workerId,
     partitionId: workItem.partitionId,
-    feed: workItem.feed,
-  });
+  }).child({ workerId, feed: workItem.feed });
 
   log.info("Starting work item page processing");
 
@@ -331,15 +322,14 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
   } catch (error) {
     const rawErrorMessage = error instanceof Error ? error.message : String(error);
     const errorMessage = capErrorMessage(rawErrorMessage);
-    const errorStack = error instanceof Error ? error.stack : undefined;
 
     log.error("Worker page processing failed", {
       errorType: error instanceof Error ? error.name : "unknown", errorMessage, offset: workItem.offset,
     });
 
-    insertErrorLog('worker', errorMessage, errorStack, {
+    safeLogError(insertErrorLog, 'worker', error, {
       runId: workItem.runId, partitionId: workItem.partitionId, offset: String(workItem.offset),
-    }).catch(() => {});
+    }, log);
 
     await updateWorkerRun(workerRun.id, "failed", errorMessage);
     const isFirstFailure = await markPartitionFailed(workItem.runId, workItem.partitionId);

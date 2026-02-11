@@ -1,13 +1,13 @@
 import express from "express";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
-import { optionalEnv, createLogger, generateTraceId } from "@diamond/shared";
+import { optionalEnv, createServiceLogger, generateTraceId } from "@diamond/shared";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middleware/index.js";
 import { spec } from "./swagger/generator.js";
 import { initCurrencyService } from "./services/currency.js";
 
-const logger = createLogger({ service: "api" });
+const logger = createServiceLogger('api');
 
 // Extend Express Request to include logger and requestId
 declare global {

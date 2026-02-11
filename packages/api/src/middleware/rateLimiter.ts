@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { createLogger } from "@diamond/shared";
+import { createServiceLogger } from "@diamond/shared";
 
-const logger = createLogger({ service: 'api', context: { component: 'rate-limiter' } });
+const logger = createServiceLogger('api', { component: 'rate-limiter' });
 
 export interface RateLimiterConfig {
   /** Maximum requests per window per replica (default: 50) */

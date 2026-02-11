@@ -5,7 +5,7 @@ import {
   HEATMAP_MAX_WORKERS,
   HEATMAP_MIN_RECORDS_PER_WORKER,
   BLOB_CONTAINERS,
-  createLogger,
+  createServiceLogger,
   optionalEnv,
 } from "@diamond/shared";
 import {
@@ -17,7 +17,7 @@ import {
 import { BlobServiceClient } from "@azure/storage-blob";
 
 const router = Router();
-const logger = createLogger({ service: "api-heatmap" });
+const logger = createServiceLogger('api', { component: 'heatmap' });
 
 // ============================================================================
 // Azure Blob Storage helpers for heatmap history

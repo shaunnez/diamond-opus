@@ -4,7 +4,7 @@ import { nivodaProxyAuth } from "../middleware/nivodaProxyAuth.js";
 import { createRateLimiterMiddleware } from "../middleware/rateLimiter.js";
 import {
   requireEnv,
-  createLogger,
+  createServiceLogger,
   NIVODA_PROXY_RATE_LIMIT,
   NIVODA_PROXY_RATE_LIMIT_WINDOW_MS,
   NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS,
@@ -12,7 +12,7 @@ import {
 } from "@diamond/shared";
 
 const router = Router();
-const logger = createLogger({ service: 'api', context: { component: 'nivoda-proxy' } });
+const logger = createServiceLogger('api', { component: 'nivoda-proxy' });
 
 const MAX_QUERY_SIZE = 100_000; // 100KB
 const MAX_VARIABLES_SIZE = 500_000; // 500KB

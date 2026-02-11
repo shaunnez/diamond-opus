@@ -9,7 +9,7 @@ config({ path: resolve(rootDir, '.env.local') });
 config({ path: resolve(rootDir, '.env') });
 
 import {
-  createLogger,
+  createServiceLogger,
   type WorkItemMessage,
 } from '@diamond/shared';
 import {
@@ -21,7 +21,7 @@ import {
 } from '@diamond/database';
 import { sendWorkItem, closeConnections } from './service-bus.js';
 
-const logger = createLogger({ service: 'worker-retry' });
+const logger = createServiceLogger('worker-retry');
 
 function printUsage(): void {
   console.log(`

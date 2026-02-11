@@ -17,7 +17,9 @@ import {
   CONSOLIDATOR_UPSERT_BATCH_SIZE,
   CONSOLIDATOR_CONCURRENCY,
   CONSOLIDATOR_CLAIM_TTL_MINUTES,
-  createLogger,
+  createServiceLogger,
+  capErrorMessage,
+  safeLogError,
   type ConsolidateMessage,
   type Watermark,
   type Logger,
@@ -44,22 +46,13 @@ import { saveWatermark } from './watermark.js';
 import { sendAlert } from './alerts.js';
 import { createFeedRegistry } from './feeds.js';
 
-const baseLogger = createLogger({ service: 'consolidator' });
+const baseLogger = createServiceLogger('consolidator');
 
 // Stable instance ID for this consolidator process - used to track claim ownership
 const CONSOLIDATOR_INSTANCE_ID = randomUUID();
 
 // Create the feed registry once at startup - adapters are reused across messages
 const feedRegistry = createFeedRegistry();
-
-// Cap error messages to prevent overly long stack traces in database
-const MAX_ERROR_MESSAGE_LENGTH = 1000;
-function capErrorMessage(message: string): string {
-  if (message.length <= MAX_ERROR_MESSAGE_LENGTH) {
-    return message;
-  }
-  return message.substring(0, MAX_ERROR_MESSAGE_LENGTH) + '... (truncated)';
-}
 
 interface BatchResult {
   processedIds: string[];
@@ -125,13 +118,10 @@ async function processBatch(
       diamonds.push(pricedDiamond);
       processedIds.push(rawDiamond.id);
     } catch (error) {
-      const rawMsg = error instanceof Error ? error.message : String(error);
-      const msg = capErrorMessage(rawMsg);
-      const stack = error instanceof Error ? error.stack : undefined;
       log.error('Error mapping raw diamond', error, {
         rawDiamondId: rawDiamond.id,
       });
-      insertErrorLog('consolidator', msg, stack, { rawDiamondId: rawDiamond.id }).catch(() => {});
+      safeLogError(insertErrorLog, 'consolidator', error, { rawDiamondId: rawDiamond.id }, log);
       failedIds.push(rawDiamond.id);
       errorCount++;
     }
@@ -143,13 +133,10 @@ async function processBatch(
       await upsertDiamondsBatch(diamonds);
     } catch (error) {
       // If batch fails, all diamonds in this batch are considered failed
-      const rawMsg = error instanceof Error ? error.message : String(error);
-      const msg = capErrorMessage(rawMsg);
-      const stack = error instanceof Error ? error.stack : undefined;
       log.error('Batch upsert failed', error, {
         batchSize: diamonds.length,
       });
-      insertErrorLog('consolidator', msg, stack, { batchSize: diamonds.length }).catch(() => {});
+      safeLogError(insertErrorLog, 'consolidator', error, { batchSize: diamonds.length }, log);
       const allIds = rawDiamonds.map((d) => d.id);
       return { processedIds: [], failedIds: allIds, errorCount: rawDiamonds.length };
     }
@@ -281,11 +268,10 @@ async function processConsolidation(
 async function handleConsolidateMessage(
   message: ConsolidateMessage
 ): Promise<void> {
-  const log = baseLogger.child({
+  const log = baseLogger.withContext({
     runId: message.runId,
     traceId: message.traceId,
-    feed: message.feed,
-  });
+  }).child({ feed: message.feed });
 
   log.info('Received consolidate message');
 
@@ -326,16 +312,14 @@ async function handleConsolidateMessage(
   try {
     await processConsolidation(message, adapter, log);
   } catch (error) {
-    const rawErrorMessage = error instanceof Error ? error.message : String(error);
-    const errorMessage = capErrorMessage(rawErrorMessage);
-    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorMessage = capErrorMessage(error instanceof Error ? error.message : String(error));
     log.error('Consolidation failed', error);
 
-    insertErrorLog('consolidator', errorMessage, errorStack, {
+    safeLogError(insertErrorLog, 'consolidator', error, {
       runId: message.runId,
       traceId: message.traceId,
       feed: message.feed,
-    }).catch(() => {});
+    }, log);
 
     await sendAlert(
       'Consolidation Failed',

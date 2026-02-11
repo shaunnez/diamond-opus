@@ -20,6 +20,9 @@ export interface ErrorLog {
 
 export interface ErrorLogsFilter {
   service?: string;
+  runId?: string;
+  from?: string;
+  to?: string;
   limit: number;
   offset: number;
 }
@@ -67,6 +70,21 @@ export async function getErrorLogs(
   if (filters.service) {
     conditions.push(`service = $${paramIndex++}`);
     params.push(filters.service);
+  }
+
+  if (filters.runId) {
+    conditions.push(`context->>'runId' = $${paramIndex++}`);
+    params.push(filters.runId);
+  }
+
+  if (filters.from) {
+    conditions.push(`created_at >= $${paramIndex++}`);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(`created_at <= $${paramIndex++}`);
+    params.push(filters.to);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

@@ -9,7 +9,7 @@ config({ path: resolve(rootDir, '.env.local') });
 config({ path: resolve(rootDir, '.env') });
 
 import {
-  createLogger,
+  createServiceLogger,
   generateTraceId,
   type ConsolidateMessage,
 } from '@diamond/shared';
@@ -19,7 +19,7 @@ import {
 } from '@diamond/database';
 import { sendConsolidateMessage, closeConnections } from './service-bus.js';
 
-const logger = createLogger({ service: 'consolidator-trigger' });
+const logger = createServiceLogger('consolidator-trigger');
 
 function printUsage(): void {
   console.log(`
