@@ -28,29 +28,6 @@ resource "azurerm_container_app_environment" "main" {
   tags = var.tags
 }
 
-
-# Create a public IP prefix: IPv4 Zone redundant
-resource "azurerm_public_ip_prefix" "my_ipv4" {
-  name                        = "myIPv4"
-  location                    = var.location
-  resource_group_name         = var.resource_group_name
-  ip_version                  = "IPv4"
-  prefix_length               = 28
-  zones                       = ["1", "2", "3"]
-}
-
-# Create a public IP prefix: IPv6 Zone redundant
-resource "azurerm_public_ip_prefix" "my_ipv6" {
-  name                        = "myIpv6"
-  location                    = var.location
-  resource_group_name         = var.resource_group_name
-
-  ip_version                  = "IPv6"
-  prefix_length               = 124
-
-  zones                       = ["1", "2", "3"]
-}
-
 # API Container App (HTTP, external ingress)
 resource "azurerm_container_app" "api" {
   name                         = "${var.app_name_prefix}-api"
