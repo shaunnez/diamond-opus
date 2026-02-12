@@ -34,7 +34,9 @@ const TABLES: { value: AllowedTable; label: string }[] = [
 export function Query() {
   const [table, setTable] = useState<AllowedTable>('diamonds');
   const [filters, setFilters] = useState<QueryFilter[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(
+    new Set(TABLE_COLUMNS['diamonds'].map((c) => c.name))
+  );
   const [orderColumn, setOrderColumn] = useState('');
   const [orderAsc, setOrderAsc] = useState(false);
   const [limit, setLimit] = useState(50);
@@ -49,7 +51,7 @@ export function Query() {
   const handleTableChange = (newTable: AllowedTable) => {
     setTable(newTable);
     setFilters([]);
-    setSelectedColumns(new Set());
+    setSelectedColumns(new Set(TABLE_COLUMNS[newTable].map((c) => c.name)));
     setOrderColumn('');
     setOffset(0);
   };

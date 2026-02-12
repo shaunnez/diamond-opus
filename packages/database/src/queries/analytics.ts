@@ -835,8 +835,9 @@ type AllowedTable = (typeof ALLOWED_TABLES)[number];
 const ALLOWED_COLUMNS: Record<AllowedTable, string[]> = {
   diamonds: [
     'id', 'feed', 'supplier_stone_id', 'offer_id', 'shape', 'carats', 'color', 'clarity',
-    'cut', 'polish', 'symmetry', 'fluorescence', 'lab_grown', 'treated',
-    'feed_price', 'price_per_carat', 'price_model_price',
+    'cut', 'polish', 'symmetry', 'fluorescence', 'fluorescence_intensity',
+    'fancy_color', 'fancy_intensity', 'fancy_overtone', 'lab_grown', 'treated', 'ratio',
+    'feed_price', 'diamond_price', 'price_per_carat', 'price_model_price',
     'markup_ratio', 'rating', 'availability', 'raw_availability',
     'image_url', 'video_url', 'certificate_lab', 'certificate_number',
     'supplier_name', 'status', 'source_updated_at', 'created_at', 'updated_at',
