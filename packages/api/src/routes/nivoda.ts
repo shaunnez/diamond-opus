@@ -325,7 +325,7 @@ router.post(
  *   post:
  *     summary: Search diamonds directly from Nivoda
  *     description: |
- *       Search diamonds directly from the Nivoda API.
+ *       Search diamonds directly from the Nivoda API by price per carat.
  *       Useful for getting real-time availability and pricing.
  *     tags:
  *       - Nivoda
@@ -389,7 +389,7 @@ router.post(
       const adapter = new NivodaAdapter();
 
       const query: {
-        dollar_value?: { from?: number; to?: number };
+        dollar_per_carat?: { from?: number; to?: number };
         sizes?: { from?: number; to?: number };
         shapes?: string[];
         labgrown?: boolean;
@@ -409,12 +409,12 @@ router.post(
       };
 
       if (price_min !== undefined || price_max !== undefined) {
-        query.dollar_value = {};
+        query.dollar_per_carat = {};
         if (price_min !== undefined) {
-          query.dollar_value.from = price_min;
+          query.dollar_per_carat.from = price_min;
         }
         if (price_max !== undefined) {
-          query.dollar_value.to = price_max;
+          query.dollar_per_carat.to = price_max;
         }
       }
 
@@ -500,7 +500,7 @@ router.post(
  *     summary: Get count of diamonds matching query
  *     description: |
  *       Get accurate count of diamonds matching query from Nivoda.
- *       Uses diamonds_by_query_count for reliable results.
+ *       Filters by price per carat. Uses diamonds_by_query_count for reliable results.
  *     tags:
  *       - Nivoda
  *     security:
@@ -514,8 +514,10 @@ router.post(
  *             properties:
  *               price_min:
  *                 type: number
+ *                 description: Minimum price per carat (USD)
  *               price_max:
  *                 type: number
+ *                 description: Maximum price per carat (USD)
  *               carat_min:
  *                 type: number
  *               carat_max:
@@ -542,7 +544,7 @@ router.post(
       const adapter = new NivodaAdapter();
 
      const query: {
-        dollar_value?: { from?: number; to?: number };
+        dollar_per_carat?: { from?: number; to?: number };
         sizes?: { from?: number; to?: number };
         shapes?: string[];
         labgrown?: boolean;
@@ -562,12 +564,12 @@ router.post(
       };
 
       if (price_min !== undefined || price_max !== undefined) {
-        query.dollar_value = {};
+        query.dollar_per_carat = {};
         if (price_min !== undefined) {
-          query.dollar_value.from = price_min;
+          query.dollar_per_carat.from = price_min;
         }
         if (price_max !== undefined) {
-          query.dollar_value.to = price_max;
+          query.dollar_per_carat.to = price_max;
         }
       }
 
