@@ -28,7 +28,7 @@ export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 300; // 5 minutes
 // Nivoda proxy rate limiting (in-memory on API proxy)
 /** Max requests per second per API replica for Nivoda proxy */
 export const NIVODA_PROXY_RATE_LIMIT = parseInt(
-  process.env.NIVODA_PROXY_RATE_LIMIT ?? '50',
+  process.env.NIVODA_PROXY_RATE_LIMIT ?? '15',
   10
 );
 /** Rate limit window duration in milliseconds */
