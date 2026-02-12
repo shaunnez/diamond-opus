@@ -121,8 +121,13 @@ export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
  * Safety multiplier for worker offset cap.
  * If offset exceeds estimatedRecords * this multiplier, the worker stops
  * paginating and completes the partition to prevent runaway ingestion.
+ *
+ * Set high (3x) because Nivoda's diamonds_by_query_count often returns
+ * significantly fewer than the actual search results. The real stop
+ * condition is a partial page (items < limit). This cap is only a
+ * safety net against truly runaway pagination.
  */
-export const WORKER_OFFSET_LIMIT_MULTIPLIER = 1.2;
+export const WORKER_OFFSET_LIMIT_MULTIPLIER = 3.0;
 
 // Nivoda query date filtering
 /**
