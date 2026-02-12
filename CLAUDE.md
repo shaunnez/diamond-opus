@@ -222,11 +222,11 @@ All worker searches use `order: { type: 'createdAt', direction: 'ASC' }` for det
 
 ### Heatmap Algorithm
 
-The scheduler uses adaptive density scanning to partition work:
+The scheduler uses adaptive density scanning to partition work by **price per carat** (`dollar_per_carat`):
 
-- **Dense zone** ($0-$20,000): Fixed $100 steps, most diamonds here
-- **Sparse zone** ($20,000+): Adaptive stepping based on actual density
-- **Max workers**: 1000 for full runs, 10 for incremental
+- **Dense zone** ($0-$5,000/ct): Fixed $50/ct steps, most diamonds here
+- **Sparse zone** ($5,000+/ct): Adaptive stepping based on actual density
+- **Max workers**: 60 for full runs, 10 for incremental
 - **Min records per worker**: 1,000 to avoid overhead
 
 ## Authentication
@@ -289,7 +289,11 @@ AUTO_CONSOLIDATION_SUCCESS_THRESHOLD = 0.70  // Min success rate for auto-consol
 AUTO_CONSOLIDATION_DELAY_MINUTES = 5   // Delay before auto-consolidation on partial success
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
-HEATMAP_MAX_WORKERS = 1000             // Max parallel workers (incremental capped to 10)
+HEATMAP_MAX_WORKERS = 60               // Max parallel workers (incremental capped to 10)
+HEATMAP_MAX_PRICE = 50000              // Max price per carat to scan
+HEATMAP_DENSE_ZONE_THRESHOLD = 5000    // $/ct threshold for dense zone
+HEATMAP_DENSE_ZONE_STEP = 50           // Fixed step in dense zone ($/ct)
+HEATMAP_INITIAL_STEP = 250             // Initial adaptive step above dense zone ($/ct)
 
 // Nivoda proxy rate limiting (in-memory on API)
 NIVODA_PROXY_RATE_LIMIT = 50           // Requests/sec per API replica (env: NIVODA_PROXY_RATE_LIMIT)

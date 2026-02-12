@@ -26,7 +26,7 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
     sizes: query.sizeRange
       ? { from: query.sizeRange.from, to: query.sizeRange.to }
       : undefined,
-    dollar_value: query.priceRange
+    dollar_per_carat: query.priceRange
   ? { from: Math.floor(query.priceRange.from), to: Math.floor(query.priceRange.to) }
   : undefined,
     updated: query.updatedRange
