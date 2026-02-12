@@ -6,9 +6,9 @@ export interface WorkItemMessage {
   /** Trace ID for distributed tracing correlation */
   traceId: string;
   partitionId: string;
-  /** Minimum price filter in dollars (inclusive) */
+  /** Minimum price filter (inclusive). For Nivoda: dollars per carat. */
   minPrice: number;
-  /** Maximum price filter in dollars (inclusive) */
+  /** Maximum price filter (inclusive). For Nivoda: dollars per carat. */
   maxPrice: number;
   /** Estimated total records in this price range (from heatmap - may differ from actual) */
   estimatedRecords: number;

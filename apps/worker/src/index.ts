@@ -19,6 +19,7 @@ import {
   safeLogError,
   AUTO_CONSOLIDATION_SUCCESS_THRESHOLD,
   AUTO_CONSOLIDATION_DELAY_MINUTES,
+  WORKER_OFFSET_LIMIT_MULTIPLIER,
   type WorkItemMessage,
   type WorkDoneMessage,
   type Logger,
@@ -166,8 +167,23 @@ async function processWorkItemPage(
   const newOffset = workItem.offset + response.items.length;
 
   // Check if we have more pages
-  const hasMore = response.items.length === workItem.limit;
+  let hasMore = response.items.length === workItem.limit;
 
+  // Safety cap: stop paginating if offset far exceeds the heatmap estimate.
+  // This prevents runaway ingestion when the feed returns more data than expected
+  // (e.g., count vs search disagreement, data shifting during the run).
+  if (hasMore && workItem.estimatedRecords > 0) {
+    const offsetCap = workItem.estimatedRecords * WORKER_OFFSET_LIMIT_MULTIPLIER;
+    if (newOffset >= offsetCap) {
+      log.warn("Offset exceeds safety cap, stopping pagination", {
+        newOffset,
+        estimatedRecords: workItem.estimatedRecords,
+        offsetCap,
+        multiplier: WORKER_OFFSET_LIMIT_MULTIPLIER,
+      });
+      hasMore = false;
+    }
+  }
 
   if (hasMore) {
     const updated = await updatePartitionOffset(

@@ -197,10 +197,10 @@ export function Nivoda() {
               subtitle="Search the Nivoda inventory in real-time"
             />
             <div className="mt-4 space-y-4">
-              {/* Price and Carat Range */}
+              {/* Price Per Carat and Carat Range */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Input
-                  label="Min Price ($)"
+                  label="Min $/ct"
                   type="number"
                   value={searchOptions.price_min ?? ''}
                   onChange={(e) =>
@@ -212,7 +212,7 @@ export function Nivoda() {
                   placeholder="0"
                 />
                 <Input
-                  label="Max Price ($)"
+                  label="Max $/ct"
                   type="number"
                   value={searchOptions.price_max ?? ''}
                   onChange={(e) =>

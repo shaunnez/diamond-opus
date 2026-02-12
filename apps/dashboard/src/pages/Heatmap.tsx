@@ -46,7 +46,7 @@ export function Heatmap() {
   const [feed, setFeed] = useState('nivoda');
   const [mode, setMode] = useState<'single-pass' | 'two-pass'>('single-pass');
   const [minPrice, setMinPrice] = useState('0');
-  const [maxPrice, setMaxPrice] = useState('100000');
+  const [maxPrice, setMaxPrice] = useState('50000');
   const [maxWorkers, setMaxWorkers] = useState('30');
   const [result, setResult] = useState<HeatmapResult | null>(null);
 
@@ -101,7 +101,7 @@ export function Heatmap() {
     const options: RunHeatmapOptions = {
       mode,
       min_price: parseInt(minPrice, 10) || 0,
-      max_price: parseInt(maxPrice, 10) || 100000,
+      max_price: parseInt(maxPrice, 10) || 50000,
       max_workers: parseInt(maxWorkers, 10) || 30,
       feed,
     };
@@ -141,7 +141,7 @@ export function Heatmap() {
           <div>
             <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Heatmap Scanner</h1>
             <p className="text-stone-600 dark:text-stone-400 mt-1">
-              Analyze diamond inventory density by price range to optimize worker partitioning
+              Analyze diamond inventory density by price per carat to optimize worker partitioning
             </p>
           </div>
 
@@ -218,13 +218,13 @@ export function Heatmap() {
                 ]}
               />
               <Input
-                label="Min Price ($)"
+                label="Min $/ct"
                 type="number"
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
               />
               <Input
-                label="Max Price ($)"
+                label="Max $/ct"
                 type="number"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
@@ -401,7 +401,7 @@ export function Heatmap() {
                           Partition
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                          Price Range
+                          $/ct Range
                         </th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 uppercase tracking-wider">
                           Records
@@ -458,10 +458,10 @@ export function Heatmap() {
                     <thead className="bg-stone-50 sticky top-0">
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-medium text-stone-500 uppercase">
-                          Min Price
+                          Min $/ct
                         </th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-stone-500 uppercase">
-                          Max Price
+                          Max $/ct
                         </th>
                         <th className="px-4 py-2 text-right text-xs font-medium text-stone-500 uppercase">
                           Count

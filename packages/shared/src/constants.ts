@@ -28,7 +28,7 @@ export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 300; // 5 minutes
 // Nivoda proxy rate limiting (in-memory on API proxy)
 /** Max requests per second per API replica for Nivoda proxy */
 export const NIVODA_PROXY_RATE_LIMIT = parseInt(
-  process.env.NIVODA_PROXY_RATE_LIMIT ?? '50',
+  process.env.NIVODA_PROXY_RATE_LIMIT ?? '15',
   10
 );
 /** Rate limit window duration in milliseconds */
@@ -104,19 +104,25 @@ export const WATERMARK_BLOB_NAME = 'nivoda.json';
 /** Maximum total records to process (0 = unlimited). Use for staging caps. */
 export const MAX_SCHEDULER_RECORDS = 0;
 export const HEATMAP_MIN_PRICE = 0;
-export const HEATMAP_MAX_PRICE = 250000;
-/** Price threshold below which we use fixed small steps (dense zone) */
-export const HEATMAP_DENSE_ZONE_THRESHOLD = 20000;
-/** Fixed step size in dense zone (dollars) */
-export const HEATMAP_DENSE_ZONE_STEP = 100;
-/** Initial step size for adaptive scanning above dense zone (larger for efficiency) */
-export const HEATMAP_INITIAL_STEP = 500;
+export const HEATMAP_MAX_PRICE = 50000;
+/** Price-per-carat threshold below which we use fixed small steps (dense zone) */
+export const HEATMAP_DENSE_ZONE_THRESHOLD = 5000;
+/** Fixed step size in dense zone (dollars per carat) */
+export const HEATMAP_DENSE_ZONE_STEP = 50;
+/** Initial step size for adaptive scanning above dense zone (dollars per carat) */
+export const HEATMAP_INITIAL_STEP = 250;
 /** Target records per scan chunk for adaptive stepping */
 export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 /** Maximum workers for a full run */
-export const HEATMAP_MAX_WORKERS = 60;
+export const HEATMAP_MAX_WORKERS = 40;
 /** Minimum records needed to spawn an additional worker */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
+/**
+ * Safety multiplier for worker offset cap.
+ * If offset exceeds estimatedRecords * this multiplier, the worker stops
+ * paginating and completes the partition to prevent runaway ingestion.
+ */
+export const WORKER_OFFSET_LIMIT_MULTIPLIER = 1.2;
 
 // Nivoda query date filtering
 /**
