@@ -223,7 +223,7 @@ HEATMAP_DENSE_ZONE_STEP = 50           // Fixed step in dense zone ($/ct)
 HEATMAP_INITIAL_STEP = 250             // Initial adaptive step above dense zone ($/ct)
 
 // Nivoda proxy rate limiting (in-memory on API)
-NIVODA_PROXY_RATE_LIMIT = 50           // Requests/sec per API replica (env: NIVODA_PROXY_RATE_LIMIT)
+NIVODA_PROXY_RATE_LIMIT = 15           // Requests/sec per API replica (env: NIVODA_PROXY_RATE_LIMIT)
 NIVODA_PROXY_RATE_LIMIT_WINDOW_MS = 1000
 NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS = 60000  // Max queue wait (env: NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS)
 NIVODA_PROXY_TIMEOUT_MS = 60000        // Upstream fetch timeout (env: NIVODA_PROXY_TIMEOUT_MS)
