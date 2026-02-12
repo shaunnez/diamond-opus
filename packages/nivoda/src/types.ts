@@ -140,6 +140,7 @@ export interface NivodaDateRange {
 
 export interface NivodaQuery {
   dollar_value?: { from?: number; to?: number };
+  dollar_per_carat?: { from?: number; to?: number };
   sizes?: { from?: number; to?: number };
   shapes?: string[];
   labgrown?: boolean;

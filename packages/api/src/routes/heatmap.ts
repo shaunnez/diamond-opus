@@ -201,7 +201,7 @@ interface RunHeatmapBody {
  *     summary: Run a heatmap scan to analyze diamond inventory density
  *     description: |
  *       Executes the heatmap scanning algorithm to analyze diamond inventory
- *       density by price range. Returns density map and partitioning information.
+ *       density by price-per-carat range. Returns density map and partitioning information.
  *       Results are automatically saved to Azure Blob Storage for history.
  *     tags:
  *       - Heatmap
@@ -222,23 +222,23 @@ interface RunHeatmapBody {
  *               min_price:
  *                 type: number
  *                 default: 0
- *                 description: Minimum price to scan
+ *                 description: Minimum price per carat to scan
  *               max_price:
  *                 type: number
- *                 default: 1000000
- *                 description: Maximum price to scan
+ *                 default: 50000
+ *                 description: Maximum price per carat to scan
  *               max_workers:
  *                 type: number
  *                 default: 30
  *                 description: Maximum number of worker partitions to create
  *               dense_zone_threshold:
  *                 type: number
- *                 default: 20000
- *                 description: Price threshold below which fixed steps are used
+ *                 default: 5000
+ *                 description: Price-per-carat threshold below which fixed steps are used
  *               dense_zone_step:
  *                 type: number
- *                 default: 100
- *                 description: Step size in dense zone
+ *                 default: 50
+ *                 description: Step size in dense zone (dollars per carat)
  *               max_total_records:
  *                 type: number
  *                 default: 0
@@ -279,10 +279,10 @@ router.post(
       };
 
 
-      // Build heatmap config from request
+      // Build heatmap config from request (prices are dollars per carat)
       const heatmapConfig: HeatmapConfig = {
         minPrice: body.min_price ?? 0,
-        maxPrice: body.max_price ?? 1000000,
+        maxPrice: body.max_price ?? 50000,
         maxWorkers: body.max_workers ?? HEATMAP_MAX_WORKERS,
         minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
         useTwoPassScan: body.mode === "two-pass",
@@ -338,7 +338,7 @@ router.post(
  *   post:
  *     summary: Preview heatmap scan with limited API calls
  *     description: |
- *       Runs a limited heatmap scan for preview purposes.
+ *       Runs a limited heatmap scan for preview purposes (price per carat).
  *       Uses larger step sizes to reduce API calls.
  *       Results are automatically saved to Azure Blob Storage for history.
  *     tags:
@@ -357,7 +357,7 @@ router.post(
  *                 default: 0
  *               max_price:
  *                 type: number
- *                 default: 100000
+ *                 default: 30000
  *               feed:
  *                 type: string
  *                 default: nivoda
@@ -390,17 +390,17 @@ router.post(
         hide_memo: true
       };
 
-      // Use larger steps for preview (faster, fewer API calls)
+      // Use larger steps for preview (faster, fewer API calls). Prices are $/ct.
       const heatmapConfig: HeatmapConfig = {
         minPrice: body.min_price ?? 0,
-        maxPrice: body.max_price ?? 100000, // Default to lower max for preview
+        maxPrice: body.max_price ?? 30000, // Default to lower max for preview ($/ct)
         maxWorkers: 10,
         minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
-        denseZoneStep: 500, // Larger steps for preview
-        denseZoneThreshold: 20000,
-        initialStep: 5000,
+        denseZoneStep: 250, // Larger steps for preview ($/ct)
+        denseZoneThreshold: 5000,
+        initialStep: 2500,
         useTwoPassScan: true, // Two-pass is faster for preview
-        coarseStep: 10000,
+        coarseStep: 5000,
       };
 
       const result = await scanHeatmap(adapter, baseQuery, heatmapConfig, log);

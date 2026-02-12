@@ -14,7 +14,7 @@ import type { FeedAdapter, FeedQuery, FeedSearchOptions, FeedSearchResult, FeedB
  * 1. Partition boundaries have no gaps or overlaps (half-open → inclusive conversion)
  * 2. Sum of partition totalRecords equals heatmap totalRecords
  * 3. Worker count stays within bounds
- * 4. The queryWithPriceRange -1 conversion is consistent (integer dollar_value)
+ * 4. The queryWithPriceRange -1 conversion is consistent (integer dollar_per_carat)
  */
 
 // --- Mock FeedAdapter ---
@@ -168,7 +168,7 @@ describe('createPartitions', () => {
     // Verify no gaps: partition[N+1].minPrice should be partition[N].maxPrice + 1
     for (let i = 0; i < partitions.length - 1; i++) {
       const gap = partitions[i + 1].minPrice - partitions[i].maxPrice;
-      // gap should be 1 (dollar_value is an integer range)
+      // gap should be 1 (dollar_per_carat is an integer range)
       expect(gap).toBe(1);
     }
   });
