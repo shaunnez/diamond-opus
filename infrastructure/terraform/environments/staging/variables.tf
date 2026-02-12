@@ -283,7 +283,7 @@ variable "dashboard_memory" {
 variable "api_min_replicas" {
   description = "Minimum API replicas"
   type        = number
-  default     = 2
+  default     = 1
 
   validation {
     condition     = var.api_min_replicas >= 0
@@ -294,7 +294,7 @@ variable "api_min_replicas" {
 variable "api_max_replicas" {
   description = "Maximum API replicas (must be >= api_min_replicas)"
   type        = number
-  default     = 2
+  default     = 1
 
   validation {
     condition     = var.api_max_replicas >= 1
