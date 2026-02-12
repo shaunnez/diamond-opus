@@ -117,6 +117,12 @@ export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 export const HEATMAP_MAX_WORKERS = 60;
 /** Minimum records needed to spawn an additional worker */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
+/**
+ * Safety multiplier for worker offset cap.
+ * If offset exceeds estimatedRecords * this multiplier, the worker stops
+ * paginating and completes the partition to prevent runaway ingestion.
+ */
+export const WORKER_OFFSET_LIMIT_MULTIPLIER = 2;
 
 // Nivoda query date filtering
 /**
