@@ -114,7 +114,7 @@ export const HEATMAP_INITIAL_STEP = 250;
 /** Target records per scan chunk for adaptive stepping */
 export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 /** Maximum workers for a full run */
-export const HEATMAP_MAX_WORKERS = 60;
+export const HEATMAP_MAX_WORKERS = 40;
 /** Minimum records needed to spawn an additional worker */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
 /**
@@ -122,7 +122,7 @@ export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
  * If offset exceeds estimatedRecords * this multiplier, the worker stops
  * paginating and completes the partition to prevent runaway ingestion.
  */
-export const WORKER_OFFSET_LIMIT_MULTIPLIER = 2;
+export const WORKER_OFFSET_LIMIT_MULTIPLIER = 1.2;
 
 // Nivoda query date filtering
 /**
