@@ -1,4 +1,4 @@
-export const WORKER_PAGE_SIZE = 30;
+export const WORKER_PAGE_SIZE = 40;
 /** Number of raw diamonds to fetch per consolidation cycle */
 export const CONSOLIDATOR_BATCH_SIZE = 2000;
 /** Number of diamonds per batch upsert (balances query size vs round-trips) */
@@ -104,7 +104,7 @@ export const WATERMARK_BLOB_NAME = 'nivoda.json';
 /** Maximum total records to process (0 = unlimited). Use for staging caps. */
 export const MAX_SCHEDULER_RECORDS = 0;
 export const HEATMAP_MIN_PRICE = 0;
-export const HEATMAP_MAX_PRICE = 50000;
+export const HEATMAP_MAX_PRICE = 100000;
 /** Price-per-carat threshold below which we use fixed small steps (dense zone) */
 export const HEATMAP_DENSE_ZONE_THRESHOLD = 5000;
 /** Fixed step size in dense zone (dollars per carat) */
@@ -122,7 +122,7 @@ export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
  * If offset exceeds estimatedRecords * this multiplier, the worker stops
  * paginating and completes the partition to prevent runaway ingestion.
  */
-export const WORKER_OFFSET_LIMIT_MULTIPLIER = 1.2;
+export const WORKER_OFFSET_LIMIT_MULTIPLIER = 2;
 
 // Nivoda query date filtering
 /**
