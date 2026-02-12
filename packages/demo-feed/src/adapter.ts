@@ -11,7 +11,7 @@ import { mapRawPayloadToDiamond } from './mapper.js';
 import type { DemoFeedSearchResponse, DemoFeedCountResponse, DemoFeedItem } from './types.js';
 
 const DEMO_FEED_MAX_PAGE_SIZE = 1000;
-const DEMO_FEED_WORKER_PAGE_SIZE = 500;
+const DEMO_FEED_WORKER_PAGE_SIZE = 40;
 const DEMO_FEED_WATERMARK_BLOB = 'demo.json';
 
 /**

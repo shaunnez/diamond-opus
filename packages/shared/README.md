@@ -47,7 +47,7 @@ import type {
 ```typescript
 import {
   RECORDS_PER_WORKER,        // 5000 - Target records per worker
-  WORKER_PAGE_SIZE,          // 30 - Pagination size for Nivoda
+  WORKER_PAGE_SIZE,          // 40 - Pagination size for Nivoda
   CONSOLIDATOR_BATCH_SIZE,   // 2000 - Raw diamonds fetched per cycle
   CONSOLIDATOR_CONCURRENCY,  // 2 - Concurrent batch upserts (env-configurable)
   NIVODA_MAX_LIMIT,          // 50 - Nivoda API limit

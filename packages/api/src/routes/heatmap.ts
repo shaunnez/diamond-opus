@@ -8,12 +8,12 @@ import {
   createServiceLogger,
   optionalEnv,
 } from "@diamond/shared";
+import { NivodaFeedAdapter } from "@diamond/nivoda";
 import {
-  NivodaAdapter,
   scanHeatmap,
-  type NivodaQuery,
+  type FeedQuery,
   type HeatmapConfig,
-} from "@diamond/nivoda";
+} from "@diamond/feed-registry";
 import { BlobServiceClient } from "@azure/storage-blob";
 
 const router = Router();
@@ -265,18 +265,13 @@ router.post(
       const log = logger.child({ component: "heatmap-api" });
       log.info("Starting heatmap scan via API", { body, feed });
 
-      const adapter = new NivodaAdapter();
+      const adapter = new NivodaFeedAdapter();
+      await adapter.initialize();
 
-      // Build base query
-      const baseQuery: NivodaQuery = {
-        shapes: [...DIAMOND_SHAPES],
-        sizes: { from: 0.4, to: 15.01 },
-        has_image: true,
-        has_v360: true,
-        availability: ['AVAILABLE'],
-        excludeFairPoorCuts: true,
-        hide_memo: true
-      };
+      // Build base query with full date range for ad-hoc scans
+      const updatedFrom = "2000-01-01T00:00:00.000Z";
+      const updatedTo = new Date().toISOString();
+      const baseQuery: FeedQuery = adapter.buildBaseQuery(updatedFrom, updatedTo);
 
 
       // Build heatmap config from request (prices are dollars per carat)
@@ -378,17 +373,13 @@ router.post(
       const log = logger.child({ component: "heatmap-preview" });
       log.info("Starting heatmap preview", { body, feed });
 
-      const adapter = new NivodaAdapter();
+      const adapter = new NivodaFeedAdapter();
+      await adapter.initialize();
 
-      const baseQuery: NivodaQuery = {
-        shapes: [...DIAMOND_SHAPES],
-        sizes: { from: 0.4, to: 15.01 },
-        has_image: true,
-        has_v360: true,
-        availability: ['AVAILABLE'],
-        excludeFairPoorCuts: true,
-        hide_memo: true
-      };
+      // Build base query with full date range for ad-hoc scans
+      const updatedFrom = "2000-01-01T00:00:00.000Z";
+      const updatedTo = new Date().toISOString();
+      const baseQuery: FeedQuery = adapter.buildBaseQuery(updatedFrom, updatedTo);
 
       // Use larger steps for preview (faster, fewer API calls). Prices are $/ct.
       const heatmapConfig: HeatmapConfig = {
@@ -401,9 +392,18 @@ router.post(
         initialStep: 2500,
         useTwoPassScan: true, // Two-pass is faster for preview
         coarseStep: 5000,
+        maxTotalRecords: body.max_total_records ?? 0,
       };
 
+      log.info("Running heatmap with config", { heatmapConfig });
+
       const result = await scanHeatmap(adapter, baseQuery, heatmapConfig, log);
+
+      log.info("Heatmap scan completed", {
+        totalRecords: result.totalRecords,
+        workerCount: result.workerCount,
+        stats: result.stats,
+      });
 
       const transformed = transformResult(result);
 
