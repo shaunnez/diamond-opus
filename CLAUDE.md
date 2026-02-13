@@ -216,14 +216,14 @@ AUTO_CONSOLIDATION_SUCCESS_THRESHOLD = 0.70  // Min success rate for auto-consol
 AUTO_CONSOLIDATION_DELAY_MINUTES = 5   // Delay before auto-consolidation on partial success
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
-HEATMAP_MAX_WORKERS = 60               // Max parallel workers (incremental capped to 10)
+HEATMAP_MAX_WORKERS = 40               // Max parallel workers (incremental capped to 10)
 HEATMAP_MAX_PRICE = 50000              // Max price per carat to scan
 HEATMAP_DENSE_ZONE_THRESHOLD = 5000    // $/ct threshold for dense zone
 HEATMAP_DENSE_ZONE_STEP = 50           // Fixed step in dense zone ($/ct)
 HEATMAP_INITIAL_STEP = 250             // Initial adaptive step above dense zone ($/ct)
 
 // Nivoda proxy rate limiting (in-memory on API)
-NIVODA_PROXY_RATE_LIMIT = 15           // Requests/sec per API replica (env: NIVODA_PROXY_RATE_LIMIT)
+NIVODA_PROXY_RATE_LIMIT = 25           // Requests/sec per API replica (env: NIVODA_PROXY_RATE_LIMIT)
 NIVODA_PROXY_RATE_LIMIT_WINDOW_MS = 1000
 NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS = 60000  // Max queue wait (env: NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS)
 NIVODA_PROXY_TIMEOUT_MS = 60000        // Upstream fetch timeout (env: NIVODA_PROXY_TIMEOUT_MS)

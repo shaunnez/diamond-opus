@@ -28,7 +28,7 @@ export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 300; // 5 minutes
 // Nivoda proxy rate limiting (in-memory on API proxy)
 /** Max requests per second per API replica for Nivoda proxy */
 export const NIVODA_PROXY_RATE_LIMIT = parseInt(
-  process.env.NIVODA_PROXY_RATE_LIMIT ?? '15',
+  process.env.NIVODA_PROXY_RATE_LIMIT ?? '25',
   10
 );
 /** Rate limit window duration in milliseconds */
@@ -114,7 +114,7 @@ export const HEATMAP_INITIAL_STEP = 250;
 /** Target records per scan chunk for adaptive stepping */
 export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
 /** Maximum workers for a full run */
-export const HEATMAP_MAX_WORKERS = 20;
+export const HEATMAP_MAX_WORKERS = 40;
 /** Minimum records needed to spawn an additional worker */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
 /**
