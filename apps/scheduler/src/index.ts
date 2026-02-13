@@ -148,9 +148,7 @@ async function run(): Promise<void> {
   const maxTotalRecords = parseInt(process.env.MAX_SCHEDULER_RECORDS || '', 10) || MAX_SCHEDULER_RECORDS;
 
   const heatmapConfig: HeatmapConfig = {
-    maxWorkers: runType === "incremental"
-      ? Math.min(10, HEATMAP_MAX_WORKERS)
-      : HEATMAP_MAX_WORKERS,
+    maxWorkers: HEATMAP_MAX_WORKERS,
     minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
     maxTotalRecords,
     ...adapter.heatmapConfig,

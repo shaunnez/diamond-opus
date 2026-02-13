@@ -14,7 +14,8 @@
       "Bash(npm ls:*)",
       "WebFetch(domain:api.frankfurter.dev)",
       "Bash(curl:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm run build:dashboard:*)"
     ]
   }
 }

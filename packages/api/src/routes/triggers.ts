@@ -17,6 +17,7 @@ import {
   getPartitionProgress,
   resetFailedDiamonds,
   cancelRun,
+  deleteFailedRun,
 } from "@diamond/database";
 import { validateBody, badRequest, notFound } from "../middleware/index.js";
 import {
@@ -26,12 +27,14 @@ import {
   resumeConsolidateSchema,
   demoSeedSchema,
   cancelRunSchema,
+  deleteRunSchema,
   type TriggerSchedulerBody,
   type TriggerConsolidateBody,
   type RetryWorkersBody,
   type ResumeConsolidateBody,
   type DemoSeedBody,
   type CancelRunBody,
+  type DeleteRunBody,
 } from "../validators/index.js";
 
 const router = Router();
@@ -888,6 +891,87 @@ router.post(
             completed_workers: runMetadata.completedWorkers,
             failed_workers: runMetadata.failedWorkers,
           },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================================================
+// Delete Failed Run
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/triggers/delete-run:
+ *   post:
+ *     summary: Delete a failed run and all associated records
+ *     description: |
+ *       Permanently deletes a failed run along with its worker_runs and
+ *       partition_progress records. Only runs with status 'failed' can be deleted.
+ *       Raw diamonds are NOT deleted as they may have been upserted by subsequent runs.
+ *     tags:
+ *       - Triggers
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - run_id
+ *             properties:
+ *               run_id:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       200:
+ *         description: Run deleted successfully
+ *       400:
+ *         description: Run is not in failed status
+ *       404:
+ *         description: Run not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  "/delete-run",
+  validateBody(deleteRunSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = req.body as DeleteRunBody;
+
+      // Verify run exists
+      const runMetadata = await getRunMetadata(body.run_id);
+      if (!runMetadata) {
+        throw notFound("Run not found");
+      }
+
+      // Compute status: only allow deletion of failed runs
+      const totalFinished = runMetadata.completedWorkers + runMetadata.failedWorkers;
+      const isFailed =
+        runMetadata.failedWorkers > 0 &&
+        totalFinished >= runMetadata.expectedWorkers;
+
+      if (!isFailed) {
+        throw badRequest(
+          "Only failed runs can be deleted. This run's status is not 'failed'.",
+        );
+      }
+
+      const result = await deleteFailedRun(body.run_id);
+
+      res.json({
+        data: {
+          message: "Run deleted successfully",
+          run_id: body.run_id,
+          deleted_workers: result.deletedWorkers,
+          deleted_partitions: result.deletedPartitions,
         },
       });
     } catch (error) {

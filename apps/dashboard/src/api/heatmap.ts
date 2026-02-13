@@ -30,7 +30,6 @@ export interface HeatmapResult {
 }
 
 export interface RunHeatmapOptions {
-  mode?: 'single-pass' | 'two-pass';
   min_price?: number;
   max_price?: number;
   max_workers?: number;

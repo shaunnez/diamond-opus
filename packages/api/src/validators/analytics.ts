@@ -84,3 +84,9 @@ export const cancelRunSchema = z.object({
 });
 
 export type CancelRunBody = z.infer<typeof cancelRunSchema>;
+
+export const deleteRunSchema = z.object({
+  run_id: z.string().uuid(),
+});
+
+export type DeleteRunBody = z.infer<typeof deleteRunSchema>;

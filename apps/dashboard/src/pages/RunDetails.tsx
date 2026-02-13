@@ -8,9 +8,10 @@ import {
   RefreshCw,
   Layers,
   Ban,
+  Trash2,
 } from 'lucide-react';
 import { getRunDetails, type WorkerRun } from '../api/analytics';
-import { triggerConsolidate, retryWorkers, cancelRun } from '../api/triggers';
+import { triggerConsolidate, retryWorkers, cancelRun, deleteRun } from '../api/triggers';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
 import {
@@ -26,6 +27,7 @@ import {
   ConfirmModal,
   Modal,
   Table,
+  useToast,
 } from '../components/ui';
 import {
   formatDate,
@@ -41,9 +43,11 @@ export function RunDetails() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const { addToast } = useToast();
   const [showConsolidateModal, setShowConsolidateModal] = useState(false);
   const [showRetryModal, setShowRetryModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [forceConsolidate, setForceConsolidate] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
@@ -83,6 +87,27 @@ export function RunDetails() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteRun(runId!),
+    onSuccess: (result) => {
+      setShowDeleteModal(false);
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+      addToast({
+        variant: 'success',
+        title: 'Run deleted',
+        message: `Deleted ${result.deleted_workers} worker(s) and ${result.deleted_partitions} partition(s)`,
+      });
+      navigate('/runs');
+    },
+    onError: (error) => {
+      addToast({
+        variant: 'error',
+        title: 'Failed to delete run',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    },
+  });
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -111,6 +136,7 @@ export function RunDetails() {
   const canRetry = hasFailedWorkers;
   const isStalled = run.status === 'stalled';
   const canCancel = run.status === 'running' || isStalled;
+  const canDelete = run.status === 'failed';
 
   // Sort workers numerically by partition ID
   const sortedWorkers = [...workers].sort((a, b) => {
@@ -321,6 +347,17 @@ export function RunDetails() {
                   onClick={() => setShowConsolidateModal(true)}
                 >
                   Consolidate
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 className="w-4 h-4" />}
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  <span className="hidden sm:inline">Delete Run</span>
+                  <span className="sm:hidden">Delete</span>
                 </Button>
               )}
             </div>
@@ -562,6 +599,17 @@ export function RunDetails() {
           message={`This will mark all ${run.expectedWorkers - run.completedWorkers - run.failedWorkers} incomplete worker(s) as failed and end the run. Completed workers' data will be preserved. You can consolidate the collected data afterwards.`}
           confirmText="Cancel Run"
           loading={cancelMutation.isPending}
+        />
+
+        {/* Delete Run Modal */}
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={() => deleteMutation.mutate()}
+          title="Delete Failed Run"
+          message={`This will permanently delete this failed run and all its ${workers.length} worker record(s) and partition data. Raw diamonds are preserved. This action cannot be undone.`}
+          confirmText="Delete Run"
+          loading={deleteMutation.isPending}
         />
       </PageContainer>
     </>

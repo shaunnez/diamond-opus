@@ -44,10 +44,9 @@ function formatPrice(price: number): string {
 export function Heatmap() {
   const { addToast } = useToast();
   const [feed, setFeed] = useState('nivoda');
-  const [mode, setMode] = useState<'single-pass' | 'two-pass'>('single-pass');
   const [minPrice, setMinPrice] = useState('0');
   const [maxPrice, setMaxPrice] = useState('50000');
-  const [maxWorkers, setMaxWorkers] = useState('30');
+  const [maxWorkers, setMaxWorkers] = useState('10');
   const [result, setResult] = useState<HeatmapResult | null>(null);
 
   // Fetch heatmap history for the selected feed
@@ -99,10 +98,9 @@ export function Heatmap() {
 
   const handleRun = (isPreview: boolean) => {
     const options: RunHeatmapOptions = {
-      mode,
       min_price: parseInt(minPrice, 10) || 0,
       max_price: parseInt(maxPrice, 10) || 50000,
-      max_workers: parseInt(maxWorkers, 10) || 30,
+      max_workers: parseInt(maxWorkers, 10) || 10,
       feed,
     };
 
@@ -207,16 +205,7 @@ export function Heatmap() {
               title="Scan Configuration"
               subtitle="Configure the heatmap scanning parameters"
             />
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Select
-                label="Scan Mode"
-                value={mode}
-                onChange={(e) => setMode(e.target.value as 'single-pass' | 'two-pass')}
-                options={[
-                  { value: 'single-pass', label: 'Single Pass (default)' },
-                  { value: 'two-pass', label: 'Two Pass (faster for sparse data)' },
-                ]}
-              />
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Min $/ct"
                 type="number"
@@ -333,7 +322,7 @@ export function Heatmap() {
               <Card>
                 <CardHeader
                   title="Density Heatmap"
-                  subtitle={`${result.stats.non_empty_ranges} price ranges with data (${result.stats.used_two_pass ? 'two-pass' : 'single-pass'} mode)`}
+                  subtitle={`${result.stats.non_empty_ranges} price ranges with data`}
                 />
                 <div className="mt-4">
                   {/* Bar chart visualization */}

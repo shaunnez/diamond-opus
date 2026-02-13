@@ -9,7 +9,6 @@ import { Query } from './pages/Query';
 import { Triggers } from './pages/Triggers';
 import { Heatmap } from './pages/Heatmap';
 import { PricingRules } from './pages/PricingRules';
-import { Nivoda } from './pages/Nivoda';
 import { ErrorLogs } from './pages/ErrorLogs';
 import { ApiDocs } from './pages/ApiDocs';
 import { Holds } from './pages/Holds';
@@ -50,7 +49,6 @@ function ProtectedRoutes() {
         <Route path="/triggers" element={<Triggers />} />
         <Route path="/heatmap" element={<Heatmap />} />
         <Route path="/pricing-rules" element={<PricingRules />} />
-        <Route path="/nivoda" element={<Nivoda />} />
         <Route path="/holds" element={<Holds />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/error-logs" element={<ErrorLogs />} />

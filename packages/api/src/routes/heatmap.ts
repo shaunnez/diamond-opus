@@ -184,7 +184,6 @@ function transformResult(result: {
 // ============================================================================
 
 interface RunHeatmapBody {
-  mode?: "single-pass" | "two-pass";
   min_price?: number;
   max_price?: number;
   max_workers?: number;
@@ -214,11 +213,6 @@ interface RunHeatmapBody {
  *           schema:
  *             type: object
  *             properties:
- *               mode:
- *                 type: string
- *                 enum: [single-pass, two-pass]
- *                 default: single-pass
- *                 description: Scanning mode - two-pass is more efficient for sparse data
  *               min_price:
  *                 type: number
  *                 default: 0
@@ -280,7 +274,6 @@ router.post(
         maxPrice: body.max_price ?? 50000,
         maxWorkers: body.max_workers ?? HEATMAP_MAX_WORKERS,
         minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
-        useTwoPassScan: body.mode === "two-pass",
         maxTotalRecords: body.max_total_records ?? 0,
       };
 
@@ -310,7 +303,6 @@ router.post(
         scan_type: "run",
         feed,
         config: {
-          mode: body.mode ?? "single-pass",
           min_price: heatmapConfig.minPrice,
           max_price: heatmapConfig.maxPrice,
           max_workers: heatmapConfig.maxWorkers,
@@ -390,9 +382,6 @@ router.post(
         denseZoneStep: 250, // Larger steps for preview ($/ct)
         denseZoneThreshold: 5000,
         initialStep: 2500,
-        useTwoPassScan: true, // Two-pass is faster for preview
-        coarseStep: 5000,
-        maxTotalRecords: body.max_total_records ?? 0,
       };
 
       log.info("Running heatmap with config", { heatmapConfig });
@@ -413,7 +402,6 @@ router.post(
         scan_type: "preview",
         feed,
         config: {
-          mode: "two-pass",
           min_price: heatmapConfig.minPrice,
           max_price: heatmapConfig.maxPrice,
           max_workers: heatmapConfig.maxWorkers,

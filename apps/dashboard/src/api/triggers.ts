@@ -175,6 +175,25 @@ export async function cancelRun(
   return response.data.data;
 }
 
+// Delete failed run
+export interface DeleteRunResponse {
+  message: string;
+  run_id: string;
+  deleted_workers: number;
+  deleted_partitions: number;
+}
+
+export async function deleteRun(runId: string): Promise<DeleteRunResponse> {
+  const response = await api.post<{ data: DeleteRunResponse } | { error: unknown }>(
+    '/triggers/delete-run',
+    { run_id: runId }
+  );
+  if ('error' in response.data) {
+    throw new Error((response.data.error as { message: string }).message);
+  }
+  return response.data.data;
+}
+
 // Demo seed types
 export interface DemoSeedResponse {
   message: string;

@@ -327,3 +327,41 @@ export async function resetAllFailedWorkers(runId: string): Promise<number> {
 
   return failedPartitionIds.length;
 }
+
+/**
+ * Deletes a failed run and all associated records in a single transaction.
+ * Only allows deletion of runs with status 'failed'.
+ * Removes: worker_runs, partition_progress, and run_metadata.
+ * Does NOT delete raw diamonds (they may be referenced by other runs via supplier_stone_id upsert).
+ */
+export async function deleteFailedRun(
+  runId: string
+): Promise<{ deletedWorkers: number; deletedPartitions: number }> {
+  // Delete worker_runs first (no FK constraint, but logically dependent)
+  const workerResult = await query<{ count: string }>(
+    `WITH deleted AS (
+       DELETE FROM worker_runs WHERE run_id = $1 RETURNING 1
+     )
+     SELECT COUNT(*)::text as count FROM deleted`,
+    [runId]
+  );
+  const deletedWorkers = parseInt(workerResult.rows[0]?.count ?? '0', 10);
+
+  // Delete partition_progress
+  const partitionResult = await query<{ count: string }>(
+    `WITH deleted AS (
+       DELETE FROM partition_progress WHERE run_id = $1 RETURNING 1
+     )
+     SELECT COUNT(*)::text as count FROM deleted`,
+    [runId]
+  );
+  const deletedPartitions = parseInt(partitionResult.rows[0]?.count ?? '0', 10);
+
+  // Delete the run_metadata entry
+  await query(
+    `DELETE FROM run_metadata WHERE run_id = $1`,
+    [runId]
+  );
+
+  return { deletedWorkers, deletedPartitions };
+}

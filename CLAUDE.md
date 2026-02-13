@@ -153,7 +153,7 @@ The scheduler uses adaptive density scanning to partition work by **price per ca
 
 - **Dense zone** ($0-$5,000/ct): Fixed $50/ct steps, most diamonds here
 - **Sparse zone** ($5,000+/ct): Adaptive stepping based on actual density
-- **Max workers**: 60 for full runs, 10 for incremental
+- **Max workers**: 10 (unified for all run types)
 - **Min records per worker**: 1,000 to avoid overhead
 
 ## Authentication
@@ -171,7 +171,7 @@ Dual auth system (checked in order):
 
 ### Pipeline
 - `apps/scheduler/src/index.ts` - Job partitioning (uses heatmap)
-- `apps/scheduler/src/heatmap.ts` - Density scanning algorithm
+- `packages/feed-registry/src/heatmap.ts` - Density scanning algorithm
 - `apps/worker/src/index.ts` - Data ingestion with retry
 - `apps/consolidator/src/index.ts` - Transformation and watermark
 
@@ -206,8 +206,7 @@ Dual auth system (checked in order):
 
 ```typescript
 // From packages/shared/src/constants.ts
-RECORDS_PER_WORKER = 5000              // Target records per worker
-WORKER_PAGE_SIZE = 30                  // Pagination size for Nivoda API
+WORKER_PAGE_SIZE = 40                  // Pagination size for Nivoda API
 CONSOLIDATOR_BATCH_SIZE = 2000         // Raw diamonds fetched per cycle
 CONSOLIDATOR_UPSERT_BATCH_SIZE = 100   // Diamonds per batch INSERT (uses UNNEST)
 CONSOLIDATOR_CONCURRENCY = 2           // Concurrent batch upserts (env: CONSOLIDATOR_CONCURRENCY)
@@ -216,7 +215,7 @@ AUTO_CONSOLIDATION_SUCCESS_THRESHOLD = 0.70  // Min success rate for auto-consol
 AUTO_CONSOLIDATION_DELAY_MINUTES = 5   // Delay before auto-consolidation on partial success
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
-HEATMAP_MAX_WORKERS = 20               // Max parallel workers (incremental capped to 10)
+HEATMAP_MAX_WORKERS = 10               // Max parallel workers (unified for all run types)
 HEATMAP_MAX_PRICE = 50000              // Max price per carat to scan
 HEATMAP_DENSE_ZONE_THRESHOLD = 5000    // $/ct threshold for dense zone
 HEATMAP_DENSE_ZONE_STEP = 50           // Fixed step in dense zone ($/ct)

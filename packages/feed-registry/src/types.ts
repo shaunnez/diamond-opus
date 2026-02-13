@@ -53,7 +53,6 @@ export interface HeatmapConfigOverrides {
   maxWorkers?: number;
   minRecordsPerWorker?: number;
   concurrency?: number;
-  useTwoPassScan?: boolean;
   coarseStep?: number;
   maxTotalRecords?: number;
   /** Minimum price increment for the feed. Used to convert half-open intervals to inclusive. Default: 1 (integer prices) */

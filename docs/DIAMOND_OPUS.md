@@ -24,7 +24,7 @@ Diamond Opus is a production-ready TypeScript monorepo for ingesting, consolidat
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Scheduler  │────▶│ Service Bus │────▶│   Workers   │
-│  (2 AM UTC) │     │  (Azure)    │     │  (1-1000)   │
+│  (2 AM UTC) │     │  (Azure)    │     │  (1-10)     │
 └─────────────┘     └─────────────┘     └─────────────┘
        │                                      │
        │ watermark                           │ raw data
@@ -133,7 +133,7 @@ apps/scheduler, apps/worker, apps/consolidator
 8. Last successful worker triggers consolidation (atomic counter)
 
 **Run Types:**
-- **Full Run**: No watermark, scans $0-$250k, up to 1000 workers
+- **Full Run**: No watermark, scans $0-$250k, up to 10 workers
 - **Incremental Run**: Uses watermark with 15-minute safety buffer, up to 10 workers
 
 ### Stage 2: Consolidation
@@ -184,7 +184,7 @@ CONSOLIDATOR_CONCURRENCY = 2           // Concurrent batch upserts (env: CONSOLI
 CONSOLIDATOR_CLAIM_TTL_MINUTES = 30    // Stuck claim recovery timeout
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
-HEATMAP_MAX_WORKERS = 1000             // Max parallel workers (incremental capped to 10)
+HEATMAP_MAX_WORKERS = 10               // Max parallel workers (unified for all run types)
 HEATMAP_MIN_RECORDS_PER_WORKER = 1000  // Minimum records to spawn worker
 ```
 
@@ -251,6 +251,7 @@ Dual auth system (checked in order):
 | `POST` | `/api/v2/diamonds/:id/availability` | Update availability |
 | `GET` | `/api/v2/analytics/*` | Run analytics and dashboard data |
 | `POST` | `/api/v2/triggers/*` | Pipeline trigger endpoints |
+| `POST` | `/api/v2/triggers/delete-run` | Delete a failed run and its data |
 | `GET/POST` | `/api/v2/pricing-rules` | Pricing rules management |
 
 Swagger UI available at `http://localhost:3000/api-docs`.
@@ -262,12 +263,13 @@ Swagger UI available at `http://localhost:3000/api-docs`.
 The React admin dashboard provides:
 
 - **Pipeline Overview**: Real-time stats on runs, workers, and diamonds
-- **Run Management**: View run history, trigger new runs, monitor progress
+- **Run Management**: View run history, trigger new runs, monitor progress, delete failed runs
 - **Consolidation**: Trigger consolidation, view status, force consolidate
 - **Worker Retry**: View failed workers, retry individual partitions
 - **Diamond Query**: Search and browse the diamond inventory
 - **Supplier Analytics**: View supplier performance metrics
 - **Pricing Rules**: View and manage pricing rules
+- **API Docs**: Embedded Swagger UI for API documentation
 
 Runs on `http://localhost:5173` (Vite dev server) or port 80 (Docker/nginx).
 
