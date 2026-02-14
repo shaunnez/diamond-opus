@@ -1,6 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import type { Diamond } from '../../types/diamond';
-import { formatNumber } from '../../utils/format';
+import { formatNumber, formatCarats } from '../../utils/format';
 
 interface DiamondSpecsProps {
   diamond: Diamond;
@@ -28,7 +28,7 @@ export function DiamondSpecs({ diamond }: DiamondSpecsProps) {
         </h3>
         <div className="space-y-0">
           <SpecRow label="Shape" value={diamond.shape} />
-          <SpecRow label="Carats" value={diamond.carats?.toFixed(2)} />
+          <SpecRow label="Carats" value={diamond.carats != null ? formatCarats(diamond.carats).replace('ct', '') : undefined} />
           <SpecRow label="Color" value={diamond.color} />
           <SpecRow label="Clarity" value={diamond.clarity} />
           <SpecRow label="Cut" value={diamond.cut} />

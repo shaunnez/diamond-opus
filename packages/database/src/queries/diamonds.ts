@@ -46,6 +46,66 @@ interface DiamondRow {
   deleted_at: Date | null;
 }
 
+/**
+ * Normalizes measurements JSONB object to ensure numeric fields are actual numbers.
+ * PostgreSQL JSONB can store numeric values as strings, which breaks frontend .toFixed() calls.
+ */
+function normalizeMeasurements(raw: Record<string, unknown> | null): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+
+  const normalized: Record<string, unknown> = {};
+  const numericFields = [
+    'length', 'width', 'depth', 'depthPercentage', 'table',
+    'crownAngle', 'crownHeight', 'pavAngle', 'pavHeight', 'pavDepth',
+    'starLength', 'lowerGirdle'
+  ];
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (value == null) {
+      normalized[key] = value;
+    } else if (numericFields.includes(key)) {
+      // Convert string numbers to actual numbers
+      const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+      normalized[key] = isNaN(num) ? value : num;
+    } else {
+      normalized[key] = value;
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Normalizes attributes JSONB object to ensure proper types.
+ * Handles boolean fields that might be stored as strings or other types.
+ */
+function normalizeAttributes(raw: Record<string, unknown> | null): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+
+  const normalized: Record<string, unknown> = {};
+  const booleanFields = ['eyeClean', 'brown', 'green', 'blue', 'gray', 'milky'];
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (value == null) {
+      normalized[key] = value;
+    } else if (booleanFields.includes(key) && typeof value === 'string') {
+      // Handle boolean fields stored as strings
+      const lower = value.toLowerCase();
+      if (lower === 'true' || lower === 'yes' || lower === '1') {
+        normalized[key] = true;
+      } else if (lower === 'false' || lower === 'no' || lower === '0' || lower === 'none' || lower === 'n/a' || lower === '') {
+        normalized[key] = false;
+      } else {
+        normalized[key] = value; // Keep original if not a clear boolean
+      }
+    } else {
+      normalized[key] = value;
+    }
+  }
+
+  return normalized;
+}
+
 function mapRowToDiamond(row: DiamondRow): Diamond {
   return {
     id: row.id,
@@ -81,8 +141,8 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     certificateLab: row.certificate_lab ?? undefined,
     certificateNumber: row.certificate_number ?? undefined,
     certificatePdfUrl: row.certificate_pdf_url ?? undefined,
-    measurements: row.measurements ?? undefined,
-    attributes: row.attributes ?? undefined,
+    measurements: normalizeMeasurements(row.measurements),
+    attributes: normalizeAttributes(row.attributes),
     supplierName: row.supplier_name ?? undefined,
     supplierLegalName: row.supplier_legal_name ?? undefined,
     status: row.status as Diamond['status'],
