@@ -85,16 +85,16 @@ describe('Diamond Database Queries', () => {
       expect(result.pagination.limit).toBe(50);
     });
 
-    it('should apply shape filter', async () => {
+    it('should apply shapes filter', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [{ count: '0' }] });
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
-      await searchDiamonds({ shape: 'OVAL' });
+      await searchDiamonds({ shapes: ['OVAL'] });
 
       // First call is count query
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('shape = $'),
-        expect.arrayContaining(['OVAL'])
+        expect.stringContaining('shape = ANY($'),
+        expect.arrayContaining([['OVAL']])
       );
     });
 
