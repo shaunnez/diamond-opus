@@ -9,15 +9,17 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 # Copy package files
 COPY package*.json ./
 COPY apps/storefront/package.json ./apps/storefront/
+COPY packages/shared/package.json ./packages/shared/
 
 # Install dependencies
 RUN npm ci
 
 # Copy source files
+COPY packages/shared ./packages/shared
 COPY apps/storefront ./apps/storefront
 
-# Build the storefront
-RUN npm run build -w @diamond/storefront
+# Build shared package first, then storefront
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/storefront
 
 # Production stage
 FROM nginx:alpine
