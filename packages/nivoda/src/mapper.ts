@@ -1,6 +1,4 @@
-import type {
-  Diamond,
-} from "@diamond/shared";
+import type { Diamond } from "@diamond/shared";
 import type { NivodaItem } from "./types.js";
 
 function mapAvailability(nivodaAvailability: string): Diamond["availability"] {
@@ -28,23 +26,23 @@ function mapFancyColor(certificate: NivodaItem["diamond"]["certificate"]): strin
   if (certificate.f_intensity) parts.push(certificate.f_intensity);
   if (certificate.f_color) parts.push(certificate.f_color);
   if (certificate.f_overtone) parts.push(certificate.f_overtone);
-  return parts.length > 0 ? parts.join(' ') : undefined;
+  return parts.length > 0 ? parts.join(" ") : undefined;
 }
 
 function parseFluorescenceIntensity(floInt?: string): string | undefined {
   if (!floInt) return undefined;
-  const normalized = floInt.toUpperCase().replace(/[\s-]+/g, '_');
+  const normalized = floInt.toUpperCase().replace(/[\s-]+/g, "_");
   const mapping: Record<string, string> = {
-    NONE: 'NONE',
-    NON: 'NONE',
-    FAINT: 'FAINT',
-    FNT: 'FAINT',
-    MEDIUM: 'MEDIUM',
-    MED: 'MEDIUM',
-    STRONG: 'STRONG',
-    STG: 'STRONG',
-    VERY_STRONG: 'VERY_STRONG',
-    VST: 'VERY_STRONG',
+    NONE: "NONE",
+    NON: "NONE",
+    FAINT: "FAINT",
+    FNT: "FAINT",
+    MEDIUM: "MEDIUM",
+    MED: "MEDIUM",
+    STRONG: "STRONG",
+    STG: "STRONG",
+    VERY_STRONG: "VERY_STRONG",
+    VST: "VERY_STRONG",
   };
   return mapping[normalized] ?? normalized;
 }
@@ -52,6 +50,18 @@ function parseFluorescenceIntensity(floInt?: string): string | undefined {
 function computeRatio(length?: number, width?: number): number | undefined {
   if (!length || !width || width === 0) return undefined;
   return Math.round((length / width) * 1000) / 1000;
+}
+
+function parseEyeClean(value: unknown): boolean | null | undefined {
+  if (value == null) return null;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return false;
+
+  if (["true", "yes", "1", "t", "y"].includes(normalized)) return true;
+  if (["false", "no", "0", "f", "n", "none", "n/a"].includes(normalized)) return false;
+
+  return null;
 }
 
 export function mapNivodaItemToDiamond(
@@ -68,7 +78,7 @@ export function mapNivodaItemToDiamond(
   const { diamond } = item;
   const { certificate } = diamond;
 
-  const feedPrice = item.price / 100; // Nivoda returns cents, store as dollars
+  const feedPrice = item.price / 100;
   const diamondPrice = item.diamond_price != null ? item.diamond_price / 100 : undefined;
   const carats = certificate.carats ?? undefined;
   const pricePerCarat = carats ? feedPrice / carats : 0;
@@ -92,7 +102,6 @@ export function mapNivodaItemToDiamond(
     ratio: computeRatio(certificate.length, certificate.width),
     labGrown: certificate.labgrown ?? false,
     treated: certificate.treated ?? false,
-    //fancyColor: mapFancyColor(certificate),
     feedPrice,
     diamondPrice,
     pricePerCarat,
@@ -104,7 +113,6 @@ export function mapNivodaItemToDiamond(
     certificateLab: certificate.lab,
     certificateNumber: certificate.certNumber,
     certificatePdfUrl: certificate.pdfUrl ?? undefined,
-    // Denormalized measurement fields
     tablePct: certificate.table,
     depthPct: certificate.depthPercentage,
     lengthMm: certificate.length,
@@ -116,8 +124,7 @@ export function mapNivodaItemToDiamond(
     pavilionDepth: certificate.pavDepth,
     girdle: certificate.girdle,
     culetSize: certificate.culetSize,
-    // Denormalized attribute fields
-    eyeClean: diamond.eyeClean,
+    eyeClean: parseEyeClean(diamond.eyeClean),
     brown: diamond.brown,
     green: diamond.green,
     milky: diamond.milky,
