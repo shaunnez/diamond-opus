@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Filter, RefreshCw, Grid, List } from 'lucide-react';
+import { Filter, RefreshCw, Grid } from 'lucide-react';
 import { getDiamondsForStorefront, type StorefrontFilters } from '../api/trading';
 import { PageContainer } from '../components/layout/Layout';
 import {

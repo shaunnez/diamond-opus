@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Video } from 'lucide-react';
-import type { Diamond } from '@diamond-opus/shared/types';
+import type { Diamond } from '@diamond/shared';
 import { DiamondImage } from './DiamondImage';
 import { DiamondShapeIcon } from './DiamondShapeIcon';
 
