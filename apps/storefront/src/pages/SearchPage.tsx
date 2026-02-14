@@ -148,36 +148,37 @@ export function SearchPage() {
 
               {/* Sort dropdown */}
               <div className="relative">
-              <button
-                onClick={() => setSortOpen(!sortOpen)}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-white text-warm-gray-600 hover:text-charcoal transition-colors"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5" />
-                {currentSort?.label || 'Sort'}
-              </button>
-              {sortOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-border shadow-card-hover z-20 min-w-[180px] animate-fade-in">
-                    {SORT_OPTIONS.map((opt) => (
-                      <button
-                        key={`${opt.value}-${opt.order}`}
-                        onClick={() => {
-                          setSort(opt.value, opt.order);
-                          setSortOpen(false);
-                        }}
-                        className={`block w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
-                          currentSort?.value === opt.value && currentSort?.order === opt.order
-                            ? 'bg-cream text-charcoal'
-                            : 'text-warm-gray-500 hover:bg-cream hover:text-charcoal'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+                <button
+                  onClick={() => setSortOpen(!sortOpen)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-white text-warm-gray-600 hover:text-charcoal transition-colors"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  {currentSort?.label || 'Sort'}
+                </button>
+                {sortOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-border shadow-card-hover z-20 min-w-[180px] animate-fade-in">
+                      {SORT_OPTIONS.map((opt) => (
+                        <button
+                          key={`${opt.value}-${opt.order}`}
+                          onClick={() => {
+                            setSort(opt.value, opt.order);
+                            setSortOpen(false);
+                          }}
+                          className={`block w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
+                            currentSort?.value === opt.value && currentSort?.order === opt.order
+                              ? 'bg-cream text-charcoal'
+                              : 'text-warm-gray-500 hover:bg-cream hover:text-charcoal'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
