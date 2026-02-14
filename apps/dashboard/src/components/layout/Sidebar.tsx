@@ -17,12 +17,14 @@ import {
   Moon,
   Sun,
   FileText,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Storefront', href: '/storefront', icon: Store },
   { name: 'Runs', href: '/runs', icon: PlayCircle },
   { name: 'Consolidation', href: '/consolidation', icon: Layers },
   { name: 'Feeds', href: '/feeds', icon: Database },
