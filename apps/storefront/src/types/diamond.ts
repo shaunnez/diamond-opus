@@ -1,35 +1,3 @@
-export interface DiamondMeasurements {
-  length?: number;
-  width?: number;
-  depth?: number;
-  depthPercentage?: number;
-  table?: number;
-  crownAngle?: number;
-  crownHeight?: number;
-  pavAngle?: number;
-  pavHeight?: number;
-  pavDepth?: number;
-  girdle?: string;
-  culetSize?: string;
-  starLength?: number;
-  lowerGirdle?: number;
-}
-
-export interface DiamondAttributes {
-  eyeClean?: boolean;
-  brown?: boolean;
-  green?: boolean;
-  blue?: boolean;
-  gray?: boolean;
-  milky?: boolean;
-  bowtie?: string;
-  mineOfOrigin?: string;
-  cutStyle?: string;
-  comments?: string;
-  countryOfOrigin?: string;
-  colorShade?: string;
-}
-
 export type DiamondAvailability = 'available' | 'on_hold' | 'sold' | 'unavailable';
 
 export interface Diamond {
@@ -67,8 +35,23 @@ export interface Diamond {
   certificateLab?: string;
   certificateNumber?: string;
   certificatePdfUrl?: string;
-  measurements?: DiamondMeasurements;
-  attributes?: DiamondAttributes;
+  // Denormalized measurement fields
+  tablePct?: number;
+  depthPct?: number;
+  lengthMm?: number;
+  widthMm?: number;
+  depthMm?: number;
+  crownAngle?: number;
+  crownHeight?: number;
+  pavilionAngle?: number;
+  pavilionDepth?: number;
+  girdle?: string;
+  culetSize?: string;
+  // Denormalized attribute fields
+  eyeClean?: boolean;
+  brown?: string;
+  green?: string;
+  milky?: string;
   supplierName?: string;
   supplierLegalName?: string;
   status: 'active' | 'deleted';

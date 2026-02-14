@@ -1,7 +1,5 @@
 import type {
   Diamond,
-  DiamondMeasurements,
-  DiamondAttributes,
 } from "@diamond/shared";
 import type { NivodaItem } from "./types.js";
 
@@ -18,146 +16,6 @@ function mapAvailability(nivodaAvailability: string): Diamond["availability"] {
     return "sold";
   }
   return "unavailable";
-}
-
-function mapMeasurements(
-  certificate: NivodaItem["diamond"]["certificate"],
-): DiamondMeasurements | undefined {
-  const measurements: DiamondMeasurements = {};
-  let hasValue = false;
-
-  if (certificate.length !== undefined) {
-    measurements.length = certificate.length;
-    hasValue = true;
-  }
-  if (certificate.width !== undefined) {
-    measurements.width = certificate.width;
-    hasValue = true;
-  }
-  if (certificate.depth !== undefined) {
-    measurements.depth = certificate.depth;
-    hasValue = true;
-  }
-  if (certificate.depthPercentage !== undefined) {
-    measurements.depthPercentage = certificate.depthPercentage;
-    hasValue = true;
-  }
-  if (certificate.table !== undefined) {
-    measurements.table = certificate.table;
-    hasValue = true;
-  }
-  if (certificate.crownAngle !== undefined) {
-    measurements.crownAngle = certificate.crownAngle;
-    hasValue = true;
-  }
-  if (certificate.crownHeight !== undefined) {
-    measurements.crownHeight = certificate.crownHeight;
-    hasValue = true;
-  }
-  if (certificate.pavAngle !== undefined) {
-    measurements.pavAngle = certificate.pavAngle;
-    hasValue = true;
-  }
-  if (certificate.pavHeight !== undefined) {
-    measurements.pavHeight = certificate.pavHeight;
-    hasValue = true;
-  }
-  if (certificate.pavDepth !== undefined) {
-    measurements.pavDepth = certificate.pavDepth;
-    hasValue = true;
-  }
-  if (certificate.girdle !== undefined) {
-    measurements.girdle = certificate.girdle;
-    hasValue = true;
-  }
-  if (certificate.culetSize !== undefined) {
-    measurements.culetSize = certificate.culetSize;
-    hasValue = true;
-  }
-  if (certificate.girdleCondition !== undefined) {
-    measurements.girdleCondition = certificate.girdleCondition;
-    hasValue = true;
-  }
-  if (certificate.culet_condition !== undefined) {
-    measurements.culetCondition = certificate.culet_condition;
-    hasValue = true;
-  }
-  if (certificate.starLength !== undefined) {
-    measurements.starLength = certificate.starLength;
-    hasValue = true;
-  }
-  if (certificate.lowerGirdle !== undefined) {
-    measurements.lowerGirdle = certificate.lowerGirdle;
-    hasValue = true;
-  }
-
-  return hasValue ? measurements : undefined;
-}
-
-function mapAttributes(
-  diamond: NivodaItem["diamond"],
-): DiamondAttributes | undefined {
-  const attributes: DiamondAttributes = {};
-  let hasValue = false;
-
-  if (diamond.eyeClean !== undefined) {
-    attributes.eyeClean = diamond.eyeClean;
-    hasValue = true;
-  }
-  if (diamond.brown !== undefined) {
-    attributes.brown = diamond.brown;
-    hasValue = true;
-  }
-  if (diamond.green !== undefined) {
-    attributes.green = diamond.green;
-    hasValue = true;
-  }
-  if (diamond.blue !== undefined) {
-    attributes.blue = diamond.blue;
-    hasValue = true;
-  }
-  if (diamond.gray !== undefined) {
-    attributes.gray = diamond.gray;
-    hasValue = true;
-  }
-  if (diamond.milky !== undefined) {
-    attributes.milky = diamond.milky;
-    hasValue = true;
-  }
-  if (diamond.bowtie !== undefined) {
-    attributes.bowtie = diamond.bowtie;
-    hasValue = true;
-  }
-  if (diamond.mine_of_origin !== undefined) {
-    attributes.mineOfOrigin = diamond.mine_of_origin;
-    hasValue = true;
-  }
-  if (diamond.certificate.cut_style !== undefined) {
-    attributes.cutStyle = diamond.certificate.cut_style;
-    hasValue = true;
-  }
-  if (diamond.certificate.keyToSymbols !== undefined) {
-    attributes.keyToSymbols = diamond.certificate.keyToSymbols;
-    hasValue = true;
-  }
-  if (diamond.certificate.comments !== undefined) {
-    attributes.comments = diamond.certificate.comments;
-    hasValue = true;
-  }
-  if (diamond.certificate.country_of_origin !== undefined) {
-    attributes.countryOfOrigin = diamond.certificate.country_of_origin;
-    hasValue = true;
-  }
-  if (diamond.certificate.colorShade !== undefined) {
-    attributes.colorShade = diamond.certificate.colorShade;
-    hasValue = true;
-  }
-  if (diamond.certificate.mix_tinge !== undefined) {
-    attributes.mixTinge = diamond.certificate.mix_tinge;
-    hasValue = true;
-  }
-
-  return hasValue ? attributes : undefined;
 }
 
 function mapFluorescence(floInt?: string, floCol?: string): string | undefined {
@@ -246,8 +104,23 @@ export function mapNivodaItemToDiamond(
     certificateLab: certificate.lab,
     certificateNumber: certificate.certNumber,
     certificatePdfUrl: certificate.pdfUrl ?? undefined,
-    measurements: mapMeasurements(certificate),
-    attributes: mapAttributes(diamond),
+    // Denormalized measurement fields
+    tablePct: certificate.table,
+    depthPct: certificate.depthPercentage,
+    lengthMm: certificate.length,
+    widthMm: certificate.width,
+    depthMm: certificate.depth,
+    crownAngle: certificate.crownAngle,
+    crownHeight: certificate.crownHeight,
+    pavilionAngle: certificate.pavAngle,
+    pavilionDepth: certificate.pavDepth,
+    girdle: certificate.girdle,
+    culetSize: certificate.culetSize,
+    // Denormalized attribute fields
+    eyeClean: diamond.eyeClean,
+    brown: diamond.brown,
+    green: diamond.green,
+    milky: diamond.milky,
     supplierName: diamond.supplier?.name,
     supplierLegalName: diamond.supplier?.legal_name,
     status: "active",

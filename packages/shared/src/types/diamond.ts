@@ -21,41 +21,8 @@ export type DiamondShape =
   | 'HEXAGONAL'
   | 'HEART';
 
-export interface DiamondMeasurements {
-  length?: number;
-  width?: number;
-  depth?: number;
-  depthPercentage?: number;
-  table?: number;
-  crownAngle?: number;
-  crownHeight?: number;
-  pavAngle?: number;
-  pavHeight?: number;
-  pavDepth?: number;
-  girdle?: string;
-  culetSize?: string;
-  girdleCondition?: string;
-  culetCondition?: string;
-  starLength?: number;
-  lowerGirdle?: number;
-}
-
-export interface DiamondAttributes {
-  eyeClean?: boolean;
-  brown?: string;
-  green?: string;
-  blue?: string;
-  gray?: string;
-  milky?: string;
-  bowtie?: string;
-  mineOfOrigin?: string;
-  cutStyle?: string;
-  keyToSymbols?: string;
-  comments?: string;
-  countryOfOrigin?: string;
-  colorShade?: string;
-  mixTinge?: string;
-}
+// Removed DiamondMeasurements and DiamondAttributes interfaces
+// These fields are now direct columns on the Diamond table
 
 export interface Diamond {
   id: string;
@@ -92,8 +59,23 @@ export interface Diamond {
   certificateLab?: string;
   certificateNumber?: string;
   certificatePdfUrl?: string;
-  measurements?: DiamondMeasurements;
-  attributes?: DiamondAttributes;
+  // Denormalized measurement fields
+  tablePct?: number;
+  depthPct?: number;
+  lengthMm?: number;
+  widthMm?: number;
+  depthMm?: number;
+  crownAngle?: number;
+  crownHeight?: number;
+  pavilionAngle?: number;
+  pavilionDepth?: number;
+  girdle?: string;
+  culetSize?: string;
+  // Denormalized attribute fields
+  eyeClean?: boolean;
+  brown?: string;
+  green?: string;
+  milky?: string;
   supplierName?: string;
   supplierLegalName?: string;
   status: DiamondStatus;
