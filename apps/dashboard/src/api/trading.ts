@@ -1,5 +1,4 @@
 import { api } from './client';
-import type { Diamond, DiamondSearchParams, PaginatedResponse } from '@diamond/shared';
 
 // ============================================================================
 // Types
@@ -106,75 +105,5 @@ export async function cancelOrder(orderId: string): Promise<CancelResponse> {
     '/trading/cancel-order',
     { order_id: orderId }
   );
-  return response.data.data;
-}
-
-// ============================================================================
-// Storefront - Browse diamonds
-// ============================================================================
-
-export interface StorefrontFilters extends Partial<DiamondSearchParams> {
-  feed?: string;
-}
-
-export async function getDiamondsForStorefront(
-  filters: StorefrontFilters = {},
-  page = 1,
-  limit = 24
-): Promise<PaginatedResponse<Diamond>> {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-
-  // Add filters (using snake_case to match backend)
-  if (filters.shapes?.length) {
-    filters.shapes.forEach(shape => params.append('shape', shape));
-  }
-  if (filters.caratMin !== undefined) {
-    params.set('carat_min', String(filters.caratMin));
-  }
-  if (filters.caratMax !== undefined) {
-    params.set('carat_max', String(filters.caratMax));
-  }
-  if (filters.colors?.length) {
-    filters.colors.forEach(color => params.append('color', color));
-  }
-  if (filters.clarities?.length) {
-    filters.clarities.forEach(clarity => params.append('clarity', clarity));
-  }
-  if (filters.cuts?.length) {
-    filters.cuts.forEach(cut => params.append('cut', cut));
-  }
-  if (filters.labGrown !== undefined) {
-    params.set('lab_grown', String(filters.labGrown));
-  }
-  if (filters.priceMin !== undefined) {
-    params.set('price_min', String(filters.priceMin));
-  }
-  if (filters.priceMax !== undefined) {
-    params.set('price_max', String(filters.priceMax));
-  }
-
-  const response = await api.get<PaginatedResponse<Diamond>>(`/diamonds?${params}`);
-
-  // Filter by feed on client side if specified (backend doesn't support feed filtering yet)
-  let data = response.data;
-  if (filters.feed && filters.feed !== 'all') {
-    data = {
-      ...data,
-      data: data.data.filter(d => d.feed === filters.feed),
-      pagination: {
-        ...data.pagination,
-        total: data.data.filter(d => d.feed === filters.feed).length,
-      },
-    };
-  }
-
-  return data;
-}
-
-export async function getDiamondDetails(id: string): Promise<Diamond> {
-  const response = await api.get<{ data: Diamond }>(`/diamonds/${id}`);
   return response.data.data;
 }

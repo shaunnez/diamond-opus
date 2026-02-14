@@ -8,6 +8,3 @@ export * from './Progress';
 export * from './Spinner';
 export * from './Table';
 export * from './Toast';
-export * from './DiamondImage';
-export * from './DiamondShapeIcon';
-export * from './DiamondCard';

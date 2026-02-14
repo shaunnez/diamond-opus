@@ -13,8 +13,6 @@ import { ErrorLogs } from './pages/ErrorLogs';
 import { ApiDocs } from './pages/ApiDocs';
 import { Holds } from './pages/Holds';
 import { Orders } from './pages/Orders';
-import { Storefront } from './pages/Storefront';
-import { DiamondDetails } from './pages/DiamondDetails';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
@@ -43,8 +41,6 @@ function ProtectedRoutes() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/storefront" element={<Storefront />} />
-        <Route path="/diamonds/:id" element={<DiamondDetails />} />
         <Route path="/runs" element={<Runs />} />
         <Route path="/runs/:runId" element={<RunDetails />} />
         <Route path="/consolidation" element={<Consolidation />} />

@@ -24,6 +24,7 @@ export function DiamondCard({ diamond }: DiamondCardProps) {
         imageUrl={diamond.imageUrl}
         shape={diamond.shape}
         alt={`${diamond.shape} ${formatCarats(diamond.carats)}`}
+        feed={diamond.feed}
       />
 
       {/* Info */}
