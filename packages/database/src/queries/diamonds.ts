@@ -160,6 +160,11 @@ export async function searchDiamonds(
   const values: unknown[] = [];
   let paramIndex = 1;
 
+  if (params.feed) {
+    conditions.push(`feed = $${paramIndex++}`);
+    values.push(params.feed);
+  }
+
   if (params.shapes && params.shapes.length > 0) {
     conditions.push(`shape = ANY($${paramIndex++})`);
     values.push(params.shapes);
@@ -186,8 +191,8 @@ export async function searchDiamonds(
   }
 
   if (params.cuts && params.cuts.length > 0) {
-    conditions.push(`cut = ANY($${paramIndex++})`);
-    values.push(params.cuts);
+    conditions.push(`UPPER(cut) = ANY($${paramIndex++})`);
+    values.push(params.cuts.map(v => v.toUpperCase()));
   }
 
   if (params.labGrown !== undefined) {
@@ -216,18 +221,18 @@ export async function searchDiamonds(
   }
 
   if (params.fluorescenceIntensities && params.fluorescenceIntensities.length > 0) {
-    conditions.push(`fluorescence_intensity = ANY($${paramIndex++})`);
-    values.push(params.fluorescenceIntensities);
+    conditions.push(`UPPER(REPLACE(fluorescence_intensity, ' ', '_')) = ANY($${paramIndex++})`);
+    values.push(params.fluorescenceIntensities.map(v => v.toUpperCase().replace(/ /g, '_')));
   }
 
   if (params.polishes && params.polishes.length > 0) {
-    conditions.push(`polish = ANY($${paramIndex++})`);
-    values.push(params.polishes);
+    conditions.push(`UPPER(polish) = ANY($${paramIndex++})`);
+    values.push(params.polishes.map(v => v.toUpperCase()));
   }
 
   if (params.symmetries && params.symmetries.length > 0) {
-    conditions.push(`symmetry = ANY($${paramIndex++})`);
-    values.push(params.symmetries);
+    conditions.push(`UPPER(symmetry) = ANY($${paramIndex++})`);
+    values.push(params.symmetries.map(v => v.toUpperCase()));
   }
 
   if (params.ratioMin !== undefined) {

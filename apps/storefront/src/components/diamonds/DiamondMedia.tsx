@@ -25,6 +25,12 @@ const DEMO_IMAGES: Record<string, string> = {
   HEART: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&q=80',
 };
 
+function Skeleton() {
+  return (
+    <div className="absolute inset-0 skeleton-shimmer" />
+  );
+}
+
 export function DiamondMedia({
   videoUrl,
   imageUrl,
@@ -43,23 +49,26 @@ export function DiamondMedia({
       ? `bg-cream flex items-center justify-center relative overflow-hidden ${className}`
       : `bg-cream flex items-center justify-center aspect-square relative overflow-hidden ${className}`;
 
-  // For demo feed without image, use shape-based demo image
-  const finalImageUrl = imageUrl || (feed === 'demo' ? DEMO_IMAGES[shape] : undefined);
+  // For demo feed without image, use shape-based demo image (normalize shape to uppercase)
+  const normalizedShape = shape?.toUpperCase() ?? '';
+  const finalImageUrl = imageUrl || (feed === 'demo' ? DEMO_IMAGES[normalizedShape] : undefined);
 
   // V360 video — render as interactive iframe
   if (videoUrl) {
     return (
       <div className={containerClasses}>
-        {!videoLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-br from-warm-gray-100 to-warm-gray-200 animate-shimmer" />
-        )}
+        {!videoLoaded && <Skeleton />}
         <iframe
           src={videoUrl}
           title={alt}
-          className="w-full h-full border-0"
+          className={`w-full h-full border-0 transition-opacity duration-300 ${
+            videoLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
           allow="autoplay; fullscreen"
           loading="lazy"
+          scrolling="no"
           onLoad={() => setVideoLoaded(true)}
+          style={{ overflow: 'hidden' }}
         />
       </div>
     );
@@ -69,13 +78,11 @@ export function DiamondMedia({
   if (finalImageUrl && !imgError) {
     return (
       <div className={containerClasses}>
-        {!imgLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-br from-warm-gray-100 to-warm-gray-200 animate-shimmer" />
-        )}
+        {!imgLoaded && <Skeleton />}
         <img
           src={finalImageUrl}
           alt={alt}
-          className={`w-full h-full object-contain transition-opacity duration-300 ${
+          className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
             imgLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           loading="lazy"

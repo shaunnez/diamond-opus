@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const diamondSearchSchema = z.object({
+  feed: z.string().optional(),
   shape: z.union([z.string(), z.array(z.string())]).optional(),
   carat_min: z.coerce.number().positive().optional(),
   carat_max: z.coerce.number().positive().optional(),

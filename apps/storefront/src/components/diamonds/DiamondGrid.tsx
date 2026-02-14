@@ -8,7 +8,7 @@ interface DiamondGridProps {
 export function DiamondGrid({ diamonds }: DiamondGridProps) {
   if (diamonds.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
         <div className="w-16 h-16 rounded-full bg-border/50 flex items-center justify-center mb-4">
           <svg width="32" height="32" viewBox="0 0 48 48" className="text-warm-gray-400">
             <path
@@ -27,8 +27,14 @@ export function DiamondGrid({ diamonds }: DiamondGridProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-      {diamonds.map((diamond) => (
-        <DiamondCard key={diamond.id} diamond={diamond} />
+      {diamonds.map((diamond, index) => (
+        <div
+          key={diamond.id}
+          className="animate-card-enter"
+          style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
+        >
+          <DiamondCard diamond={diamond} />
+        </div>
       ))}
     </div>
   );
