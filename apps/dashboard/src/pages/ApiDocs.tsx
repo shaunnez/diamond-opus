@@ -4,12 +4,14 @@ import { getApiBaseUrl } from '../api/client';
 function getSwaggerUrl(): string {
   const apiBaseUrl = getApiBaseUrl();
   try {
-    // If VITE_API_URL is an absolute URL, extract the origin
+    // If VITE_API_URL is an absolute URL (e.g. https://api.example.com/api/v2),
+    // derive /api-docs from the same origin
     const url = new URL(apiBaseUrl);
     return `${url.origin}/api-docs/`;
   } catch {
-    // Relative path - construct from current window origin
-    return `${window.location.origin}/api-docs/`;
+    // Relative path (e.g. /api/v2) — api-docs is served from the same host,
+    // either via vite proxy (dev) or nginx proxy (prod)
+    return '/api-docs/';
   }
 }
 
