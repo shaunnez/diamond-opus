@@ -41,8 +41,6 @@ export function FilterPanel({
     onFiltersChange({ ...filters, ...partial, page: 1 });
   };
 
-  const selectedShapes = filters.shape ? filters.shape.split(',') : [];
-
   const content = (
     <div className="space-y-6">
       {/* Stone Type */}
@@ -50,8 +48,8 @@ export function FilterPanel({
 
       {/* Shape */}
       <ShapePicker
-        selected={selectedShapes}
-        onChange={(shapes) => update({ shape: shapes.length ? shapes.join(',') : undefined })}
+        selected={filters.shape || []}
+        onChange={(shapes) => update({ shape: shapes.length ? shapes : undefined })}
       />
 
       {/* Carat */}

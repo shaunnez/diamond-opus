@@ -5,6 +5,7 @@ import { searchDiamonds } from '../api/diamonds';
 import type { DiamondSearchParams, StoneType } from '../types/diamond';
 
 const ARRAY_PARAMS = [
+  'shape',
   'color',
   'clarity',
   'cut',
@@ -36,9 +37,6 @@ const BOOLEAN_PARAMS = ['eye_clean', 'no_bgm'] as const;
 function parseFiltersFromURL(params: URLSearchParams): DiamondSearchParams {
   const filters: DiamondSearchParams = {};
 
-  const shape = params.get('shape');
-  if (shape) filters.shape = shape;
-
   for (const key of NUMBER_PARAMS) {
     const val = params.get(key);
     if (val) (filters as Record<string, number>)[key] = Number(val);
@@ -65,8 +63,6 @@ function parseFiltersFromURL(params: URLSearchParams): DiamondSearchParams {
 
 function filtersToURLParams(filters: DiamondSearchParams): Record<string, string> {
   const result: Record<string, string> = {};
-
-  if (filters.shape) result.shape = filters.shape;
 
   for (const key of NUMBER_PARAMS) {
     const val = (filters as Record<string, number | undefined>)[key];
