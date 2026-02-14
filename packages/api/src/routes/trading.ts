@@ -40,45 +40,6 @@ function getTradingAdapter(feedId: string): TradingAdapter {
 
 /**
  * @openapi
- * /api/v2/trading/diamonds/{id}:
- *   get:
- *     summary: Get diamond by internal ID
- *     tags:
- *       - Trading
- *     security:
- *       - ApiKeyAuth: []
- *       - HmacAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Diamond details
- *       404:
- *         description: Diamond not found
- */
-router.get(
-  '/diamonds/:id',
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const diamond = await getDiamondById(req.params.id);
-      if (!diamond) {
-        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Diamond not found' } });
-        return;
-      }
-      res.json({ data: diamond });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-/**
- * @openapi
  * /api/v2/trading/diamonds/search:
  *   get:
  *     summary: Quick search for diamonds by stock ID, offer ID, or cert number
@@ -119,6 +80,45 @@ router.get(
       const limit = Math.min(parseInt(String(req.query.limit ?? '10'), 10) || 10, 50);
       const diamonds = await quickSearchDiamonds(q, limit, feed);
       res.json({ data: diamonds });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * @openapi
+ * /api/v2/trading/diamonds/{id}:
+ *   get:
+ *     summary: Get diamond by internal ID
+ *     tags:
+ *       - Trading
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Diamond details
+ *       404:
+ *         description: Diamond not found
+ */
+router.get(
+  '/diamonds/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const diamond = await getDiamondById(req.params.id);
+      if (!diamond) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Diamond not found' } });
+        return;
+      }
+      res.json({ data: diamond });
     } catch (error) {
       next(error);
     }
