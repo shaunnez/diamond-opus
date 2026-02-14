@@ -26,7 +26,9 @@ const router = Router();
 
 function toArray(value: string | string[] | undefined): string[] | undefined {
   if (!value) return undefined;
-  return Array.isArray(value) ? value : [value];
+  if (Array.isArray(value)) return value;
+  // Handle comma-separated strings from query params
+  return value.includes(',') ? value.split(',').map(v => v.trim()) : [value];
 }
 
 function enrichWithNzd(diamond: Diamond): Diamond {
@@ -128,7 +130,7 @@ router.get(
       const query = (req as Request & { validatedQuery: DiamondSearchQuery }).validatedQuery;
 
       const result = await searchDiamonds({
-        shape: query.shape,
+        shapes: toArray(query.shape),
         caratMin: query.carat_min,
         caratMax: query.carat_max,
         colors: toArray(query.color),

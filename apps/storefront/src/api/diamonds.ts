@@ -10,7 +10,7 @@ import type {
 export async function searchDiamonds(params: DiamondSearchParams): Promise<DiamondSearchResponse> {
   const query: Record<string, string> = {};
 
-  if (params.shape) query.shape = params.shape;
+  if (params.shape?.length) query.shape = params.shape.join(',');
   if (params.carat_min !== undefined) query.carat_min = String(params.carat_min);
   if (params.carat_max !== undefined) query.carat_max = String(params.carat_max);
   if (params.color?.length) query.color = params.color.join(',');

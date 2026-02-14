@@ -160,9 +160,9 @@ export async function searchDiamonds(
   const values: unknown[] = [];
   let paramIndex = 1;
 
-  if (params.shape) {
-    conditions.push(`shape = $${paramIndex++}`);
-    values.push(params.shape);
+  if (params.shapes && params.shapes.length > 0) {
+    conditions.push(`shape = ANY($${paramIndex++})`);
+    values.push(params.shapes);
   }
 
   if (params.caratMin !== undefined) {
