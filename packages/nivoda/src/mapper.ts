@@ -53,7 +53,7 @@ function computeRatio(length?: number, width?: number): number | undefined {
 }
 
 function parseEyeClean(value: unknown): boolean | null | undefined {
-  if (value == null) return null;
+  if (value == null) return undefined;
 
   const normalized = String(value).trim().toLowerCase();
   if (!normalized) return false;
@@ -61,7 +61,7 @@ function parseEyeClean(value: unknown): boolean | null | undefined {
   if (["true", "yes", "1", "t", "y"].includes(normalized)) return true;
   if (["false", "no", "0", "f", "n", "none", "n/a"].includes(normalized)) return false;
 
-  return null;
+  return undefined;
 }
 
 export function mapNivodaItemToDiamond(
