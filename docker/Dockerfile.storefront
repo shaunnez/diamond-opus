@@ -1,0 +1,35 @@
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Ensure hoisted .bin (tsc, vite, etc.) is on PATH for workspace build scripts
+ENV PATH="/app/node_modules/.bin:$PATH"
+
+# Copy package files
+COPY package*.json ./
+COPY apps/storefront/package.json ./apps/storefront/
+
+# Install dependencies
+RUN npm ci
+
+# Copy source files
+COPY apps/storefront ./apps/storefront
+
+# Build the storefront
+RUN npm run build -w @diamond/storefront
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built files
+COPY --from=builder /app/apps/storefront/dist /usr/share/nginx/html
+
+# Copy nginx configuration as template
+COPY docker/nginx.storefront.conf /etc/nginx/templates/default.conf.template
+
+EXPOSE 80
+
+# Use envsubst to substitute API_URL at runtime, then start nginx
+# Only substitute API_URL to preserve nginx variables like $host, $http_upgrade, etc.
+CMD ["/bin/sh", "-c", "envsubst '$$API_URL' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

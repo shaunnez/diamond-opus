@@ -155,6 +155,12 @@ module "container_apps" {
   dashboard_min_replicas = var.dashboard_min_replicas
   dashboard_max_replicas = var.dashboard_max_replicas
 
+  # Scaling - storefront
+  storefront_cpu          = var.storefront_cpu
+  storefront_memory       = var.storefront_memory
+  storefront_min_replicas = var.storefront_min_replicas
+  storefront_max_replicas = var.storefront_max_replicas
+
   # Log Analytics (reduced retention for staging)
   log_analytics_retention_days = var.log_analytics_retention_days
 

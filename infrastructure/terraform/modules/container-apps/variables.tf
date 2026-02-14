@@ -59,7 +59,7 @@ variable "container_registry_password" {
 }
 
 variable "image_tag" {
-  description = "Docker image tag for worker, API, consolidator, and dashboard containers (typically commit SHA)"
+  description = "Docker image tag for worker, API, consolidator, dashboard, and storefront containers (typically commit SHA)"
   type        = string
   default     = "latest"
 }
@@ -444,6 +444,31 @@ variable "dashboard_min_replicas" {
 
 variable "dashboard_max_replicas" {
   description = "Maximum replicas for dashboard"
+  type        = number
+  default     = 2
+}
+
+## Storefront Resources
+variable "storefront_cpu" {
+  description = "CPU allocation for storefront container"
+  type        = number
+  default     = 0.25
+}
+
+variable "storefront_memory" {
+  description = "Memory allocation for storefront container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "storefront_min_replicas" {
+  description = "Minimum replicas for storefront"
+  type        = number
+  default     = 1
+}
+
+variable "storefront_max_replicas" {
+  description = "Maximum replicas for storefront"
   type        = number
   default     = 2
 }

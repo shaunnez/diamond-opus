@@ -68,6 +68,21 @@ output "dashboard_name" {
   value       = azurerm_container_app.dashboard.name
 }
 
+output "storefront_fqdn" {
+  description = "Fully qualified domain name of the storefront app"
+  value       = azurerm_container_app.storefront.ingress[0].fqdn
+}
+
+output "storefront_url" {
+  description = "URL of the storefront app"
+  value       = "https://${azurerm_container_app.storefront.ingress[0].fqdn}"
+}
+
+output "storefront_name" {
+  description = "Name of the storefront container app"
+  value       = azurerm_container_app.storefront.name
+}
+
 output "log_analytics_workspace_id" {
   description = "ID of the Log Analytics workspace"
   value       = azurerm_log_analytics_workspace.main.id

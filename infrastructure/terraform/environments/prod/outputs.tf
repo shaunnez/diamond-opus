@@ -37,6 +37,11 @@ output "api_url" {
   value       = module.container_apps[0].api_url
 }
 
+output "storefront_url" {
+  description = "URL of the storefront app"
+  value       = module.container_apps[0].storefront_url
+}
+
 # Output for .env file generation
 output "env_file_content" {
   description = "Content for .env file (excluding external secrets)"
