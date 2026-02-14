@@ -59,6 +59,7 @@ export function DiamondDetailPage() {
             alt={title}
             size="detail"
             className="w-full aspect-square lg:aspect-[4/3]"
+            feed={diamond.feed}
           />
         </div>
 
