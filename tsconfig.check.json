@@ -30,6 +30,7 @@
     "dist",
     "**/dist/**",
     "**/__tests__/**",
-    "**/apps/dashboard/**"
+    "**/apps/dashboard/**",
+    "**/apps/storefront/**"
   ]
 }
