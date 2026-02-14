@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Tooltip } from '../ui/Tooltip';
 import { useDiamondActions } from '../../hooks/useDiamondActions';
+import { formatCarats } from '../../utils/format';
 import type { Diamond } from '../../types/diamond';
 
 interface DiamondActionsProps {
@@ -195,7 +196,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
         title="Confirm Purchase"
       >
         <p className="text-sm text-warm-gray-500 mb-6">
-          Are you sure you want to purchase this {diamond.shape} {diamond.carats?.toFixed(2)}ct diamond?
+          Are you sure you want to purchase this {diamond.shape} {formatCarats(diamond.carats)} diamond?
           This action will create a purchase order.
         </p>
         <div className="flex gap-3">

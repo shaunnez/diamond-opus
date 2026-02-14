@@ -20,22 +20,34 @@ export function formatUSD(value: number | undefined | null): string {
 
 export function formatCarats(carats: number | undefined | null): string {
   if (carats == null) return '—';
-  return `${carats.toFixed(2)}ct`;
+  // Handle case where carats might be a string (defensive parsing)
+  const num = typeof carats === 'string' ? parseFloat(carats) : carats;
+  if (isNaN(num)) return '—';
+  return `${num.toFixed(2)}ct`;
 }
 
 export function formatPercent(value: number | undefined | null): string {
   if (value == null) return '—';
-  return `${(value * 100).toFixed(1)}%`;
+  // Handle case where value might be a string (defensive parsing)
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '—';
+  return `${(num * 100).toFixed(1)}%`;
 }
 
 export function formatMarkupRatio(ratio: number | undefined | null): string {
   if (ratio == null) return '—';
-  return `${(ratio * 100).toFixed(1)}%`;
+  // Handle case where ratio might be a string (defensive parsing)
+  const num = typeof ratio === 'string' ? parseFloat(ratio) : ratio;
+  if (isNaN(num)) return '—';
+  return `${(num * 100).toFixed(1)}%`;
 }
 
 export function formatNumber(value: number | undefined | null, decimals = 2): string {
   if (value == null) return '—';
-  return value.toFixed(decimals);
+  // Handle case where value might be a string (defensive parsing)
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '—';
+  return num.toFixed(decimals);
 }
 
 export function titleCase(str: string): string {
