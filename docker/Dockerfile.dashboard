@@ -6,8 +6,9 @@ WORKDIR /app
 # Ensure hoisted .bin (tsc, vite, etc.) is on PATH for workspace build scripts
 ENV PATH="/app/node_modules/.bin:$PATH"
 
-# Copy package files
+# Copy package files and root tsconfig (needed by packages/shared/tsconfig.json extends)
 COPY package*.json ./
+COPY tsconfig.json ./
 COPY apps/dashboard/package.json ./apps/dashboard/
 COPY packages/shared/package.json ./packages/shared/
 
