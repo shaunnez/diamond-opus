@@ -104,6 +104,7 @@ export interface Diamond {
 }
 
 export interface DiamondSearchParams {
+  feed?: string;
   shapes?: string[];
   caratMin?: number;
   caratMax?: number;

@@ -130,6 +130,7 @@ router.get(
       const query = (req as Request & { validatedQuery: DiamondSearchQuery }).validatedQuery;
 
       const result = await searchDiamonds({
+        feed: query.feed,
         shapes: toArray(query.shape),
         caratMin: query.carat_min,
         caratMax: query.carat_max,

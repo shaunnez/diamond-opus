@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { SlidersHorizontal, ArrowUpDown, Database } from 'lucide-react';
 import { FilterPanel } from '../components/filters/FilterPanel';
 import { DiamondGrid } from '../components/diamonds/DiamondGrid';
@@ -26,12 +26,13 @@ export function SearchPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
-  const [selectedFeed, setSelectedFeed] = useState<string>('all');
 
   const {
     filters,
     stoneType,
+    selectedFeed,
     setFilters,
+    setFeed,
     setStoneType,
     resetFilters,
     setPage,
@@ -47,22 +48,6 @@ export function SearchPage() {
   );
 
   const currentFeed = FEED_OPTIONS.find((f) => f.value === selectedFeed);
-
-  // Client-side feed filtering
-  const filteredDiamonds = useMemo(() => {
-    if (selectedFeed === 'all') return diamonds;
-    return diamonds.filter((d) => d.feed === selectedFeed);
-  }, [diamonds, selectedFeed]);
-
-  // Adjust pagination for client-side filtering
-  const adjustedPagination = useMemo(() => {
-    if (selectedFeed === 'all') return pagination;
-    return {
-      ...pagination,
-      total: filteredDiamonds.length,
-      totalPages: Math.ceil(filteredDiamonds.length / pagination.limit),
-    };
-  }, [pagination, filteredDiamonds.length, selectedFeed]);
 
   return (
     <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -104,7 +89,7 @@ export function SearchPage() {
 
               {/* Result count */}
               <p className="text-sm text-warm-gray-500">
-                {adjustedPagination.total.toLocaleString()} diamond{adjustedPagination.total !== 1 ? 's' : ''}
+                {pagination.total.toLocaleString()} diamond{pagination.total !== 1 ? 's' : ''}
                 {isFetching && !isLoading && (
                   <span className="ml-2 text-warm-gray-400">updating...</span>
                 )}
@@ -129,7 +114,7 @@ export function SearchPage() {
                         <button
                           key={opt.value}
                           onClick={() => {
-                            setSelectedFeed(opt.value);
+                            setFeed(opt.value);
                             setFeedOpen(false);
                           }}
                           className={`block w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
@@ -187,12 +172,12 @@ export function SearchPage() {
             <Spinner className="py-20" />
           ) : (
             <>
-              <DiamondGrid diamonds={filteredDiamonds} />
-              {adjustedPagination.totalPages > 1 && (
+              <DiamondGrid diamonds={diamonds} />
+              {pagination.totalPages > 1 && (
                 <div className="mt-8">
                   <Pagination
-                    page={adjustedPagination.page}
-                    totalPages={adjustedPagination.totalPages}
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
                     onPageChange={setPage}
                   />
                 </div>

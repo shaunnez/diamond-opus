@@ -37,6 +37,9 @@ const BOOLEAN_PARAMS = ['eye_clean', 'no_bgm'] as const;
 function parseFiltersFromURL(params: URLSearchParams): DiamondSearchParams {
   const filters: DiamondSearchParams = {};
 
+  const feed = params.get('feed');
+  if (feed && feed !== 'all') filters.feed = feed;
+
   for (const key of NUMBER_PARAMS) {
     const val = params.get(key);
     if (val) (filters as Record<string, number>)[key] = Number(val);
@@ -63,6 +66,8 @@ function parseFiltersFromURL(params: URLSearchParams): DiamondSearchParams {
 
 function filtersToURLParams(filters: DiamondSearchParams): Record<string, string> {
   const result: Record<string, string> = {};
+
+  if (filters.feed && filters.feed !== 'all') result.feed = filters.feed;
 
   for (const key of NUMBER_PARAMS) {
     const val = (filters as Record<string, number | undefined>)[key];
@@ -96,6 +101,7 @@ export function useDiamondSearch() {
 
   const filters = useMemo(() => parseFiltersFromURL(searchParams), [searchParams]);
   const stoneType = useMemo(() => getStoneTypeFromURL(searchParams), [searchParams]);
+  const selectedFeed = filters.feed || 'all';
 
   // Build the API params from filters + stone type
   const apiParams = useMemo(() => {
@@ -142,6 +148,16 @@ export function useDiamondSearch() {
     [setSearchParams, stoneType]
   );
 
+  const setFeed = useCallback(
+    (feed: string) => {
+      const newFilters = { ...filters, feed: feed === 'all' ? undefined : feed, page: 1 };
+      const urlParams = filtersToURLParams(newFilters);
+      if (stoneType !== 'all') urlParams.stone_type = stoneType;
+      setSearchParams(urlParams, { replace: true });
+    },
+    [setSearchParams, filters, stoneType]
+  );
+
   const setStoneType = useCallback(
     (type: StoneType) => {
       const urlParams = filtersToURLParams(filters);
@@ -172,7 +188,9 @@ export function useDiamondSearch() {
   return {
     filters,
     stoneType,
+    selectedFeed,
     setFilters,
+    setFeed,
     setStoneType,
     resetFilters,
     setPage,
