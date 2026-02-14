@@ -72,7 +72,7 @@ export interface Diamond {
   girdle?: string;
   culetSize?: string;
   // Denormalized attribute fields
-  eyeClean?: boolean;
+  eyeClean?: boolean | null;
   brown?: string;
   green?: string;
   milky?: string;
