@@ -20,7 +20,7 @@ variable "location" {
 }
 
 variable "image_tag" {
-  description = "Docker image tag for worker, API, consolidator, and dashboard containers (typically commit SHA)"
+  description = "Docker image tag for worker, API, consolidator, dashboard, and storefront containers (typically commit SHA)"
   type        = string
   default     = "latest"
 }
@@ -399,6 +399,41 @@ variable "dashboard_max_replicas" {
   validation {
     condition     = var.dashboard_max_replicas >= 1
     error_message = "dashboard_max_replicas must be >= 1"
+  }
+}
+
+## Storefront Scaling
+variable "storefront_cpu" {
+  description = "CPU allocation for storefront container"
+  type        = number
+  default     = 0.25
+}
+
+variable "storefront_memory" {
+  description = "Memory allocation for storefront container"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "storefront_min_replicas" {
+  description = "Minimum storefront replicas"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.storefront_min_replicas >= 0
+    error_message = "storefront_min_replicas must be >= 0"
+  }
+}
+
+variable "storefront_max_replicas" {
+  description = "Maximum storefront replicas (must be >= storefront_min_replicas)"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.storefront_max_replicas >= 1
+    error_message = "storefront_max_replicas must be >= 1"
   }
 }
 

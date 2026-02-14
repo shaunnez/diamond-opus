@@ -1049,6 +1049,57 @@ resource "azurerm_container_app" "dashboard" {
   depends_on = [azurerm_container_app.api]
 }
 
+# Storefront Container App (HTTP, external ingress)
+resource "azurerm_container_app" "storefront" {
+  name                         = "${var.app_name_prefix}-storefront"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = var.storefront_min_replicas
+    max_replicas = var.storefront_max_replicas
+
+    container {
+      name   = "storefront"
+      image  = "${var.container_registry_login_server}/diamond-storefront:${var.image_tag}"
+      cpu    = var.storefront_cpu
+      memory = var.storefront_memory
+
+      env {
+        name  = "API_URL"
+        value = "https://${azurerm_container_app.api.ingress[0].fqdn}"
+      }
+    }
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 80
+    transport        = "http"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+
+  depends_on = [azurerm_container_app.api]
+}
+
 # Grant API managed identity permission to trigger the scheduler job
 resource "azurerm_role_assignment" "api_scheduler_job_operator" {
   count = var.enable_scheduler ? 1 : 0
