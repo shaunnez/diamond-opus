@@ -37,7 +37,12 @@ SET
   pavilion_depth = (measurements->>'pavDepth')::numeric,
   girdle = measurements->>'girdle',
   culet_size = measurements->>'culetSize',
-  eye_clean = (attributes->>'eyeClean')::boolean,
+  eye_clean = CASE
+    WHEN attributes->>'eyeClean' IS NULL THEN NULL
+    WHEN LOWER(attributes->>'eyeClean') IN ('true', 'yes', '1', 't', 'y') THEN TRUE
+    WHEN LOWER(attributes->>'eyeClean') IN ('false', 'no', '0', 'f', 'n', 'none', 'n/a', '') THEN FALSE
+    ELSE NULL  -- For unexpected values like "100%", set to NULL
+  END,
   brown = attributes->>'brown',
   green = attributes->>'green',
   milky = attributes->>'milky'
