@@ -3,6 +3,7 @@ import {
   WORKER_PAGE_SIZE,
   NIVODA_MAX_LIMIT,
   WATERMARK_BLOB_NAME,
+  type Diamond,
 } from '@diamond/shared';
 import type {
   FeedAdapter,
@@ -12,6 +13,10 @@ import type {
   FeedBulkRawDiamond,
   MappedDiamond,
   HeatmapConfigOverrides,
+  TradingAdapter,
+  TradingHoldResult,
+  TradingOrderResult,
+  TradingOrderOptions,
 } from '@diamond/feed-registry';
 import { NivodaAdapter, type NivodaAdapterConfig } from './adapter.js';
 import { mapRawPayloadToDiamond } from './mapper.js';
@@ -47,7 +52,7 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
  * Wraps the existing NivodaAdapter to conform to the generic FeedAdapter interface
  * while preserving all existing behavior (token caching, rate limiting, etc.).
  */
-export class NivodaFeedAdapter implements FeedAdapter {
+export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
   readonly feedId = 'nivoda';
   readonly rawTableName = 'raw_diamonds_nivoda';
   readonly watermarkBlobName = WATERMARK_BLOB_NAME;
@@ -127,5 +132,35 @@ export class NivodaFeedAdapter implements FeedAdapter {
 
   async dispose(): Promise<void> {
     // No persistent resources to clean up
+  }
+
+  // --- TradingAdapter methods ---
+
+  async createHold(diamond: Diamond): Promise<TradingHoldResult> {
+    // Nivoda uses supplierStoneId (diamond.id in Nivoda terms) for holds
+    const result = await this.getOrCreateAdapter().createHold(diamond.supplierStoneId);
+    return { id: result.id, denied: result.denied, until: result.until };
+  }
+
+  async cancelHold(feedHoldId: string): Promise<void> {
+    await this.getOrCreateAdapter().cancelHold(feedHoldId);
+  }
+
+  async createOrder(diamond: Diamond, options: TradingOrderOptions): Promise<TradingOrderResult> {
+    // Nivoda uses offerId for orders
+    const orderId = await this.getOrCreateAdapter().createOrder([
+      {
+        offerId: diamond.offerId,
+        destinationId: options.destinationId,
+        customer_comment: options.comments,
+        customer_order_number: options.reference,
+        return_option: false,
+      },
+    ]);
+    return { id: orderId };
+  }
+
+  async cancelOrder(_feedOrderId: string): Promise<void> {
+    throw new Error('Order cancellation is not supported for the Nivoda feed');
   }
 }

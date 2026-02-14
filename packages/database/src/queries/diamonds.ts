@@ -618,3 +618,36 @@ export async function softDeleteDiamond(id: string): Promise<void> {
     [id]
   );
 }
+
+/**
+ * Quick text search across key diamond identifier fields.
+ * Searches supplier_stone_id, offer_id, and certificate_number with ILIKE prefix matching.
+ * Returns up to `limit` active, available diamonds.
+ */
+export async function quickSearchDiamonds(
+  searchText: string,
+  limit = 10,
+  feed?: string
+): Promise<Diamond[]> {
+  const pattern = `${searchText}%`;
+  const conditions = [
+    "status = 'active'",
+    `(supplier_stone_id ILIKE $1 OR offer_id ILIKE $1 OR certificate_number ILIKE $1)`,
+  ];
+  const values: unknown[] = [pattern];
+  let paramIndex = 2;
+
+  if (feed) {
+    conditions.push(`feed = $${paramIndex++}`);
+    values.push(feed);
+  }
+
+  values.push(Math.min(limit, 50));
+
+  const result = await query<DiamondRow>(
+    `SELECT * FROM diamonds WHERE ${conditions.join(' AND ')}
+     ORDER BY updated_at DESC LIMIT $${paramIndex}`,
+    values
+  );
+  return result.rows.map(mapRowToDiamond);
+}

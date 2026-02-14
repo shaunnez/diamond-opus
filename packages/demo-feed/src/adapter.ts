@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import type { Diamond } from '@diamond/shared';
 import type {
   FeedAdapter,
   FeedQuery,
@@ -6,6 +8,10 @@ import type {
   FeedBulkRawDiamond,
   MappedDiamond,
   HeatmapConfigOverrides,
+  TradingAdapter,
+  TradingHoldResult,
+  TradingOrderResult,
+  TradingOrderOptions,
 } from '@diamond/feed-registry';
 import { mapRawPayloadToDiamond } from './mapper.js';
 import type { DemoFeedSearchResponse, DemoFeedCountResponse, DemoFeedItem } from './types.js';
@@ -21,7 +27,13 @@ const DEMO_FEED_WATERMARK_BLOB = 'demo.json';
  * Demonstrates a completely different API shape from Nivoda (REST vs GraphQL,
  * different field names, different pagination).
  */
-export class DemoFeedAdapter implements FeedAdapter {
+/** Simulate network + processing delay like a real API */
+function simulatedDelay(minMs: number, maxMs: number): Promise<void> {
+  const ms = minMs + Math.random() * (maxMs - minMs);
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export class DemoFeedAdapter implements FeedAdapter, TradingAdapter {
   readonly feedId = 'demo';
   readonly rawTableName = 'raw_diamonds_demo';
   readonly watermarkBlobName = DEMO_FEED_WATERMARK_BLOB;
@@ -123,6 +135,37 @@ export class DemoFeedAdapter implements FeedAdapter {
 
   async dispose(): Promise<void> {
     // No persistent resources
+  }
+
+  // --- TradingAdapter methods ---
+
+  async createHold(_diamond: Diamond): Promise<TradingHoldResult> {
+    // Simulate API call with believable delay (1.5-3s)
+    await simulatedDelay(1500, 3000);
+    const holdId = `demo-hold-${randomUUID()}`;
+    const holdUntil = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h hold
+    return {
+      id: holdId,
+      denied: false,
+      until: holdUntil.toISOString(),
+    };
+  }
+
+  async cancelHold(_feedHoldId: string): Promise<void> {
+    // Simulate API call (0.5-1.5s)
+    await simulatedDelay(500, 1500);
+  }
+
+  async createOrder(_diamond: Diamond, _options: TradingOrderOptions): Promise<TradingOrderResult> {
+    // Simulate API call with believable delay (2-4s)
+    await simulatedDelay(2000, 4000);
+    const orderId = `demo-order-${randomUUID()}`;
+    return { id: orderId };
+  }
+
+  async cancelOrder(_feedOrderId: string): Promise<void> {
+    // Simulate API call (0.5-1.5s)
+    await simulatedDelay(500, 1500);
   }
 
   private buildQueryParams(query: FeedQuery): URLSearchParams {

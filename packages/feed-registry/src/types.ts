@@ -115,6 +115,40 @@ export interface FeedAdapter {
   dispose?(): Promise<void>;
 }
 
+// ============================================================================
+// Trading adapter — holds, orders, cancellations
+// ============================================================================
+
+export interface TradingHoldResult {
+  id: string;
+  denied: boolean;
+  until?: string;
+}
+
+export interface TradingOrderResult {
+  id: string;
+}
+
+export interface TradingOrderOptions {
+  destinationId?: string;
+  reference?: string;
+  comments?: string;
+}
+
+/**
+ * Optional trading capability for a feed.
+ *
+ * Feeds that support placing holds and orders implement this interface.
+ * Each adapter translates the canonical Diamond into the feed-specific IDs
+ * required by the upstream API (e.g., Nivoda uses supplierStoneId for holds).
+ */
+export interface TradingAdapter {
+  createHold(diamond: Diamond): Promise<TradingHoldResult>;
+  cancelHold(feedHoldId: string): Promise<void>;
+  createOrder(diamond: Diamond, options: TradingOrderOptions): Promise<TradingOrderResult>;
+  cancelOrder(feedOrderId: string): Promise<void>;
+}
+
 /**
  * Allowed raw table names for SQL injection prevention.
  * Every feed must register its raw table name here.
