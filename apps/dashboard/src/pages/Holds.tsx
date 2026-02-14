@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Hand, XCircle, RefreshCw, Plus, Search } from 'lucide-react';
 import { getHolds, type HoldHistoryItem } from '../api/analytics';
-import { cancelHold, placeHold, getDiamondByOfferId } from '../api/nivoda';
+import { placeHold, cancelHold, searchDiamonds, type DiamondSummary } from '../api/trading';
 import { PageContainer } from '../components/layout/Layout';
 import {
   Card,
@@ -34,6 +34,50 @@ function HoldStatusBadge({ status, denied }: { status: string; denied: boolean }
   }
 }
 
+function DiamondSearchResult({ diamond, selected, onSelect }: {
+  diamond: DiamondSummary;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+        selected
+          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+          : 'border-stone-200 dark:border-stone-700 hover:border-primary-300 dark:hover:border-primary-600'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
+            {diamond.feed}
+          </span>
+          <span className="font-medium text-stone-900 dark:text-stone-100">
+            {diamond.shape} {diamond.carats?.toFixed(2)}ct
+          </span>
+          <span className="text-stone-600 dark:text-stone-400">
+            {diamond.color} {diamond.clarity}
+          </span>
+          {diamond.cut && <span className="text-stone-500 dark:text-stone-500 text-sm">{diamond.cut}</span>}
+        </div>
+        <span className="font-semibold text-stone-900 dark:text-stone-100">
+          ${diamond.feedPrice?.toLocaleString()}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 mt-1 text-xs text-stone-500 dark:text-stone-400">
+        <span>ID: {truncateId(diamond.supplierStoneId, 16)}</span>
+        {diamond.certificateNumber && <span>Cert: {diamond.certificateNumber}</span>}
+        {diamond.supplierName && <span>{diamond.supplierName}</span>}
+        <span className={diamond.availability === 'available' ? 'text-success-600 dark:text-success-400' : 'text-warning-600 dark:text-warning-400'}>
+          {diamond.availability}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export function Holds() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -43,10 +87,9 @@ export function Holds() {
 
   // Create hold modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [offerId, setOfferId] = useState('');
-  const [reference, setReference] = useState('');
-  const [notes, setNotes] = useState('');
-  const [selectedDiamond, setSelectedDiamond] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<DiamondSummary[]>([]);
+  const [selectedDiamond, setSelectedDiamond] = useState<DiamondSummary | null>(null);
   const [searchError, setSearchError] = useState('');
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -63,79 +106,72 @@ export function Holds() {
       setCancellingHold(null);
       addToast({ variant: 'success', title: 'Hold cancelled successfully' });
     },
-    onError: (error: Error) => {
+    onError: (err: Error) => {
       addToast({
         variant: 'error',
         title: 'Failed to cancel hold',
-        message: error instanceof Error ? error.message : 'An unknown error occurred',
+        message: err instanceof Error ? err.message : 'An unknown error occurred',
       });
     },
   });
 
-  // Search diamond mutation
-  const searchDiamondMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await getDiamondByOfferId(id);
+  // Search diamonds mutation
+  const searchMutation = useMutation({
+    mutationFn: async (q: string) => searchDiamonds(q, 8),
+    onSuccess: (results) => {
+      setSearchResults(results);
+      setSearchError(results.length === 0 ? 'No diamonds found' : '');
     },
-    onSuccess: (diamond: any) => {
-      setSelectedDiamond(diamond);
-      setSearchError('');
-    },
-    onError: (error: Error) => {
-      setSearchError(error instanceof Error ? error.message : 'Diamond not found');
-      setSelectedDiamond(null);
+    onError: (err: Error) => {
+      setSearchError(err.message || 'Search failed');
+      setSearchResults([]);
     },
   });
 
   // Create hold mutation
   const createHoldMutation = useMutation({
     mutationFn: async () => {
-      if (!offerId.trim()) throw new Error('Offer ID is required');
-      return await placeHold(offerId.trim());
+      if (!selectedDiamond) throw new Error('Please select a diamond');
+      return await placeHold(selectedDiamond.id);
     },
-    onSuccess: (result: any) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['holds'] });
       if (result.denied) {
         addToast({
           variant: 'warning',
           title: 'Hold was denied',
-          message: result.message || 'The hold request was denied by Nivoda',
+          message: result.message || 'The hold request was denied',
         });
       } else {
         addToast({
           variant: 'success',
           title: 'Hold created successfully',
-          message: result.hold_id ? `Hold ID: ${result.hold_id}` : undefined,
+          message: result.hold_id ? `Hold ID: ${truncateId(result.hold_id, 12)}` : undefined,
         });
       }
       resetCreateForm();
       setIsCreateModalOpen(false);
     },
-    onError: (error: Error) => {
+    onError: (err: Error) => {
       addToast({
         variant: 'error',
         title: 'Failed to create hold',
-        message: error instanceof Error ? error.message : 'An unknown error occurred',
+        message: err instanceof Error ? err.message : 'An unknown error occurred',
       });
     },
   });
 
-  const handleSearchDiamond = () => {
-    if (!offerId.trim()) {
-      setSearchError('Please enter an Offer ID');
+  const handleSearch = useCallback(() => {
+    if (!searchQuery.trim()) {
+      setSearchError('Please enter a stock ID, cert number, or offer ID');
       return;
     }
-    searchDiamondMutation.mutate(offerId.trim());
-  };
-
-  const handleCreateHold = () => {
-    createHoldMutation.mutate();
-  };
+    searchMutation.mutate(searchQuery.trim());
+  }, [searchQuery, searchMutation]);
 
   const resetCreateForm = () => {
-    setOfferId('');
-    setReference('');
-    setNotes('');
+    setSearchQuery('');
+    setSearchResults([]);
     setSelectedDiamond(null);
     setSearchError('');
   };
@@ -148,7 +184,7 @@ export function Holds() {
         <div>
           <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Holds</h1>
           <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Diamond hold history tracked in Supabase
+            Diamond hold history across all feeds
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -170,7 +206,7 @@ export function Holds() {
       <Card>
         <CardHeader
           title={`Hold History (${data?.pagination.total ?? 0} total)`}
-          subtitle="Holds placed via Nivoda API"
+          subtitle="Holds placed across all feeds"
         />
 
         {!data?.data.length ? (
@@ -178,7 +214,7 @@ export function Holds() {
             <Hand className="w-12 h-12 text-stone-300 dark:text-stone-600 mx-auto mb-3" />
             <p className="text-stone-500 dark:text-stone-400">No holds recorded yet</p>
             <p className="text-sm text-stone-400 dark:text-stone-500 mt-1">
-              Place a hold on the Nivoda page to see it here
+              Place a hold on a diamond to see it here
             </p>
           </div>
         ) : (
@@ -188,10 +224,11 @@ export function Holds() {
                 <thead>
                   <tr>
                     <th>Hold ID</th>
+                    <th>Feed</th>
                     <th>Diamond</th>
                     <th>Offer ID</th>
                     <th>Status</th>
-                    <th>Nivoda Hold ID</th>
+                    <th>Feed Hold ID</th>
                     <th>Hold Until</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -201,6 +238,11 @@ export function Holds() {
                   {data.data.map((hold: HoldHistoryItem) => (
                     <tr key={hold.id}>
                       <td className="font-mono text-xs">{truncateId(hold.id, 8)}</td>
+                      <td>
+                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
+                          {hold.feed}
+                        </span>
+                      </td>
                       <td className="font-mono text-xs">{truncateId(hold.diamondId, 8)}</td>
                       <td className="font-mono text-xs">{truncateId(hold.offerId, 12)}</td>
                       <td>
@@ -249,17 +291,11 @@ export function Holds() {
         onClose={() => setCancellingHold(null)}
         onConfirm={() => cancellingHold && cancelMutation.mutate(cancellingHold.id)}
         title="Cancel Hold"
-        message={`Are you sure you want to cancel this hold? The diamond will be released back to available.`}
+        message="Are you sure you want to cancel this hold? The diamond will be released back to available."
         confirmText="Cancel Hold"
         variant="danger"
         loading={cancelMutation.isPending}
       />
-
-      {cancelMutation.isError && (
-        <Alert variant="error" title="Failed to cancel hold" className="mt-4">
-          {(cancelMutation.error as Error).message}
-        </Alert>
-      )}
 
       {/* Create Hold Modal */}
       <Modal
@@ -283,9 +319,9 @@ export function Holds() {
             </Button>
             <Button
               variant="primary"
-              onClick={handleCreateHold}
+              onClick={() => createHoldMutation.mutate()}
               loading={createHoldMutation.isPending}
-              disabled={!offerId.trim()}
+              disabled={!selectedDiamond}
             >
               Create Hold
             </Button>
@@ -293,37 +329,34 @@ export function Holds() {
         }
       >
         <div className="space-y-4">
-          <Alert variant="info" title="Create a hold on Nivoda">
-            Enter an Offer ID to place a hold on a diamond. You can optionally search for the
-            diamond details first to verify it's the correct one.
+          <Alert variant="info" title="Find a diamond to hold">
+            Search by stock ID, certificate number, or offer ID to find the diamond you want to place a hold on.
           </Alert>
 
-          {/* Offer ID Input with Search */}
+          {/* Diamond Search */}
           <div>
             <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
-              Offer ID *
+              Search Diamond
             </label>
             <div className="flex gap-2">
               <Input
-                placeholder="Enter Nivoda Offer ID"
-                value={offerId}
+                placeholder="Stock ID, cert number, or offer ID..."
+                value={searchQuery}
                 onChange={(e) => {
-                  setOfferId(e.target.value);
+                  setSearchQuery(e.target.value);
                   setSearchError('');
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearchDiamond();
-                  }
+                  if (e.key === 'Enter') handleSearch();
                 }}
               />
               <Button
                 variant="secondary"
-                onClick={handleSearchDiamond}
-                loading={searchDiamondMutation.isPending}
+                onClick={handleSearch}
+                loading={searchMutation.isPending}
                 icon={<Search className="w-4 h-4" />}
               >
-                Verify
+                Search
               </Button>
             </div>
             {searchError && (
@@ -331,118 +364,49 @@ export function Holds() {
             )}
           </div>
 
-          {/* Selected Diamond Display */}
+          {/* Search Results */}
+          {searchResults.length > 0 && (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {searchResults.map((diamond) => (
+                <DiamondSearchResult
+                  key={diamond.id}
+                  diamond={diamond}
+                  selected={selectedDiamond?.id === diamond.id}
+                  onSelect={() => setSelectedDiamond(diamond)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Selected Diamond Detail */}
           {selectedDiamond && (
             <div className="p-4 bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-500/30 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Hand className="w-5 h-5 text-success-600 dark:text-success-400" />
                 <h3 className="font-semibold text-success-900 dark:text-success-300">
-                  Diamond Found
+                  Selected: {selectedDiamond.shape} {selectedDiamond.carats?.toFixed(2)}ct {selectedDiamond.color} {selectedDiamond.clarity}
                 </h3>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-success-700 dark:text-success-400 font-medium">
-                    Offer ID:
-                  </span>
-                  <p className="font-mono text-success-900 dark:text-success-200">
-                    {selectedDiamond.id}
-                  </p>
+                  <span className="text-success-700 dark:text-success-400 font-medium">Feed:</span>{' '}
+                  <span className="text-success-900 dark:text-success-200">{selectedDiamond.feed}</span>
                 </div>
-                {selectedDiamond.supplierStoneId && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Supplier Stone ID:
-                    </span>
-                    <p className="font-mono text-success-900 dark:text-success-200">
-                      {selectedDiamond.supplierStoneId}
-                    </p>
-                  </div>
-                )}
-                {selectedDiamond.shape && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Shape:
-                    </span>
-                    <p className="text-success-900 dark:text-success-200">
-                      {selectedDiamond.shape}
-                    </p>
-                  </div>
-                )}
-                {selectedDiamond.carat && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Carat:
-                    </span>
-                    <p className="text-success-900 dark:text-success-200">
-                      {selectedDiamond.carat}
-                    </p>
-                  </div>
-                )}
-                {selectedDiamond.color && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Color:
-                    </span>
-                    <p className="text-success-900 dark:text-success-200">
-                      {selectedDiamond.color}
-                    </p>
-                  </div>
-                )}
-                {selectedDiamond.clarity && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Clarity:
-                    </span>
-                    <p className="text-success-900 dark:text-success-200">
-                      {selectedDiamond.clarity}
-                    </p>
-                  </div>
-                )}
-                {selectedDiamond.availability && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Availability:
-                    </span>
-                    <p className="text-success-900 dark:text-success-200">
-                      {selectedDiamond.availability}
-                    </p>
-                  </div>
-                )}
-                {selectedDiamond.price && (
-                  <div>
-                    <span className="text-success-700 dark:text-success-400 font-medium">
-                      Price:
-                    </span>
-                    <p className="text-success-900 dark:text-success-200">
-                      ${selectedDiamond.price.toLocaleString()}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-success-700 dark:text-success-400 font-medium">Price:</span>{' '}
+                  <span className="text-success-900 dark:text-success-200">${selectedDiamond.feedPrice?.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-success-700 dark:text-success-400 font-medium">Stock ID:</span>{' '}
+                  <span className="font-mono text-success-900 dark:text-success-200">{selectedDiamond.supplierStoneId}</span>
+                </div>
+                <div>
+                  <span className="text-success-700 dark:text-success-400 font-medium">Status:</span>{' '}
+                  <span className="text-success-900 dark:text-success-200">{selectedDiamond.availability}</span>
+                </div>
               </div>
             </div>
           )}
-
-          {/* Reference */}
-          <Input
-            label="Reference (optional)"
-            placeholder="e.g., Client-123, Quote-456"
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-          />
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              className="input min-h-[80px] resize-y"
-              placeholder="Add any additional notes about this hold..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
 
           {createHoldMutation.isError && (
             <Alert variant="error" title="Failed to create hold">

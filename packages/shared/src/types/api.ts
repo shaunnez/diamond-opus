@@ -28,7 +28,7 @@ export interface PurchaseHistory {
   feedOrderId?: string;
   offerId: string;
   idempotencyKey: string;
-  status: 'pending' | 'confirmed' | 'failed';
+  status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
   reference?: string;
   comments?: string;
   createdAt: Date;

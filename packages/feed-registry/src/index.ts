@@ -6,6 +6,10 @@ export type {
   FeedBulkRawDiamond,
   MappedDiamond,
   HeatmapConfigOverrides,
+  TradingAdapter,
+  TradingHoldResult,
+  TradingOrderResult,
+  TradingOrderOptions,
 } from './types.js';
 export { ALLOWED_RAW_TABLES } from './types.js';
 export { FeedRegistry } from './registry.js';

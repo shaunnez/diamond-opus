@@ -181,3 +181,12 @@ export async function updateHoldStatus(
     [holdId, status]
   );
 }
+
+export async function getPurchaseById(purchaseId: string): Promise<PurchaseHistory | null> {
+  const result = await query<PurchaseHistoryRow>(
+    `SELECT * FROM purchase_history WHERE id = $1`,
+    [purchaseId]
+  );
+  const row = result.rows[0];
+  return row ? mapRowToPurchaseHistory(row) : null;
+}
