@@ -9,15 +9,17 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 # Copy package files
 COPY package*.json ./
 COPY apps/dashboard/package.json ./apps/dashboard/
+COPY packages/shared/package.json ./packages/shared/
 
 # Install dependencies
 RUN npm ci
 
 # Copy source files
+COPY packages/shared ./packages/shared
 COPY apps/dashboard ./apps/dashboard
 
-# Build the dashboard
-RUN npm run build -w @diamond/dashboard
+# Build shared package first, then dashboard
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/dashboard
 
 # Production stage
 FROM nginx:alpine
