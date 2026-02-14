@@ -178,7 +178,7 @@ describe('API Routes', () => {
 
       expect(mockSearchDiamonds).toHaveBeenCalledWith(
         expect.objectContaining({
-          shape: 'OVAL',
+          shapes: ['OVAL'],
           caratMin: 1,
           caratMax: 2,
           colors: ['G'],
