@@ -17,8 +17,6 @@ function SpecRow({ label, value }: { label: string; value: string | undefined | 
 }
 
 export function DiamondSpecs({ diamond }: DiamondSpecsProps) {
-  const m = diamond.measurements;
-
   return (
     <div className="space-y-6">
       {/* Core Specs */}
@@ -54,23 +52,23 @@ export function DiamondSpecs({ diamond }: DiamondSpecsProps) {
       )}
 
       {/* Measurements */}
-      {m && (
+      {(diamond.lengthMm != null || diamond.tablePct != null) && (
         <div>
           <h3 className="font-serif text-sm font-semibold text-charcoal mb-3 uppercase tracking-wider">
             Measurements
           </h3>
-          {m.length != null && m.width != null && (
+          {diamond.lengthMm != null && diamond.widthMm != null && (
             <SpecRow
               label="Dimensions"
-              value={`${formatNumber(m.length)} x ${formatNumber(m.width)}${m.depth != null ? ` x ${formatNumber(m.depth)}` : ''} mm`}
+              value={`${formatNumber(diamond.lengthMm)} x ${formatNumber(diamond.widthMm)}${diamond.depthMm != null ? ` x ${formatNumber(diamond.depthMm)}` : ''} mm`}
             />
           )}
-          <SpecRow label="Table" value={m.table != null ? `${formatNumber(m.table, 1)}%` : undefined} />
-          <SpecRow label="Depth" value={m.depthPercentage != null ? `${formatNumber(m.depthPercentage, 1)}%` : undefined} />
-          <SpecRow label="Crown Angle" value={m.crownAngle != null ? `${formatNumber(m.crownAngle, 1)}\u00B0` : undefined} />
-          <SpecRow label="Pavilion Angle" value={m.pavAngle != null ? `${formatNumber(m.pavAngle, 1)}\u00B0` : undefined} />
-          <SpecRow label="Girdle" value={m.girdle} />
-          <SpecRow label="Culet" value={m.culetSize} />
+          <SpecRow label="Table" value={diamond.tablePct != null ? `${formatNumber(diamond.tablePct, 1)}%` : undefined} />
+          <SpecRow label="Depth" value={diamond.depthPct != null ? `${formatNumber(diamond.depthPct, 1)}%` : undefined} />
+          <SpecRow label="Crown Angle" value={diamond.crownAngle != null ? `${formatNumber(diamond.crownAngle, 1)}\u00B0` : undefined} />
+          <SpecRow label="Pavilion Angle" value={diamond.pavilionAngle != null ? `${formatNumber(diamond.pavilionAngle, 1)}\u00B0` : undefined} />
+          <SpecRow label="Girdle" value={diamond.girdle} />
+          <SpecRow label="Culet" value={diamond.culetSize} />
         </div>
       )}
 
@@ -99,19 +97,15 @@ export function DiamondSpecs({ diamond }: DiamondSpecsProps) {
       )}
 
       {/* Additional Attributes */}
-      {diamond.attributes && (
+      {(diamond.eyeClean != null || diamond.brown || diamond.green || diamond.milky) && (
         <div>
           <h3 className="font-serif text-sm font-semibold text-charcoal mb-3 uppercase tracking-wider">
             Attributes
           </h3>
-          <SpecRow label="Eye Clean" value={diamond.attributes.eyeClean ? 'Yes' : diamond.attributes.eyeClean === false ? 'No' : undefined} />
-          <SpecRow label="Country of Origin" value={diamond.attributes.countryOfOrigin} />
-          <SpecRow label="Mine of Origin" value={diamond.attributes.mineOfOrigin} />
-          <SpecRow label="Color Shade" value={diamond.attributes.colorShade} />
-          {diamond.attributes.brown && <SpecRow label="Brown" value="Yes" />}
-          {diamond.attributes.green && <SpecRow label="Green" value="Yes" />}
-          {diamond.attributes.milky && <SpecRow label="Milky" value="Yes" />}
-          <SpecRow label="Comments" value={diamond.attributes.comments} />
+          <SpecRow label="Eye Clean" value={diamond.eyeClean ? 'Yes' : diamond.eyeClean === false ? 'No' : undefined} />
+          {diamond.brown && <SpecRow label="Brown" value={diamond.brown} />}
+          {diamond.green && <SpecRow label="Green" value={diamond.green} />}
+          {diamond.milky && <SpecRow label="Milky" value={diamond.milky} />}
         </div>
       )}
 

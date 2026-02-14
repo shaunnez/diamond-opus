@@ -35,8 +35,23 @@ interface DiamondRow {
   certificate_lab: string | null;
   certificate_number: string | null;
   certificate_pdf_url: string | null;
-  measurements: Record<string, unknown> | null;
-  attributes: Record<string, unknown> | null;
+  // Denormalized measurement columns
+  table_pct: string | null;
+  depth_pct: string | null;
+  length_mm: string | null;
+  width_mm: string | null;
+  depth_mm: string | null;
+  crown_angle: string | null;
+  crown_height: string | null;
+  pavilion_angle: string | null;
+  pavilion_depth: string | null;
+  girdle: string | null;
+  culet_size: string | null;
+  // Denormalized attribute columns
+  eye_clean: boolean | null;
+  brown: string | null;
+  green: string | null;
+  milky: string | null;
   supplier_name: string | null;
   supplier_legal_name: string | null;
   status: string;
@@ -44,66 +59,6 @@ interface DiamondRow {
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
-}
-
-/**
- * Normalizes measurements JSONB object to ensure numeric fields are actual numbers.
- * PostgreSQL JSONB can store numeric values as strings, which breaks frontend .toFixed() calls.
- */
-function normalizeMeasurements(raw: Record<string, unknown> | null): Record<string, unknown> | undefined {
-  if (!raw) return undefined;
-
-  const normalized: Record<string, unknown> = {};
-  const numericFields = [
-    'length', 'width', 'depth', 'depthPercentage', 'table',
-    'crownAngle', 'crownHeight', 'pavAngle', 'pavHeight', 'pavDepth',
-    'starLength', 'lowerGirdle'
-  ];
-
-  for (const [key, value] of Object.entries(raw)) {
-    if (value == null) {
-      normalized[key] = value;
-    } else if (numericFields.includes(key)) {
-      // Convert string numbers to actual numbers
-      const num = typeof value === 'string' ? parseFloat(value) : Number(value);
-      normalized[key] = isNaN(num) ? value : num;
-    } else {
-      normalized[key] = value;
-    }
-  }
-
-  return normalized;
-}
-
-/**
- * Normalizes attributes JSONB object to ensure proper types.
- * Handles boolean fields that might be stored as strings or other types.
- */
-function normalizeAttributes(raw: Record<string, unknown> | null): Record<string, unknown> | undefined {
-  if (!raw) return undefined;
-
-  const normalized: Record<string, unknown> = {};
-  const booleanFields = ['eyeClean', 'brown', 'green', 'blue', 'gray', 'milky'];
-
-  for (const [key, value] of Object.entries(raw)) {
-    if (value == null) {
-      normalized[key] = value;
-    } else if (booleanFields.includes(key) && typeof value === 'string') {
-      // Handle boolean fields stored as strings
-      const lower = value.toLowerCase();
-      if (lower === 'true' || lower === 'yes' || lower === '1') {
-        normalized[key] = true;
-      } else if (lower === 'false' || lower === 'no' || lower === '0' || lower === 'none' || lower === 'n/a' || lower === '') {
-        normalized[key] = false;
-      } else {
-        normalized[key] = value; // Keep original if not a clear boolean
-      }
-    } else {
-      normalized[key] = value;
-    }
-  }
-
-  return normalized;
 }
 
 function mapRowToDiamond(row: DiamondRow): Diamond {
@@ -141,8 +96,23 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     certificateLab: row.certificate_lab ?? undefined,
     certificateNumber: row.certificate_number ?? undefined,
     certificatePdfUrl: row.certificate_pdf_url ?? undefined,
-    measurements: normalizeMeasurements(row.measurements),
-    attributes: normalizeAttributes(row.attributes),
+    // Denormalized measurement fields
+    tablePct: row.table_pct ? parseFloat(row.table_pct) : undefined,
+    depthPct: row.depth_pct ? parseFloat(row.depth_pct) : undefined,
+    lengthMm: row.length_mm ? parseFloat(row.length_mm) : undefined,
+    widthMm: row.width_mm ? parseFloat(row.width_mm) : undefined,
+    depthMm: row.depth_mm ? parseFloat(row.depth_mm) : undefined,
+    crownAngle: row.crown_angle ? parseFloat(row.crown_angle) : undefined,
+    crownHeight: row.crown_height ? parseFloat(row.crown_height) : undefined,
+    pavilionAngle: row.pavilion_angle ? parseFloat(row.pavilion_angle) : undefined,
+    pavilionDepth: row.pavilion_depth ? parseFloat(row.pavilion_depth) : undefined,
+    girdle: row.girdle ?? undefined,
+    culetSize: row.culet_size ?? undefined,
+    // Denormalized attribute fields
+    eyeClean: row.eye_clean ?? undefined,
+    brown: row.brown ?? undefined,
+    green: row.green ?? undefined,
+    milky: row.milky ?? undefined,
     supplierName: row.supplier_name ?? undefined,
     supplierLegalName: row.supplier_legal_name ?? undefined,
     status: row.status as Diamond['status'],
@@ -251,85 +221,85 @@ export async function searchDiamonds(
   }
 
   if (params.tableMin !== undefined) {
-    conditions.push(`(measurements->>'table')::numeric >= $${paramIndex++}`);
+    conditions.push(`table_pct >= $${paramIndex++}`);
     values.push(params.tableMin);
   }
 
   if (params.tableMax !== undefined) {
-    conditions.push(`(measurements->>'table')::numeric <= $${paramIndex++}`);
+    conditions.push(`table_pct <= $${paramIndex++}`);
     values.push(params.tableMax);
   }
 
   if (params.depthPercentageMin !== undefined) {
-    conditions.push(`(measurements->>'depthPercentage')::numeric >= $${paramIndex++}`);
+    conditions.push(`depth_pct >= $${paramIndex++}`);
     values.push(params.depthPercentageMin);
   }
 
   if (params.depthPercentageMax !== undefined) {
-    conditions.push(`(measurements->>'depthPercentage')::numeric <= $${paramIndex++}`);
+    conditions.push(`depth_pct <= $${paramIndex++}`);
     values.push(params.depthPercentageMax);
   }
 
   if (params.crownAngleMin !== undefined) {
-    conditions.push(`(measurements->>'crownAngle')::numeric >= $${paramIndex++}`);
+    conditions.push(`crown_angle >= $${paramIndex++}`);
     values.push(params.crownAngleMin);
   }
 
   if (params.crownAngleMax !== undefined) {
-    conditions.push(`(measurements->>'crownAngle')::numeric <= $${paramIndex++}`);
+    conditions.push(`crown_angle <= $${paramIndex++}`);
     values.push(params.crownAngleMax);
   }
 
   if (params.pavAngleMin !== undefined) {
-    conditions.push(`(measurements->>'pavAngle')::numeric >= $${paramIndex++}`);
+    conditions.push(`pavilion_angle >= $${paramIndex++}`);
     values.push(params.pavAngleMin);
   }
 
   if (params.pavAngleMax !== undefined) {
-    conditions.push(`(measurements->>'pavAngle')::numeric <= $${paramIndex++}`);
+    conditions.push(`pavilion_angle <= $${paramIndex++}`);
     values.push(params.pavAngleMax);
   }
 
   if (params.lengthMin !== undefined) {
-    conditions.push(`(measurements->>'length')::numeric >= $${paramIndex++}`);
+    conditions.push(`length_mm >= $${paramIndex++}`);
     values.push(params.lengthMin);
   }
 
   if (params.lengthMax !== undefined) {
-    conditions.push(`(measurements->>'length')::numeric <= $${paramIndex++}`);
+    conditions.push(`length_mm <= $${paramIndex++}`);
     values.push(params.lengthMax);
   }
 
   if (params.widthMin !== undefined) {
-    conditions.push(`(measurements->>'width')::numeric >= $${paramIndex++}`);
+    conditions.push(`width_mm >= $${paramIndex++}`);
     values.push(params.widthMin);
   }
 
   if (params.widthMax !== undefined) {
-    conditions.push(`(measurements->>'width')::numeric <= $${paramIndex++}`);
+    conditions.push(`width_mm <= $${paramIndex++}`);
     values.push(params.widthMax);
   }
 
   if (params.depthMeasurementMin !== undefined) {
-    conditions.push(`(measurements->>'depth')::numeric >= $${paramIndex++}`);
+    conditions.push(`depth_mm >= $${paramIndex++}`);
     values.push(params.depthMeasurementMin);
   }
 
   if (params.depthMeasurementMax !== undefined) {
-    conditions.push(`(measurements->>'depth')::numeric <= $${paramIndex++}`);
+    conditions.push(`depth_mm <= $${paramIndex++}`);
     values.push(params.depthMeasurementMax);
   }
 
   if (params.eyeClean !== undefined) {
-    conditions.push(`(attributes->>'eyeClean')::boolean = $${paramIndex++}`);
+    conditions.push(`eye_clean = $${paramIndex++}`);
     values.push(params.eyeClean);
   }
 
   if (params.noBgm === true) {
     conditions.push(`(
-      (attributes->>'brown' IS NULL OR UPPER(attributes->>'brown') IN ('NONE', 'N/A', ''))
-      AND (attributes->>'green' IS NULL OR UPPER(attributes->>'green') IN ('NONE', 'N/A', ''))
-      AND (attributes->>'milky' IS NULL OR UPPER(attributes->>'milky') IN ('NONE', 'N/A', ''))
+      (brown IS NULL OR UPPER(brown) IN ('NONE', 'N/A', ''))
+      AND (green IS NULL OR UPPER(green) IN ('NONE', 'N/A', ''))
+      AND (milky IS NULL OR UPPER(milky) IN ('NONE', 'N/A', ''))
     )`);
   }
 
@@ -401,13 +371,17 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       feed_price, diamond_price, price_per_carat, price_model_price,
       markup_ratio, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
-      measurements, attributes, supplier_name, supplier_legal_name,
+      table_pct, depth_pct, length_mm, width_mm, depth_mm,
+      crown_angle, crown_height, pavilion_angle, pavilion_depth,
+      girdle, culet_size, eye_clean, brown, green, milky,
+      supplier_name, supplier_legal_name,
       status, source_updated_at
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
       $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
       $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
-      $33, $34, $35, $36, $37, $38
+      $33, $34, $35, $36, $37, $38, $39, $40, $41, $42,
+      $43, $44, $45, $46, $47, $48, $49, $50
     )
     ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
       offer_id = EXCLUDED.offer_id,
@@ -426,7 +400,6 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       ratio = EXCLUDED.ratio,
       lab_grown = EXCLUDED.lab_grown,
       treated = EXCLUDED.treated,
-      
       feed_price = EXCLUDED.feed_price,
       diamond_price = EXCLUDED.diamond_price,
       price_per_carat = EXCLUDED.price_per_carat,
@@ -441,8 +414,21 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       certificate_lab = EXCLUDED.certificate_lab,
       certificate_number = EXCLUDED.certificate_number,
       certificate_pdf_url = EXCLUDED.certificate_pdf_url,
-      measurements = EXCLUDED.measurements,
-      attributes = EXCLUDED.attributes,
+      table_pct = EXCLUDED.table_pct,
+      depth_pct = EXCLUDED.depth_pct,
+      length_mm = EXCLUDED.length_mm,
+      width_mm = EXCLUDED.width_mm,
+      depth_mm = EXCLUDED.depth_mm,
+      crown_angle = EXCLUDED.crown_angle,
+      crown_height = EXCLUDED.crown_height,
+      pavilion_angle = EXCLUDED.pavilion_angle,
+      pavilion_depth = EXCLUDED.pavilion_depth,
+      girdle = EXCLUDED.girdle,
+      culet_size = EXCLUDED.culet_size,
+      eye_clean = EXCLUDED.eye_clean,
+      brown = EXCLUDED.brown,
+      green = EXCLUDED.green,
+      milky = EXCLUDED.milky,
       supplier_name = EXCLUDED.supplier_name,
       supplier_legal_name = EXCLUDED.supplier_legal_name,
       status = EXCLUDED.status,
@@ -468,7 +454,6 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.ratio,
       diamond.labGrown,
       diamond.treated,
-      diamond.fancyColor,
       diamond.feedPrice,
       diamond.diamondPrice,
       diamond.pricePerCarat,
@@ -483,8 +468,21 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.certificateLab,
       diamond.certificateNumber,
       diamond.certificatePdfUrl,
-      diamond.measurements ? JSON.stringify(diamond.measurements) : null,
-      diamond.attributes ? JSON.stringify(diamond.attributes) : null,
+      diamond.tablePct,
+      diamond.depthPct,
+      diamond.lengthMm,
+      diamond.widthMm,
+      diamond.depthMm,
+      diamond.crownAngle,
+      diamond.crownHeight,
+      diamond.pavilionAngle,
+      diamond.pavilionDepth,
+      diamond.girdle,
+      diamond.culetSize,
+      diamond.eyeClean,
+      diamond.brown,
+      diamond.green,
+      diamond.milky,
       diamond.supplierName,
       diamond.supplierLegalName,
       diamond.status,
@@ -534,8 +532,23 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const certificateLabs: (string | null)[] = [];
   const certificateNumbers: (string | null)[] = [];
   const certificatePdfUrls: (string | null)[] = [];
-  const measurements: (string | null)[] = [];
-  const attributes: (string | null)[] = [];
+  // Denormalized measurement columns
+  const tablePcts: (number | null)[] = [];
+  const depthPcts: (number | null)[] = [];
+  const lengthMms: (number | null)[] = [];
+  const widthMms: (number | null)[] = [];
+  const depthMms: (number | null)[] = [];
+  const crownAngles: (number | null)[] = [];
+  const crownHeights: (number | null)[] = [];
+  const pavilionAngles: (number | null)[] = [];
+  const pavilionDepths: (number | null)[] = [];
+  const girdles: (string | null)[] = [];
+  const culetSizes: (string | null)[] = [];
+  // Denormalized attribute columns
+  const eyeCleans: (boolean | null)[] = [];
+  const browns: (string | null)[] = [];
+  const greens: (string | null)[] = [];
+  const milkys: (string | null)[] = [];
   const supplierNames: (string | null)[] = [];
   const supplierLegalNames: (string | null)[] = [];
   const statuses: string[] = [];
@@ -574,8 +587,23 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     certificateLabs.push(d.certificateLab ?? null);
     certificateNumbers.push(d.certificateNumber ?? null);
     certificatePdfUrls.push(d.certificatePdfUrl ?? null);
-    measurements.push(d.measurements ? JSON.stringify(d.measurements) : null);
-    attributes.push(d.attributes ? JSON.stringify(d.attributes) : null);
+    // Denormalized measurements
+    tablePcts.push(d.tablePct ?? null);
+    depthPcts.push(d.depthPct ?? null);
+    lengthMms.push(d.lengthMm ?? null);
+    widthMms.push(d.widthMm ?? null);
+    depthMms.push(d.depthMm ?? null);
+    crownAngles.push(d.crownAngle ?? null);
+    crownHeights.push(d.crownHeight ?? null);
+    pavilionAngles.push(d.pavilionAngle ?? null);
+    pavilionDepths.push(d.pavilionDepth ?? null);
+    girdles.push(d.girdle ?? null);
+    culetSizes.push(d.culetSize ?? null);
+    // Denormalized attributes
+    eyeCleans.push(d.eyeClean ?? null);
+    browns.push(d.brown ?? null);
+    greens.push(d.green ?? null);
+    milkys.push(d.milky ?? null);
     supplierNames.push(d.supplierName ?? null);
     supplierLegalNames.push(d.supplierLegalName ?? null);
     statuses.push(d.status);
@@ -593,7 +621,10 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         feed_price, diamond_price, price_per_carat, price_model_price,
         markup_ratio, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
-        measurements, attributes, supplier_name, supplier_legal_name,
+        table_pct, depth_pct, length_mm, width_mm, depth_mm,
+        crown_angle, crown_height, pavilion_angle, pavilion_depth,
+        girdle, culet_size, eye_clean, brown, green, milky,
+        supplier_name, supplier_legal_name,
         status, source_updated_at
       )
       SELECT * FROM UNNEST(
@@ -603,8 +634,12 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         $16::numeric[], $17::boolean[], $18::boolean[], $19::numeric[], $20::numeric[],
         $21::numeric[], $22::numeric[], $23::numeric[], $24::integer[], $25::text[],
         $26::text[], $27::text[], $28::text[], $29::text[], $30::text[],
-        $31::text[], $32::text[], $33::jsonb[], $34::jsonb[], $35::text[],
-        $36::text[], $37::text[], $38::timestamptz[]
+        $31::text[], $32::text[],
+        $33::numeric[], $34::numeric[], $35::numeric[], $36::numeric[], $37::numeric[],
+        $38::numeric[], $39::numeric[], $40::numeric[], $41::numeric[],
+        $42::text[], $43::text[], $44::boolean[], $45::text[], $46::text[], $47::text[],
+        $48::text[], $49::text[],
+        $50::text[], $51::timestamptz[]
       )
       ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
@@ -623,7 +658,6 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         ratio = EXCLUDED.ratio,
         lab_grown = EXCLUDED.lab_grown,
         treated = EXCLUDED.treated,
-        
         feed_price = EXCLUDED.feed_price,
         diamond_price = EXCLUDED.diamond_price,
         price_per_carat = EXCLUDED.price_per_carat,
@@ -638,8 +672,21 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         certificate_lab = EXCLUDED.certificate_lab,
         certificate_number = EXCLUDED.certificate_number,
         certificate_pdf_url = EXCLUDED.certificate_pdf_url,
-        measurements = EXCLUDED.measurements,
-        attributes = EXCLUDED.attributes,
+        table_pct = EXCLUDED.table_pct,
+        depth_pct = EXCLUDED.depth_pct,
+        length_mm = EXCLUDED.length_mm,
+        width_mm = EXCLUDED.width_mm,
+        depth_mm = EXCLUDED.depth_mm,
+        crown_angle = EXCLUDED.crown_angle,
+        crown_height = EXCLUDED.crown_height,
+        pavilion_angle = EXCLUDED.pavilion_angle,
+        pavilion_depth = EXCLUDED.pavilion_depth,
+        girdle = EXCLUDED.girdle,
+        culet_size = EXCLUDED.culet_size,
+        eye_clean = EXCLUDED.eye_clean,
+        brown = EXCLUDED.brown,
+        green = EXCLUDED.green,
+        milky = EXCLUDED.milky,
         supplier_name = EXCLUDED.supplier_name,
         supplier_legal_name = EXCLUDED.supplier_legal_name,
         status = EXCLUDED.status,
@@ -658,8 +705,12 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       ratios, labGrowns, treateds, feedPrice, diamondPrices,
       pricePerCarat, priceModelPrice, markupRatios, ratings, availabilities,
       rawAvailabilities, holdIds, imageUrls, videoUrls, certificateLabs,
-      certificateNumbers, certificatePdfUrls, measurements, attributes, supplierNames,
-      supplierLegalNames, statuses, sourceUpdatedAts,
+      certificateNumbers, certificatePdfUrls,
+      tablePcts, depthPcts, lengthMms, widthMms, depthMms,
+      crownAngles, crownHeights, pavilionAngles, pavilionDepths,
+      girdles, culetSizes, eyeCleans, browns, greens, milkys,
+      supplierNames, supplierLegalNames,
+      statuses, sourceUpdatedAts,
     ]
   );
 
