@@ -59,7 +59,7 @@ export function DiamondMedia({
       <div className={containerClasses}>
         {!videoLoaded && <Skeleton />}
         <iframe
-          src={videoUrl}
+          src={videoUrl.replace("/500/500", "/300/300")}
           title={alt}
           className={`w-full h-full border-0 transition-opacity duration-300 ${
             videoLoaded ? 'opacity-100' : 'opacity-0'
