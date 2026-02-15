@@ -13,7 +13,6 @@ const ARRAY_PARAMS = [
   'symmetry',
   'fluorescence_intensity',
   'lab',
-  'fancy_color',
   'fancy_intensity',
 ] as const;
 
@@ -120,11 +119,12 @@ export function useDiamondSearch() {
       delete params.fancy_color;
       delete params.fancy_intensity;
     } else if (stoneType === 'fancy') {
+      params.fancy_color = true;
+      delete params.lab_grown
       // Fancy colored: we don't set lab_grown, but we want diamonds that have fancy_color set
       // The API will return fancy colored diamonds when fancy_color filter is used
       // If no specific fancy colors are selected, we need a different approach
       // For now, we won't pre-filter fancy_color - just show the fancy_color chips
-      delete params.lab_grown;
     } else {
       // 'all' - don't restrict
       delete params.lab_grown;

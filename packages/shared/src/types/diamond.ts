@@ -96,6 +96,7 @@ export interface DiamondSearchParams {
   labGrown?: boolean;
   priceMin?: number;
   priceMax?: number;
+  fancyColor?: boolean;
   fancyColors?: string[];
   fancyIntensities?: string[];
   fluorescenceIntensities?: string[];

@@ -167,7 +167,7 @@ export async function searchDiamonds(
 
   if (params.labGrown !== undefined) {
     conditions.push(`lab_grown = $${paramIndex++}`);
-    values.push(params.labGrown);
+    values.push(params.labGrown.toString());
   }
 
   if (params.priceMin !== undefined) {
@@ -183,6 +183,11 @@ export async function searchDiamonds(
   if (params.fancyColors && params.fancyColors.length > 0) {
     conditions.push(`fancy_color = ANY($${paramIndex++})`);
     values.push(params.fancyColors);
+  }
+
+  if (params.fancyColor !== undefined) {
+    conditions.push(`fancy_color != $${paramIndex++}`);
+    values.push(params.fancyColor);
   }
 
   if (params.fancyIntensities && params.fancyIntensities.length > 0) {
@@ -313,13 +318,16 @@ export async function searchDiamonds(
   const allowedSortColumns = ['created_at', 'feed_price', 'carats', 'color', 'clarity', 'ratio', 'fancy_color', 'fluorescence_intensity', 'certificate_lab'];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
+  console.log("where clause", whereClause, values, `ORDER BY ${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`);
 
   const countResult = await query<{ count: string }>(
     `SELECT COUNT(*) as count FROM diamonds WHERE ${whereClause}`,
     values
   );
+
   const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
+  console.log(total, 'total diamonds found');
   const dataResult = await query<DiamondRow>(
     `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     [...values, limit, offset]

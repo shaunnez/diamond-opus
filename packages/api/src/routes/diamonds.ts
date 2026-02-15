@@ -24,11 +24,32 @@ import { getNzdRate } from '../services/currency.js';
 
 const router = Router();
 
+/**
+ * Utility function to convert query parameters that can be either a single string or an array of strings into a consistent array format.
+ * @param value 
+ * @returns 
+ */
 function toArray(value: string | string[] | undefined): string[] | undefined {
   if (!value) return undefined;
-  if (Array.isArray(value)) return value;
+  if (Array.isArray(value)) return value.map(longDiamondFilterToShort);
   // Handle comma-separated strings from query params
-  return value.includes(',') ? value.split(',').map(v => v.trim()) : [value];
+  return value.includes(',') ? value.split(',').map(v => longDiamondFilterToShort(v.trim())) : [longDiamondFilterToShort(value)];
+}
+
+/**
+ * Converts long-form diamond filter values to the short codes expected by the Nivoda API.
+ * For example, "Excellent" -> "EX", "Very Good" -> "VG", etc.
+ * @param filter 
+ * @returns 
+ */
+function longDiamondFilterToShort(filter: string): string {
+  const localFilter = filter.toUpperCase().replace(/ /g, '_');
+  if (localFilter === 'EXCELLENT') return 'EX';
+  if (localFilter === 'VERY_GOOD') return 'VG';
+  if (localFilter === 'GOOD') return 'G';
+  if (localFilter === 'FAIR') return 'F';
+  if (localFilter === 'POOR') return 'P';
+  return localFilter;
 }
 
 function enrichWithNzd(diamond: Diamond): Diamond {
@@ -129,7 +150,7 @@ router.get(
     try {
       const query = (req as Request & { validatedQuery: DiamondSearchQuery }).validatedQuery;
 
-      const result = await searchDiamonds({
+      const payload = {
         feed: query.feed,
         shapes: toArray(query.shape),
         caratMin: query.carat_min,
@@ -140,7 +161,8 @@ router.get(
         labGrown: query.lab_grown,
         priceMin: query.price_min,
         priceMax: query.price_max,
-        fancyColors: toArray(query.fancy_color),
+        fancyColor:query.fancy_color,
+        // fancyColors: toArray(query.fancy_color),
         fancyIntensities: toArray(query.fancy_intensity),
         fluorescenceIntensities: toArray(query.fluorescence_intensity),
         polishes: toArray(query.polish),
@@ -168,7 +190,8 @@ router.get(
         limit: query.limit,
         sortBy: query.sort_by,
         sortOrder: query.sort_order,
-      });
+      }
+      const result = await searchDiamonds(payload);
 
       res.json({
         ...result,

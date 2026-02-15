@@ -18,9 +18,11 @@ export async function searchDiamonds(params: DiamondSearchParams): Promise<Diamo
   if (params.clarity?.length) query.clarity = params.clarity.join(',');
   if (params.cut?.length) query.cut = params.cut.join(',');
   if (params.lab_grown !== undefined) query.lab_grown = String(params.lab_grown);
+  if (params.fancy_color !== undefined) query.fancy_color = String(params.fancy_color);
+  
   if (params.price_min !== undefined) query.price_min = String(params.price_min);
   if (params.price_max !== undefined) query.price_max = String(params.price_max);
-  if (params.fancy_color?.length) query.fancy_color = params.fancy_color.join(',');
+  // if (params.fancy_color?.length) query.fancy_color = params.fancy_color.join(',');
   if (params.fancy_intensity?.length) query.fancy_intensity = params.fancy_intensity.join(',');
   if (params.fluorescence_intensity?.length) query.fluorescence_intensity = params.fluorescence_intensity.join(',');
   if (params.polish?.length) query.polish = params.polish.join(',');

@@ -41,9 +41,10 @@ export function DiamondMedia({
   feed,
 }: DiamondMediaProps) {
   const [imgError, setImgError] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-
+  
   const containerClasses =
     size === 'detail'
       ? `bg-cream flex items-center justify-center relative overflow-hidden ${className}`
@@ -52,14 +53,14 @@ export function DiamondMedia({
   // For demo feed without image, use shape-based demo image (normalize shape to uppercase)
   const normalizedShape = shape?.toUpperCase() ?? '';
   const finalImageUrl = imageUrl || (feed === 'demo' ? DEMO_IMAGES[normalizedShape] : undefined);
-
+  const isDesktop = window.innerWidth >= 1024;
   // V360 video — render as interactive iframe
-  if (videoUrl) {
+  if (videoUrl && !videoError) { 
     return (
       <div className={containerClasses}>
         {!videoLoaded && <Skeleton />}
         <iframe
-          src={videoUrl.replace("/500/500", "/450/450")}
+          src={isDesktop ? videoUrl.replace('/500/500', '/') : videoUrl}
           title={alt}
           className={`w-full h-full border-0 transition-opacity duration-300 ${
             videoLoaded ? 'opacity-100' : 'opacity-0'
@@ -68,8 +69,10 @@ export function DiamondMedia({
           loading="lazy"
           scrolling="no"
           onLoad={() => setVideoLoaded(true)}
+          onError={() => setVideoError(true)}
           style={{ overflow: 'hidden' }}
         />
+      
       </div>
     );
   }
