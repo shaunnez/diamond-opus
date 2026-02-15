@@ -132,6 +132,38 @@ describe('mapNivodaItemToDiamond', () => {
     expect(result.labGrown).toBe(true);
   });
 
+  it('should infer labGrown from labgrown_type when labgrown is null', () => {
+    const item = createMockItem({
+      diamond: {
+        ...createMockItem().diamond,
+        certificate: {
+          ...createMockItem().diamond.certificate,
+          labgrown: undefined,
+          labgrown_type: 'HPHT',
+        },
+      },
+    });
+
+    const result = mapNivodaItemToDiamond(item);
+    expect(result.labGrown).toBe(true);
+  });
+
+  it('should default labGrown to false when both labgrown and labgrown_type are null', () => {
+    const item = createMockItem({
+      diamond: {
+        ...createMockItem().diamond,
+        certificate: {
+          ...createMockItem().diamond.certificate,
+          labgrown: undefined,
+          labgrown_type: undefined,
+        },
+      },
+    });
+
+    const result = mapNivodaItemToDiamond(item);
+    expect(result.labGrown).toBe(false);
+  });
+
   it('should map fluorescence with color', () => {
     const item = createMockItem({
       diamond: {

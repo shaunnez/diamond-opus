@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+/**
+ * Zod schema for boolean query parameters.
+ * z.coerce.boolean() uses Boolean() which treats any non-empty string as true,
+ * so "false" would incorrectly become true. This handles string values correctly.
+ */
+const booleanQueryParam = z.preprocess(
+  (v) => (v === 'true' ? true : v === 'false' ? false : v),
+  z.boolean().optional(),
+);
+
 export const diamondSearchSchema = z.object({
   feed: z.string().optional(),
   shape: z.union([z.string(), z.array(z.string())]).optional(),
@@ -8,11 +18,10 @@ export const diamondSearchSchema = z.object({
   color: z.union([z.string(), z.array(z.string())]).optional(),
   clarity: z.union([z.string(), z.array(z.string())]).optional(),
   cut: z.union([z.string(), z.array(z.string())]).optional(),
-  lab_grown: z.coerce.boolean().optional(),
+  lab_grown: booleanQueryParam,
   price_min: z.coerce.number().positive().optional(),
   price_max: z.coerce.number().positive().optional(),
-  fancy_color: z.coerce.boolean().optional(), 
-  // z.union([z.string(), z.array(z.string())]).optional(),
+  fancy_color: booleanQueryParam,
   fancy_intensity: z.union([z.string(), z.array(z.string())]).optional(),
   fluorescence_intensity: z.union([z.string(), z.array(z.string())]).optional(),
   polish: z.union([z.string(), z.array(z.string())]).optional(),
@@ -28,8 +37,8 @@ export const diamondSearchSchema = z.object({
   pav_angle_min: z.coerce.number().positive().optional(),
   pav_angle_max: z.coerce.number().positive().optional(),
   lab: z.union([z.string(), z.array(z.string())]).optional(),
-  eye_clean: z.coerce.boolean().optional(),
-  no_bgm: z.coerce.boolean().optional(),
+  eye_clean: booleanQueryParam,
+  no_bgm: booleanQueryParam,
   length_min: z.coerce.number().positive().optional(),
   length_max: z.coerce.number().positive().optional(),
   width_min: z.coerce.number().positive().optional(),
