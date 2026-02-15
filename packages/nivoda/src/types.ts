@@ -169,3 +169,9 @@ export interface NivodaOrderItemInput {
   return_option?: boolean;
   destinationId?: string;
 }
+
+export interface NivodaDiamondAvailability {
+  id: string;
+  availability: string;
+  HoldId?: string;
+}

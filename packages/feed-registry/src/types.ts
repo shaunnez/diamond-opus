@@ -135,6 +135,12 @@ export interface TradingOrderOptions {
   comments?: string;
 }
 
+export interface TradingAvailabilityResult {
+  available: boolean;
+  status: 'available' | 'on_hold' | 'sold' | 'unavailable';
+  message?: string;
+}
+
 /**
  * Optional trading capability for a feed.
  *
@@ -147,6 +153,7 @@ export interface TradingAdapter {
   cancelHold(feedHoldId: string): Promise<void>;
   createOrder(diamond: Diamond, options: TradingOrderOptions): Promise<TradingOrderResult>;
   cancelOrder(feedOrderId: string): Promise<void>;
+  checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult>;
 }
 
 /**

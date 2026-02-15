@@ -111,7 +111,7 @@ export interface HoldResponse {
 }
 
 export interface AvailabilityResponse {
-  id: string;
-  availability: DiamondAvailability;
-  hold_id?: string;
+  available: boolean;
+  status: DiamondAvailability;
+  message?: string;
 }
