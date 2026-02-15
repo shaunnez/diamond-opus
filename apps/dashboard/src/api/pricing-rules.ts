@@ -74,6 +74,9 @@ export interface ReapplyJob {
   completed_at: string | null;
   reverted_at: string | null;
   created_at: string;
+  retry_count: number;
+  last_progress_at: string | null;
+  next_retry_at: string | null;
 }
 
 export async function triggerReapplyPricing(): Promise<{ id: string; total_diamonds: number }> {
@@ -93,4 +96,8 @@ export async function getReapplyJob(id: string): Promise<ReapplyJob> {
 
 export async function revertReapplyJob(id: string): Promise<void> {
   await api.post(`/pricing-rules/reapply/jobs/${id}/revert`);
+}
+
+export async function resumeReapplyJob(id: string): Promise<void> {
+  await api.post(`/pricing-rules/reapply/jobs/${id}/resume`);
 }

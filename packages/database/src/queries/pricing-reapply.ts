@@ -14,6 +14,9 @@ interface ReapplyJobRow {
   completed_at: Date | null;
   reverted_at: Date | null;
   created_at: Date;
+  retry_count: number;
+  last_progress_at: Date | null;
+  next_retry_at: Date | null;
 }
 
 interface ReapplySnapshotRow {
@@ -54,6 +57,9 @@ export interface ReapplyJob {
   completedAt: Date | null;
   revertedAt: Date | null;
   createdAt: Date;
+  retryCount: number;
+  lastProgressAt: Date | null;
+  nextRetryAt: Date | null;
 }
 
 export interface ReapplySnapshot {
@@ -95,6 +101,9 @@ function mapJobRow(row: ReapplyJobRow): ReapplyJob {
     completedAt: row.completed_at,
     revertedAt: row.reverted_at,
     createdAt: row.created_at,
+    retryCount: row.retry_count,
+    lastProgressAt: row.last_progress_at,
+    nextRetryAt: row.next_retry_at,
   };
 }
 
@@ -156,6 +165,9 @@ export async function updateReapplyJobStatus(
     startedAt?: Date;
     completedAt?: Date;
     revertedAt?: Date;
+    retryCount?: number;
+    lastProgressAt?: Date;
+    nextRetryAt?: Date | null;
   }
 ): Promise<void> {
   const setClauses = ['status = $2'];
@@ -189,6 +201,18 @@ export async function updateReapplyJobStatus(
   if (fields?.revertedAt !== undefined) {
     setClauses.push(`reverted_at = $${paramIndex++}`);
     values.push(fields.revertedAt);
+  }
+  if (fields?.retryCount !== undefined) {
+    setClauses.push(`retry_count = $${paramIndex++}`);
+    values.push(fields.retryCount);
+  }
+  if (fields?.lastProgressAt !== undefined) {
+    setClauses.push(`last_progress_at = $${paramIndex++}`);
+    values.push(fields.lastProgressAt);
+  }
+  if (fields?.nextRetryAt !== undefined) {
+    setClauses.push(`next_retry_at = $${paramIndex++}`);
+    values.push(fields.nextRetryAt);
   }
 
   await query(
@@ -402,4 +426,89 @@ export async function revertDiamondPricingFromSnapshots(
   }
 
   return totalReverted;
+}
+
+// --- Monitoring and retry queries ---
+
+/**
+ * Find jobs stuck in 'running' state with no progress for longer than threshold.
+ * @param stallThresholdMinutes - Minutes without progress before considering stalled
+ * @returns Array of stalled job IDs
+ */
+export async function findStalledJobs(stallThresholdMinutes: number): Promise<string[]> {
+  const result = await query<{ id: string }>(
+    `SELECT id FROM pricing_reapply_jobs
+     WHERE status = 'running'
+       AND (last_progress_at IS NULL OR last_progress_at < NOW() - INTERVAL '1 minute' * $1)`,
+    [stallThresholdMinutes]
+  );
+  return result.rows.map(row => row.id);
+}
+
+/**
+ * Find failed jobs eligible for automatic retry.
+ * @param maxRetries - Maximum retry attempts allowed
+ * @returns Array of retryable jobs (limited to 10)
+ */
+export async function findRetryableJobs(maxRetries: number): Promise<ReapplyJob[]> {
+  const result = await query<ReapplyJobRow>(
+    `SELECT * FROM pricing_reapply_jobs
+     WHERE status = 'failed'
+       AND retry_count < $1
+       AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+     ORDER BY next_retry_at ASC NULLS FIRST
+     LIMIT 10`,
+    [maxRetries]
+  );
+  return result.rows.map(mapJobRow);
+}
+
+/**
+ * Mark multiple jobs as failed with stall error (batch update).
+ * @param jobIds - Array of job IDs to mark as stalled
+ * @returns Number of jobs updated
+ */
+export async function markJobsAsStalled(jobIds: string[]): Promise<number> {
+  if (jobIds.length === 0) return 0;
+
+  const result = await query<{ count: string }>(
+    `WITH updated AS (
+      UPDATE pricing_reapply_jobs
+      SET status = 'failed',
+          error = 'Job stalled - no progress for ' || $2 || ' minutes',
+          completed_at = NOW()
+      WHERE id = ANY($1::uuid[])
+        AND status = 'running'
+      RETURNING 1
+    )
+    SELECT COUNT(*)::text as count FROM updated`,
+    [jobIds, 15] // Using constant from plan
+  );
+
+  return parseInt(result.rows[0]?.count ?? '0', 10);
+}
+
+/**
+ * Atomically reset a failed job to pending for retry.
+ * Increments retry_count and transitions status from 'failed' to 'pending'.
+ * @param jobId - Job ID to reset
+ * @returns true if job was reset, false if already picked up (race condition)
+ */
+export async function resetJobForRetry(jobId: string): Promise<boolean> {
+  const result = await query<{ count: string }>(
+    `WITH updated AS (
+      UPDATE pricing_reapply_jobs
+      SET status = 'pending',
+          retry_count = retry_count + 1,
+          error = NULL,
+          next_retry_at = NULL
+      WHERE id = $1
+        AND status = 'failed'
+      RETURNING 1
+    )
+    SELECT COUNT(*)::text as count FROM updated`,
+    [jobId]
+  );
+
+  return parseInt(result.rows[0]?.count ?? '0', 10) > 0;
 }

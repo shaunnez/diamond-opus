@@ -166,3 +166,17 @@ export const CACHE_VERSION_POLL_INTERVAL_MS = parseInt(
 // Currency conversion
 export const FRANKFURTER_API_URL = 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=NZD';
 export const CURRENCY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Pricing reapply job monitoring
+/** Threshold in minutes for detecting stalled reapply jobs (no progress update) */
+export const REAPPLY_JOB_STALL_THRESHOLD_MINUTES = 15;
+/** Maximum retry attempts for failed reapply jobs */
+export const REAPPLY_MAX_RETRIES = 3;
+/** Number of diamonds to reapply pricing per batch */
+export const REAPPLY_BATCH_SIZE = 500;
+/** How often to check for stalled and retryable jobs (ms) */
+export const REAPPLY_MONITOR_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+/** Base delay for first retry (minutes) - multiplied exponentially for subsequent retries */
+export const REAPPLY_RETRY_BASE_DELAY_MINUTES = 5;
+/** Maximum retry delay cap (minutes) */
+export const REAPPLY_RETRY_MAX_DELAY_MINUTES = 30;
