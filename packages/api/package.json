@@ -27,6 +27,7 @@
     "@diamond/demo-feed": "*",
     "@diamond/feed-registry": "*",
     "@diamond/nivoda": "*",
+    "@diamond/pricing-engine": "*",
     "@diamond/shared": "*",
     "cors": "^2.8.5",
     "express": "^4.18.2",

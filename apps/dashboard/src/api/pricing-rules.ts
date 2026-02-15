@@ -59,3 +59,38 @@ export async function updatePricingRule(id: string, updates: UpdatePricingRuleIn
 export async function deletePricingRule(id: string): Promise<void> {
   await api.delete(`/pricing-rules/${id}`);
 }
+
+// --- Reapply pricing ---
+
+export interface ReapplyJob {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'reverted';
+  total_diamonds: number;
+  processed_diamonds: number;
+  failed_diamonds: number;
+  feeds_affected: string[];
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  reverted_at: string | null;
+  created_at: string;
+}
+
+export async function triggerReapplyPricing(): Promise<{ id: string; total_diamonds: number }> {
+  const response = await api.post<{ data: { id: string; total_diamonds: number } }>('/pricing-rules/reapply');
+  return response.data.data;
+}
+
+export async function getReapplyJobs(): Promise<ReapplyJob[]> {
+  const response = await api.get<{ data: { jobs: ReapplyJob[] } }>('/pricing-rules/reapply/jobs');
+  return response.data.data.jobs;
+}
+
+export async function getReapplyJob(id: string): Promise<ReapplyJob> {
+  const response = await api.get<{ data: ReapplyJob }>(`/pricing-rules/reapply/jobs/${id}`);
+  return response.data.data;
+}
+
+export async function revertReapplyJob(id: string): Promise<void> {
+  await api.post(`/pricing-rules/reapply/jobs/${id}/revert`);
+}

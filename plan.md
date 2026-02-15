@@ -1,245 +1,173 @@
-# Diamond E-Commerce Storefront — Implementation Plan
+# Plan: Reapply Pricing Model Button
 
 ## Overview
 
-A standalone "Shopify-like" storefront app for customers to browse, filter, view, hold, and purchase diamonds. Inspired by the Four Words (fourwords.co.nz) design aesthetic — modern, minimal luxury with warm tones, clean typography, and generous whitespace. Only diamonds with `feed = 'demo'` support hold/purchase actions.
+Add a "Reapply Pricing" button to the Pricing Rules dashboard page that asynchronously recalculates `price_model_price`, `markup_ratio`, and `rating` for all available diamonds using the current active pricing rules. Includes progress tracking and revert capability.
 
-## Tech Stack (mirrors dashboard)
+## Architecture Decisions
 
-- **React 18** + **TypeScript**
-- **Vite 5** (dev server + build)
-- **Tailwind CSS 3** (styling)
-- **React Router v6** (client-side routing)
-- **TanStack React Query 5** (data fetching + caching)
-- **Axios** (HTTP client)
-- **Lucide React** (icons)
+**Execution model**: In-process background task on the API server. The API already has patterns for fire-and-forget work (heatmap saves, cache polling). A full Service Bus job is overkill for an operator-triggered one-off. The work is batched and tracked via a DB table, so a partial job is visible and can be re-triggered.
 
-New app at `apps/storefront/` — registered as `@diamond/storefront` workspace.
+**Tracking**: New `pricing_reapply_jobs` table stores job metadata and progress counters. Dashboard polls for status.
 
-## Design Theme (Four Words Inspired)
+**Revert**: New `pricing_reapply_snapshots` table stores per-diamond old/new pricing values. A revert endpoint restores old values from snapshots and increments dataset version.
 
-Four Words is a NZ custom jewellery brand with a modern, understated luxury aesthetic — approachable rather than pretentious, design-forward but warm.
+**Cache invalidation**: On job completion (or revert), call `incrementDatasetVersion()` for each affected feed. The existing 30s version poll in the cache service handles the rest — no new invalidation mechanism needed.
 
-**Color Palette:**
-- Background: warm off-white `#FAF9F7`
-- Surface/cards: white `#FFFFFF` with subtle shadow
-- Primary text: charcoal `#1A1A1A`
-- Secondary text: warm gray `#6B6B6B`
-- Accent/CTA: warm gold `#B8860B` (dark goldenrod)
-- Accent hover: `#9A7209`
-- Borders: light warm gray `#E8E5E0`
-- Success: muted green `#2D6A4F`
-- Hold/warning: warm amber `#D4A017`
-- Error/sold: muted rose `#9B2335`
+**Scope**: Only diamonds with `availability = 'available'` are repriced. The job records which feed(s) were affected.
 
-**Typography:**
-- Headings: serif font (Playfair Display or similar — elegant, editorial)
-- Body: clean sans-serif (Inter — modern, highly readable)
-- Generous letter-spacing on headings, slightly relaxed line-height
+---
 
-**Layout Principles:**
-- Generous whitespace and breathing room
-- Full-width hero/header, contained max-width content (~1280px)
-- Subtle animations (fade-in on scroll, hover lift on cards)
-- Mobile-first responsive design
+## Database Changes
 
-## Pages & Routes
+### New migration: `sql/migrations/005_pricing_reapply_jobs.sql`
 
-### 1. Home / Diamond Search (`/`)
-- Clean header with brand name/logo and minimal nav
-- Filter sidebar (desktop) / slide-out drawer (mobile)
-- Diamond grid (3 columns desktop, 2 tablet, 1 mobile)
-- Sort dropdown (price, carats, color, clarity, newest)
-- Pagination at bottom
-- Total results count
+```sql
+-- Table 1: Job tracking
+CREATE TABLE pricing_reapply_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'reverted')),
+    total_diamonds INTEGER NOT NULL DEFAULT 0,
+    processed_diamonds INTEGER NOT NULL DEFAULT 0,
+    failed_diamonds INTEGER NOT NULL DEFAULT 0,
+    feeds_affected TEXT[] NOT NULL DEFAULT '{}',
+    error TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    reverted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-### 2. Diamond Detail (`/diamonds/:id`)
-- Large media section (video/image)
-- Diamond specs in organized sections
-- Price display (NZD prominent, USD secondary)
-- Action buttons: Hold / Purchase / Cancel Hold
-- Certificate link
-- Back to search breadcrumb
+-- Table 2: Per-diamond snapshots for revert
+CREATE TABLE pricing_reapply_snapshots (
+    job_id UUID NOT NULL REFERENCES pricing_reapply_jobs(id) ON DELETE CASCADE,
+    diamond_id UUID NOT NULL,
+    feed TEXT NOT NULL,
+    old_price_model_price NUMERIC(12,2) NOT NULL,
+    old_markup_ratio NUMERIC(5,4),
+    old_rating INTEGER,
+    new_price_model_price NUMERIC(12,2) NOT NULL,
+    new_markup_ratio NUMERIC(5,4),
+    new_rating INTEGER,
+    PRIMARY KEY (job_id, diamond_id)
+);
 
-### 3. Simple static pages
-- Header/footer present on all pages
-
-## Filter System (from API search params)
-
-All filters map to `GET /api/v2/diamonds` query parameters. The storefront will always include `feed=demo` (hardcoded filter — only demo feed diamonds are shown).
-
-### Visual Shape Picker (with SVG graphics)
-- Round, Oval, Emerald, Cushion, Radiant, Princess, Pear, Marquise, Asscher, Heart
-- Each shape rendered as a clean SVG icon in a selectable chip
-- Multi-select supported
-
-### Slider/Range Filters
-- **Carat**: 0.2 — 10.0 (dual-range slider)
-- **Price (NZD)**: min — max (dual-range slider)
-- **Table %**: 50 — 80
-- **Depth %**: 55 — 75
-
-### Multi-Select Chip Filters
-- **Color**: D, E, F, G, H, I, J, K, L, M (chips)
-- **Clarity**: FL, IF, VVS1, VVS2, VS1, VS2, SI1, SI2, I1, I2, I3
-- **Cut**: Excellent, Very Good, Good, Fair, Poor
-- **Polish**: Excellent, Very Good, Good, Fair, Poor
-- **Symmetry**: Excellent, Very Good, Good, Fair, Poor
-- **Fluorescence**: None, Faint, Medium, Strong, Very Strong
-- **Lab**: GIA, AGS, IGI, HRD, etc.
-
-### Toggle Filters
-- **Lab Grown**: toggle (default: show all)
-- **Eye Clean**: toggle
-- **No BGM** (no brown/green/milky): toggle
-
-### Advanced Filters (collapsible "Advanced" section)
-- Ratio (L/W): min — max
-- Crown Angle: min — max
-- Pavilion Angle: min — max
-- Length/Width/Depth (mm): min — max
-- Fancy Color, Fancy Intensity (multi-select)
-
-## Diamond Card Component
-
-Each card in the grid shows:
-- **Media**: v360 video iframe (interactive) if `videoUrl` exists, otherwise `imageUrl`, otherwise a placeholder SVG of the shape
-- **Shape + Carats**: e.g. "Round 1.52ct"
-- **Specs line**: e.g. "D · VVS1 · Excellent"
-- **Price**: NZD price (prominent), USD secondary
-- **Availability badge**: Available (green) / On Hold (amber) / Sold (rose)
-- **Lab badge**: "GIA" etc. small chip
-- Hover: subtle lift shadow + slight scale
-- Click anywhere on card → navigates to detail page
-
-## Diamond Detail Page
-
-### Media Section (left/top on mobile)
-- Large v360 video player (iframe) or image
-- Full-width on mobile, ~60% on desktop
-
-### Info Section (right/bottom on mobile)
-- **Title**: Shape + Carats (e.g. "Oval 2.01ct")
-- **Price block**: NZD price large, price per carat below
-- **Availability status** with colored badge
-- **Action buttons**:
-  - "Place on Hold" (if available, feed=demo)
-  - "Purchase" (if available or on_hold, feed=demo)
-  - "Cancel Hold" (if on_hold and has hold_id, feed=demo)
-  - Disabled state with tooltip for non-demo diamonds
-- **Specifications grid** (2-column):
-  - Shape, Carats, Color, Clarity, Cut, Polish, Symmetry
-  - Fluorescence, Lab Grown (yes/no), Treated (yes/no)
-  - Certificate: Lab + Number (link to PDF if available)
-  - Ratio, Table %, Depth %
-- **Measurements** (expandable):
-  - Length, Width, Depth (mm)
-  - Crown Angle, Pavilion Angle
-  - Girdle, Culet
-- **Additional Attributes** (expandable):
-  - Eye Clean, BGM indicators
-  - Country of Origin, Mine of Origin
-  - Supplier info
-
-### Hold/Purchase Flow
-- **Hold**: POST `/api/v2/diamonds/:id/hold` → show success with hold expiry date, or denial message
-- **Purchase**: POST `/api/v2/diamonds/:id/purchase` with idempotency key → confirmation modal first, then success/error feedback
-- **Cancel Hold**: POST `/api/v2/nivoda/cancel-hold` with hold_id → confirmation modal, then refresh availability
-- All actions trigger availability re-check after completion
-
-## API Integration
-
-### Endpoints Used
-| Action | Method | Endpoint |
-|--------|--------|----------|
-| Search diamonds | GET | `/api/v2/diamonds?feed=demo&...filters` |
-| Get diamond | GET | `/api/v2/diamonds/:id` |
-| Check availability | POST | `/api/v2/diamonds/:id/availability` |
-| Place hold | POST | `/api/v2/diamonds/:id/hold` |
-| Purchase | POST | `/api/v2/diamonds/:id/purchase` |
-| Cancel hold | POST | `/api/v2/nivoda/cancel-hold` |
-
-### Auth
-- API key stored in localStorage (same pattern as dashboard)
-- Simple login page to enter API key
-- Key sent via `X-API-Key` header on all requests
-
-## File Structure
-
-```
-apps/storefront/
-├── package.json
-├── tsconfig.json
-├── tsconfig.node.json
-├── vite.config.ts
-├── tailwind.config.js
-├── postcss.config.js
-├── index.html
-└── src/
-    ├── main.tsx
-    ├── App.tsx
-    ├── index.css               # Tailwind imports + custom fonts + globals
-    ├── api/
-    │   ├── client.ts           # Axios instance with API key auth
-    │   └── diamonds.ts         # Search, detail, hold, purchase, cancel
-    ├── components/
-    │   ├── layout/
-    │   │   ├── Header.tsx      # Nav bar with brand + login state
-    │   │   ├── Footer.tsx      # Simple footer
-    │   │   └── Layout.tsx      # Wrapper with header + footer
-    │   ├── diamonds/
-    │   │   ├── DiamondCard.tsx  # Grid card component
-    │   │   ├── DiamondGrid.tsx  # Responsive grid container
-    │   │   ├── DiamondMedia.tsx # V360 video or image with fallback
-    │   │   ├── DiamondSpecs.tsx # Specifications grid
-    │   │   ├── DiamondActions.tsx # Hold/Purchase/Cancel buttons
-    │   │   └── ShapeSvg.tsx    # SVG icons for each diamond shape
-    │   ├── filters/
-    │   │   ├── FilterPanel.tsx  # Full filter sidebar/drawer
-    │   │   ├── ShapePicker.tsx  # Visual shape selector with SVGs
-    │   │   ├── RangeSlider.tsx  # Dual-thumb range slider
-    │   │   ├── ChipSelect.tsx   # Multi-select chip group
-    │   │   └── ToggleFilter.tsx # Boolean toggle
-    │   └── ui/
-    │       ├── Badge.tsx        # Status badges
-    │       ├── Button.tsx       # Styled buttons
-    │       ├── Modal.tsx        # Confirmation modals
-    │       ├── Spinner.tsx      # Loading indicator
-    │       └── Pagination.tsx   # Page navigation
-    ├── hooks/
-    │   ├── useAuth.ts          # API key management
-    │   ├── useDiamondSearch.ts # Search with React Query + URL sync
-    │   └── useDiamondActions.ts # Hold/purchase mutations
-    ├── pages/
-    │   ├── SearchPage.tsx      # Home — filters + grid
-    │   ├── DiamondDetailPage.tsx # Single diamond view
-    │   └── LoginPage.tsx       # API key entry
-    ├── types/
-    │   └── diamond.ts          # Frontend type definitions
-    └── utils/
-        ├── format.ts           # Price formatting, carat display
-        └── shapes.ts           # Shape SVG path data
+CREATE INDEX idx_pricing_reapply_snapshots_job ON pricing_reapply_snapshots(job_id);
 ```
 
-## Implementation Order
+---
 
-1. **Scaffold**: Create app, configs (vite, tailwind, tsconfig, package.json), index.html, entry point
-2. **Theme & Layout**: Tailwind theme config, global styles, fonts, Header, Footer, Layout
-3. **API Layer**: Axios client, diamond API functions, types
-4. **Auth**: Login page, useAuth hook, protected route wrapper
-5. **Shape SVGs**: Create clean SVG icons for all 10+ diamond shapes
-6. **Filter Components**: ShapePicker, RangeSlider, ChipSelect, ToggleFilter, FilterPanel
-7. **Diamond Card & Grid**: DiamondCard, DiamondMedia (v360 + fallback), DiamondGrid
-8. **Search Page**: Wire filters → API → grid with React Query, URL state sync, pagination, sorting
-9. **Diamond Detail Page**: Media section, specs, measurements, attributes
-10. **Diamond Actions**: Hold, purchase, cancel-hold with confirmation modals and feedback
-11. **Polish**: Loading states, empty states, error handling, responsive tweaks, animations
-12. **Workspace Integration**: Add to root package.json scripts, verify build
+## Backend Changes
 
-## Notes
+### 1. Database queries: `packages/database/src/queries/pricing-reapply.ts` (new)
 
-- The v360 video URLs are typically iframe-embeddable links — we'll render them in an `<iframe>` that allows user interaction (rotate, zoom)
-- Filter state syncs to URL query params so searches are shareable/bookmarkable
-- All search requests include `feed=demo` filter to scope to demo diamonds only
-- Hold/purchase/cancel actions only enabled for demo feed diamonds (checked via `diamond.feed === 'demo'`)
-- NZD pricing uses the `priceNzd` field from the API (already computed server-side)
+New query file with functions:
+- `createReapplyJob()` — INSERT job, return id
+- `updateReapplyJobStatus(id, status, fields?)` — UPDATE status, counters, error
+- `getReapplyJob(id)` — SELECT single job
+- `getReapplyJobs()` — SELECT all jobs ordered by created_at DESC (with limit)
+- `insertReapplySnapshots(jobId, snapshots[])` — Batch INSERT using UNNEST
+- `getReapplySnapshots(jobId, offset, limit)` — SELECT snapshots for a job (batched for revert)
+- `getAvailableDiamondsBatch(cursor, limit)` — SELECT diamonds WHERE availability = 'available' ordered by id for deterministic cursor-based batching
+- `batchUpdateDiamondPricing(updates[])` — UPDATE diamonds pricing fields using UNNEST
+
+### 2. API routes: `packages/api/src/routes/pricing-rules.ts` (extend existing)
+
+New endpoints added to the existing pricing-rules router:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/pricing-rules/reapply` | Start a new repricing job |
+| `GET` | `/pricing-rules/reapply/jobs` | List all repricing jobs |
+| `GET` | `/pricing-rules/reapply/jobs/:id` | Get job status + progress |
+| `POST` | `/pricing-rules/reapply/jobs/:id/revert` | Revert a completed job |
+
+**POST /pricing-rules/reapply flow:**
+1. Check no other job is currently `running` or `pending` (return 409 if so)
+2. Count available diamonds → set `total_diamonds`
+3. Create job row with status `pending`
+4. Return job id immediately (202 Accepted)
+5. Fire async `executeReapplyJob(jobId)` (not awaited)
+
+**executeReapplyJob(jobId) background logic:**
+1. Set status → `running`, record `started_at`
+2. Load pricing engine with fresh rules: `pricingEngine.loadRules()`
+3. Fetch available diamonds in batches of 500 (by id cursor)
+4. For each batch:
+   - Apply `pricingEngine.applyPricing()` to each diamond
+   - Collect snapshots (old vs new values)
+   - Batch UPDATE diamonds with new pricing values (using UNNEST)
+   - Batch INSERT snapshots
+   - Increment `processed_diamonds` counter in job row
+   - Track distinct feeds seen
+5. On completion: set status → `completed`, record `completed_at`, `feeds_affected`
+6. Call `incrementDatasetVersion(feed)` for each affected feed
+7. On error: set status → `failed`, record error message
+
+**POST /pricing-rules/reapply/jobs/:id/revert flow:**
+1. Validate job exists and status is `completed` (return 400 otherwise)
+2. Set status → `running` (prevent concurrent revert)
+3. Fetch snapshots in batches
+4. Batch UPDATE diamonds restoring `old_price_model_price`, `old_markup_ratio`, `old_rating`
+5. Set status → `reverted`, record `reverted_at`
+6. Call `incrementDatasetVersion(feed)` for each feed in `feeds_affected`
+7. Return 200
+
+### 3. Register queries in `packages/database/src/queries/index.ts`
+
+Export the new pricing-reapply query functions.
+
+---
+
+## Frontend Changes
+
+### 1. API client: `apps/dashboard/src/api/pricing-rules.ts` (extend existing)
+
+Add functions:
+```typescript
+export async function triggerReapplyPricing(): Promise<{ id: string }>
+export async function getReapplyJobs(): Promise<ReapplyJob[]>
+export async function getReapplyJob(id: string): Promise<ReapplyJob>
+export async function revertReapplyJob(id: string): Promise<void>
+```
+
+### 2. Dashboard page: `apps/dashboard/src/pages/PricingRules.tsx` (extend existing)
+
+Add to the existing Pricing Rules page:
+
+- **"Reapply Pricing" button** in the page header (next to "Add Rule")
+  - Disabled while a job is already running
+  - Opens a confirmation modal explaining the action
+
+- **Active job progress bar** (shown when a job is running/pending)
+  - Polls job status every 3s using `useQuery` with `refetchInterval`
+  - Shows: processed / total diamonds, percentage
+  - Auto-stops polling when job completes or fails
+
+- **Job history section** below the rules table
+  - Table showing recent repricing jobs: status, diamond count, duration, created_at
+  - "Revert" button on completed jobs (with confirmation modal)
+  - Badge for status (pending=warning, running=info, completed=success, failed=error, reverted=neutral)
+
+---
+
+## Cache Impact
+
+- **During repricing**: Diamonds are updated in batches. The cache is NOT invalidated mid-job — users may see stale prices until the job completes. This is acceptable since the operation is admin-triggered and brief staleness is tolerable.
+- **After repricing completes**: `incrementDatasetVersion()` is called for each affected feed. Within 30s, the API's version poll detects the change, and the LRU cache entries become stale on next access. ETag changes, so clients with `If-None-Match` get fresh data.
+- **After revert**: Same mechanism — `incrementDatasetVersion()` bumps versions, cache invalidates within 30s.
+- **No mid-job invalidation**: We bump the version only once at the end, not per batch. This avoids excessive cache churn and gives users a consistent view until the job finishes.
+
+---
+
+## File Change Summary
+
+| File | Action |
+|------|--------|
+| `sql/migrations/005_pricing_reapply_jobs.sql` | **New** — migration for job + snapshot tables |
+| `packages/database/src/queries/pricing-reapply.ts` | **New** — query functions for jobs/snapshots |
+| `packages/database/src/queries/index.ts` | **Edit** — export new queries |
+| `packages/api/src/routes/pricing-rules.ts` | **Edit** — add 4 new endpoints + background job logic |
+| `apps/dashboard/src/api/pricing-rules.ts` | **Edit** — add API client functions |
+| `apps/dashboard/src/pages/PricingRules.tsx` | **Edit** — add button, progress bar, job history |
