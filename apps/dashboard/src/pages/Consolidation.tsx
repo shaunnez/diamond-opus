@@ -95,7 +95,7 @@ export function Consolidation() {
     queryKey: ['consolidation-stats', feed],
     queryFn: () => getConsolidationStats(feed),
     refetchInterval: 10000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -106,7 +106,7 @@ export function Consolidation() {
     queryKey: ['consolidation-status', feed],
     queryFn: () => getConsolidationStatus(10, feed),
     refetchInterval: 10000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
