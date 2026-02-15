@@ -265,38 +265,53 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   let paramIndex = 1;
 
   if (filters.runType) {
-    conditions.push(`run_type = $${paramIndex++}`);
+    conditions.push(`rm.run_type = $${paramIndex++}`);
     values.push(filters.runType);
   }
 
   if (filters.feed) {
-    conditions.push(`feed = $${paramIndex++}`);
+    conditions.push(`rm.feed = $${paramIndex++}`);
     values.push(filters.feed);
   }
 
   if (filters.startedAfter) {
-    conditions.push(`started_at >= $${paramIndex++}`);
+    conditions.push(`rm.started_at >= $${paramIndex++}`);
     values.push(filters.startedAfter);
   }
 
   if (filters.startedBefore) {
-    conditions.push(`started_at <= $${paramIndex++}`);
+    conditions.push(`rm.started_at <= $${paramIndex++}`);
     values.push(filters.startedBefore);
   }
 
-  // Status filter requires CASE expression
+  // Status filter uses pre-aggregated partition stats via CTE
+  const needsPartitionStats = !!filters.status;
   if (filters.status) {
-    const statusCondition = getStatusCondition(filters.status);
-    conditions.push(statusCondition);
+    conditions.push(getStatusCondition(filters.status));
   }
 
   const whereClause = conditions.join(' AND ');
   const limit = filters.limit ?? 50;
   const offset = filters.offset ?? 0;
 
+  // CTE for partition stats — only materialized when status filter is active
+  const ppStatsCte = `pp_stats AS (
+      SELECT run_id,
+        COUNT(*) FILTER (WHERE completed = TRUE) as completed_pp,
+        COUNT(*) FILTER (WHERE failed = TRUE AND completed = FALSE) as failed_pp
+      FROM partition_progress
+      GROUP BY run_id
+    )`;
+  const ctePrefix = needsPartitionStats ? `WITH ${ppStatsCte}` : '';
+  const ppJoin = needsPartitionStats ? 'LEFT JOIN pp_stats pp ON rm.run_id = pp.run_id' : '';
+
   const [countResult, dataResult] = await Promise.all([
     query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM run_metadata WHERE ${whereClause}`,
+      `${ctePrefix}
+       SELECT COUNT(*) as count
+       FROM run_metadata rm
+       ${ppJoin}
+       WHERE ${whereClause}`,
       values
     ),
     query<{
@@ -314,26 +329,24 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       last_worker_completed_at: Date | null;
       last_worker_activity_at: Date | null;
     }>(
-      `SELECT
+      `${ctePrefix}
+       SELECT
         rm.*,
-        COALESCE(
-          (SELECT COUNT(*) FROM worker_runs wr2
-           WHERE wr2.run_id = rm.run_id AND wr2.status = 'completed'),
-          0
-        ) as completed_workers_actual,
-        COALESCE(
-          (SELECT COUNT(*) FROM worker_runs wr2
-           WHERE wr2.run_id = rm.run_id AND wr2.status = 'failed'),
-          0
-        ) as failed_workers_actual,
+        COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_workers_actual,
+        COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
         MAX(wr.completed_at) as last_worker_completed_at,
-        (SELECT MAX(pp.updated_at) FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id) as last_worker_activity_at
+        pp_activity.last_activity as last_worker_activity_at
        FROM run_metadata rm
+       ${ppJoin}
        LEFT JOIN worker_runs wr ON rm.run_id = wr.run_id
+       LEFT JOIN LATERAL (
+         SELECT MAX(updated_at) as last_activity
+         FROM partition_progress
+         WHERE run_id = rm.run_id
+       ) pp_activity ON TRUE
        WHERE ${whereClause}
-       GROUP BY rm.run_id
+       GROUP BY rm.run_id, pp_activity.last_activity
        ORDER BY rm.started_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       [...values, limit, offset]
@@ -371,24 +384,24 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   return { runs, total };
 }
 
+/** Returns a WHERE condition referencing pp_stats CTE columns (pre-aggregated partition stats). */
 function getStatusCondition(status: string): string {
-  // Use subqueries against partition_progress instead of legacy run_metadata columns
-  const completedSub = '(SELECT COUNT(*) FROM partition_progress pp WHERE pp.run_id = run_metadata.run_id AND pp.completed = TRUE)';
-  const failedSub = '(SELECT COUNT(*) FROM partition_progress pp WHERE pp.run_id = run_metadata.run_id AND pp.failed = TRUE AND pp.completed = FALSE)';
+  const completedPp = 'COALESCE(pp.completed_pp, 0)';
+  const failedPp = 'COALESCE(pp.failed_pp, 0)';
 
   switch (status) {
     case 'running':
       // Running includes stalled (stall is computed at application level)
-      return `(completed_at IS NULL AND ${failedSub} = 0 AND ${completedSub} < expected_workers)`;
+      return `(rm.completed_at IS NULL AND ${failedPp} = 0 AND ${completedPp} < rm.expected_workers)`;
     case 'stalled':
       // Same SQL filter as running — stall detection is done in getRunStatus()
-      return `(completed_at IS NULL AND ${failedSub} = 0 AND ${completedSub} < expected_workers)`;
+      return `(rm.completed_at IS NULL AND ${failedPp} = 0 AND ${completedPp} < rm.expected_workers)`;
     case 'completed':
-      return `((completed_at IS NOT NULL AND ${failedSub} = 0) OR (${completedSub} >= expected_workers AND ${failedSub} = 0))`;
+      return `((rm.completed_at IS NOT NULL AND ${failedPp} = 0) OR (${completedPp} >= rm.expected_workers AND ${failedPp} = 0))`;
     case 'failed':
-      return `(${failedSub} > 0 AND ${completedSub} + ${failedSub} >= expected_workers)`;
+      return `(${failedPp} > 0 AND ${completedPp} + ${failedPp} >= rm.expected_workers)`;
     case 'partial':
-      return `(${failedSub} > 0 AND ${completedSub} + ${failedSub} < expected_workers)`;
+      return `(${failedPp} > 0 AND ${completedPp} + ${failedPp} < rm.expected_workers)`;
     default:
       return '1=1';
   }
