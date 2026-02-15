@@ -153,6 +153,8 @@ export interface NivodaQuery {
   updated?: NivodaDateRange;
   /** Filter by luster grade. Nivoda query-only parameter (not returned in response). */
   luster?: number[];
+  /** Filter by specific diamond IDs (supplier stone IDs) */
+  ids?: string[];
 }
 
 export interface NivodaHoldResponse {

@@ -19,7 +19,7 @@ import {
   CREATE_HOLD_MUTATION,
   CANCEL_HOLD_MUTATION,
   CREATE_ORDER_MUTATION,
-  DIAMOND_BY_ID_QUERY,
+  GET_DIAMOND_BY_ID_QUERY,
 } from './queries.js';
 import type {
   NivodaQuery,
@@ -71,9 +71,11 @@ interface CreateOrderResponse {
   };
 }
 
-interface DiamondByIdResponse {
+interface GetDiamondByIdResponse {
   as: {
-    diamond: NivodaDiamondAvailability | null;
+    get_diamond_by_id: {
+      diamond: NivodaDiamondAvailability;
+    } | null;
   };
 }
 
@@ -417,16 +419,16 @@ export class NivodaAdapter {
     });
   }
 
-  async checkDiamondAvailability(diamondId: string): Promise<NivodaDiamondAvailability | null> {
+  async getDiamondById(diamondId: string): Promise<NivodaDiamondAvailability | null> {
     return this.executeWithTokenRefresh(async (token) => {
-      const response = await this.transport.request<DiamondByIdResponse>(
-        DIAMOND_BY_ID_QUERY,
+      const response = await this.transport.request<GetDiamondByIdResponse>(
+        GET_DIAMOND_BY_ID_QUERY,
         {
           token,
-          diamondId
+          diamond_id: diamondId
         }
       );
-      return response.as.diamond;
+      return response.as.get_diamond_by_id?.diamond ?? null;
     });
   }
 
