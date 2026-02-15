@@ -558,6 +558,28 @@ variable "scheduler_pg_conn_timeout_ms" {
 }
 
 # ============================================
+# API SEARCH CACHE
+# ============================================
+
+variable "api_cache_max_entries" {
+  description = "Max cached search responses per API replica (default: 500)"
+  type        = number
+  default     = 500
+}
+
+variable "api_cache_ttl_ms" {
+  description = "Safety TTL for cache entries in ms - entries expire even if version unchanged (default: 300000 = 5min)"
+  type        = number
+  default     = 300000
+}
+
+variable "api_cache_version_poll_interval_ms" {
+  description = "How often API polls DB for dataset version changes in ms (default: 30000 = 30s)"
+  type        = number
+  default     = 30000
+}
+
+# ============================================
 # OBSERVABILITY
 # ============================================
 

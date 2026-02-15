@@ -100,7 +100,7 @@ Feed-specific behaviour belongs in `FeedAdapter` implementations and feed regist
 `apps/worker/src/index.ts`
 
 **Consolidation and watermark advancement**
-`apps/consolidator/src/index.ts`
+`apps/consolidator/src/index.ts` — also increments `dataset_versions` for cache invalidation
 
 **Pricing rules and margins**
 `packages/pricing-engine`, `packages/shared/src/constants.ts` for base margins, `pricing_rules` table in sql.
@@ -126,6 +126,16 @@ Feed-specific behaviour belongs in `FeedAdapter` implementations and feed regist
 - Check for `nivoda_proxy_rate_limited` events if workers are getting 429s
 - Trace IDs link worker requests to proxy calls
 - Token rotation requires simultaneous restart of all services to avoid 403 errors
+
+**API search caching:**
+- In-memory LRU cache per API replica, keyed by dataset version + normalized filters + sort + page
+- `dataset_versions` table holds a monotonic counter per feed, incremented by consolidator after successful completion
+- API polls `dataset_versions` every 30s; version change makes old cache entries stale (no explicit invalidation)
+- Separate count cache (keyed by version + filters only) shared across pages
+- ETag based on composite dataset version; returns 304 if client sends matching `If-None-Match`
+- `Cache-Control: public, max-age=60, stale-while-revalidate=300` on search responses
+- `X-Cache: HIT|MISS` header for observability
+- Config: `packages/api/src/services/cache.ts`, constants in `packages/shared/src/constants.ts`
 
 ### Nivoda Query Date Filtering
 
@@ -184,11 +194,14 @@ Dual auth system (checked in order):
 - `packages/api/src/middleware/rateLimiter.ts` - In-memory rate limiter for Nivoda proxy (token bucket with FIFO queue)
 - `packages/api/src/routes/nivodaProxy.ts` - Nivoda proxy route (rate-limited, forwards GraphQL to Nivoda)
 - `packages/nivoda/src/proxyTransport.ts` - Proxy transport (used when NIVODA_PROXY_BASE_URL is set)
+- `packages/api/src/services/cache.ts` - In-memory LRU search cache with version-keyed invalidation
+- `packages/database/src/queries/dataset-versions.ts` - Dataset version queries (get/increment)
 - `packages/database/src/client.ts` - PostgreSQL connection pool
 
 ### Schema
 - `sql/full_schema.sql` - Database schema (run manually in Supabase)
 - `sql/migrations/001_dynamic_pricing_rules.sql` - Dynamic pricing migration (cost-based rules)
+- `sql/migrations/003_dataset_versions.sql` - Dataset version table for cache invalidation
 
 ### Dashboard
 - `apps/dashboard/src/App.tsx` - Main app with routing
@@ -231,6 +244,11 @@ NIVODA_PROXY_TRANSPORT_TIMEOUT_MS = 65000  // Client transport timeout (> proxy 
 // Nivoda query date filtering
 FULL_RUN_START_DATE = '2000-01-01T00:00:00.000Z'  // Start date for full runs
 INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES = 15        // Safety buffer for incremental runs
+
+// API search cache (in-memory per replica, version-keyed)
+CACHE_MAX_ENTRIES = 500              // LRU size per replica (env: CACHE_MAX_ENTRIES)
+CACHE_TTL_MS = 300000                // 5 min safety TTL (env: CACHE_TTL_MS)
+CACHE_VERSION_POLL_INTERVAL_MS = 30000  // Version poll interval (env: CACHE_VERSION_POLL_INTERVAL_MS)
 ```
 
 **Database pool tuning**

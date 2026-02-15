@@ -21,6 +21,13 @@ import {
   type PurchaseRequestBody,
 } from '../validators/index.js';
 import { getNzdRate } from '../services/currency.js';
+import {
+  buildFilterKey,
+  buildSearchCacheKey,
+  getCachedSearch,
+  setCachedSearch,
+  getCompositeVersion,
+} from '../services/cache.js';
 
 const router = Router();
 
@@ -161,8 +168,7 @@ router.get(
         labGrown: query.lab_grown,
         priceMin: query.price_min,
         priceMax: query.price_max,
-        fancyColor:query.fancy_color,
-        // fancyColors: toArray(query.fancy_color),
+        fancyColor: query.fancy_color,
         fancyIntensities: toArray(query.fancy_intensity),
         fluorescenceIntensities: toArray(query.fluorescence_intensity),
         polishes: toArray(query.polish),
@@ -190,13 +196,48 @@ router.get(
         limit: query.limit,
         sortBy: query.sort_by,
         sortOrder: query.sort_order,
-      }
-      const result = await searchDiamonds(payload);
+      };
 
-      res.json({
+      // --- ETag: return 304 if dataset hasn't changed ---
+      const currentVersion = getCompositeVersion();
+      const etag = `"v${currentVersion}"`;
+      if (req.headers['if-none-match'] === etag) {
+        res.status(304).end();
+        return;
+      }
+
+      // --- Cache lookup ---
+      const filterKey = buildFilterKey(payload);
+      const sortBy = payload.sortBy ?? 'created_at';
+      const sortOrder = payload.sortOrder ?? 'desc';
+      const page = payload.page ?? 1;
+      const limit = Math.min(payload.limit ?? 50, 100);
+      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, page, limit);
+
+      const cached = getCachedSearch(cacheKey);
+      if (cached) {
+        res.set('ETag', etag);
+        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        res.set('X-Cache', 'HIT');
+        res.type('json').send(cached);
+        return;
+      }
+
+      // --- Cache miss: query DB ---
+      const result = await searchDiamonds(payload);
+      const responseBody = {
         ...result,
         data: result.data.map(enrichWithNzd),
-      });
+      };
+
+      // Cache the serialized response
+      const responseJson = JSON.stringify(responseBody);
+      setCachedSearch(cacheKey, responseJson);
+
+      res.set('ETag', etag);
+      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      res.set('X-Cache', 'MISS');
+      res.type('json').send(responseJson);
     } catch (error) {
       next(error);
     }

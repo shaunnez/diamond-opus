@@ -188,6 +188,22 @@ resource "azurerm_container_app" "api" {
         name  = "PG_CONN_TIMEOUT_MS"
         value = tostring(var.api_pg_conn_timeout_ms)
       }
+
+      # Search cache configuration
+      env {
+        name  = "CACHE_MAX_ENTRIES"
+        value = tostring(var.api_cache_max_entries)
+      }
+
+      env {
+        name  = "CACHE_TTL_MS"
+        value = tostring(var.api_cache_ttl_ms)
+      }
+
+      env {
+        name  = "CACHE_VERSION_POLL_INTERVAL_MS"
+        value = tostring(var.api_cache_version_poll_interval_ms)
+      }
     }
   }
 

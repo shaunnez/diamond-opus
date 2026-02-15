@@ -34,6 +34,7 @@ import {
   getRunMetadata,
   markConsolidationStarted,
   updateRunConsolidationStats,
+  incrementDatasetVersion,
   insertErrorLog,
   closePool,
   type DiamondInput,
@@ -254,6 +255,10 @@ async function processConsolidation(
   await saveWatermark(watermark, adapter.watermarkBlobName);
 
   log.info('Watermark advanced', { watermark });
+
+  // Bump dataset version so API caches are invalidated
+  const newVersion = await incrementDatasetVersion(adapter.feedId);
+  log.info('Dataset version incremented', { feed: adapter.feedId, version: newVersion });
 
   sendAlert(
     'Consolidation Completed',
