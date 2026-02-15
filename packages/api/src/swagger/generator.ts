@@ -15,7 +15,7 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: '/api/v2',
+        url: '/'
         description: 'Current environment (relative path)',
       },
       {
