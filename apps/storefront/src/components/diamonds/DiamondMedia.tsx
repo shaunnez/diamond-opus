@@ -44,7 +44,8 @@ export function DiamondMedia({
   const [videoError, setVideoError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  
+  const [showIframe, setShowIframe] = useState(size === 'detail');
+
   const containerClasses =
     size === 'detail'
       ? `bg-cream flex items-center justify-center relative overflow-hidden ${className}`
@@ -54,8 +55,16 @@ export function DiamondMedia({
   const normalizedShape = shape?.toUpperCase() ?? '';
   const finalImageUrl = imageUrl || (feed === 'demo' ? DEMO_IMAGES[normalizedShape] : undefined);
   const isDesktop = window.innerWidth >= 1024;
-  // V360 video — render as interactive iframe
-  if (videoUrl && !videoError) { 
+
+  const handleInteraction = () => {
+    if (size === 'card' && videoUrl && !videoError) {
+      setShowIframe(true);
+    }
+  };
+
+  // For card size on search page: show iframe only after user interaction
+  // For detail page: show iframe immediately
+  if (videoUrl && !videoError && showIframe) {
     return (
       <div className={containerClasses}>
         {!videoLoaded && <Skeleton />}
@@ -72,15 +81,19 @@ export function DiamondMedia({
           onError={() => setVideoError(true)}
           style={{ overflow: 'hidden' }}
         />
-      
+
       </div>
     );
   }
 
-  // Image fallback
+  // Image fallback or initial view for cards with video
   if (finalImageUrl && !imgError) {
     return (
-      <div className={containerClasses}>
+      <div
+        className={containerClasses}
+        onMouseEnter={handleInteraction}
+        onClick={handleInteraction}
+      >
         {!imgLoaded && <Skeleton />}
         <img
           src={finalImageUrl}
@@ -98,7 +111,11 @@ export function DiamondMedia({
 
   // Shape SVG placeholder
   return (
-    <div className={containerClasses}>
+    <div
+      className={containerClasses}
+      onMouseEnter={handleInteraction}
+      onClick={handleInteraction}
+    >
       <ShapeSvg
         shape={shape}
         size={size === 'detail' ? 120 : 64}
