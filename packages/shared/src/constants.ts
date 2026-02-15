@@ -146,6 +146,23 @@ export const LAB_BASE_MARGIN = 79;
 /** Base margin for fancy colored diamonds (both lab and natural) */
 export const FANCY_BASE_MARGIN = 40;
 
+// API search cache (in-memory per replica, version-keyed)
+/** Max cached search responses per API replica */
+export const CACHE_MAX_ENTRIES = parseInt(
+  process.env.CACHE_MAX_ENTRIES ?? '500',
+  10
+);
+/** Safety TTL - entries expire after this even if version hasn't changed (ms) */
+export const CACHE_TTL_MS = parseInt(
+  process.env.CACHE_TTL_MS ?? '300000',
+  10
+);
+/** How often to poll DB for dataset version changes (ms) */
+export const CACHE_VERSION_POLL_INTERVAL_MS = parseInt(
+  process.env.CACHE_VERSION_POLL_INTERVAL_MS ?? '30000',
+  10
+);
+
 // Currency conversion
 export const FRANKFURTER_API_URL = 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=NZD';
 export const CURRENCY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours

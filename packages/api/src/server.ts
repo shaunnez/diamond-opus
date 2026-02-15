@@ -6,6 +6,7 @@ import routes from "./routes/index.js";
 import { errorHandler } from "./middleware/index.js";
 import { spec } from "./swagger/generator.js";
 import { initCurrencyService } from "./services/currency.js";
+import { initCacheService } from "./services/cache.js";
 
 const logger = createServiceLogger('api');
 
@@ -75,6 +76,7 @@ export async function startServer(): Promise<void> {
   const port = parseInt(optionalEnv("PORT", "3000"), 10);
 
   await initCurrencyService();
+  await initCacheService();
 
   app.listen(port, "0.0.0.0", () => {
     logger.info("Server started", { port });

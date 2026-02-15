@@ -200,6 +200,7 @@ All prices stored in **dollars** as DECIMAL(12,2). Soft deletes via `status = 'd
 |-------|---------|
 | `api_keys` | API authentication (SHA256 hashed keys) |
 | `raw_diamonds_nivoda` | Staging table for raw Nivoda JSON payloads |
+| `dataset_versions` | Monotonic version counter per feed for cache invalidation |
 | `diamonds` | Canonical inventory with pricing |
 | `pricing_rules` | Rule-based pricing configuration |
 | `run_metadata` | Batch run tracking |
@@ -255,6 +256,18 @@ Dual auth system (checked in order):
 | `GET/POST` | `/api/v2/pricing-rules` | Pricing rules management |
 
 Swagger UI available at `http://localhost:3000/api-docs`.
+
+### Search Caching
+
+Diamond search responses are cached in-memory per API replica using dataset versioning:
+
+- `dataset_versions` table holds a monotonic counter per feed
+- Consolidator increments the version after successful completion
+- API polls for version changes every 30s; old cache entries naturally become stale
+- Search responses include `ETag` (based on dataset version) and `Cache-Control` headers
+- Clients can send `If-None-Match` to receive `304 Not Modified` when data hasn't changed
+- `X-Cache: HIT|MISS` header indicates cache status
+- Config: `CACHE_MAX_ENTRIES` (500), `CACHE_TTL_MS` (300000), `CACHE_VERSION_POLL_INTERVAL_MS` (30000)
 
 ---
 
@@ -443,6 +456,9 @@ npm run docs:generate        # Regenerate concatenated docs
 | `ALERT_EMAIL_FROM` | Alert sender email | Yes (Consolidator) |
 | `PG_POOL_MAX` | Max DB connections per replica | No (default: 2) |
 | `CONSOLIDATOR_CONCURRENCY` | Concurrent batch upserts | No (default: 2) |
+| `CACHE_MAX_ENTRIES` | LRU cache size per API replica | No (default: 500) |
+| `CACHE_TTL_MS` | Cache entry safety TTL (ms) | No (default: 300000) |
+| `CACHE_VERSION_POLL_INTERVAL_MS` | Dataset version poll interval (ms) | No (default: 30000) |
 | `AZURE_SUBSCRIPTION_ID` | For scheduler job trigger | No (API only) |
 | `AZURE_RESOURCE_GROUP` | For scheduler job trigger | No (API only) |
 | `AZURE_SCHEDULER_JOB_NAME` | For scheduler job trigger | No (API only) |
@@ -477,3 +493,4 @@ npm run docs:generate        # Regenerate concatenated docs
 | `006_rate_limiter.sql` | Rate limiting infrastructure |
 | `007_consolidation_status.sql` | Consolidation status tracking |
 | `008_error_logs.sql` | Error logging table |
+| `003_dataset_versions.sql` | Dataset versioning for API cache invalidation |
