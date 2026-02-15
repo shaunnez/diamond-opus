@@ -19,6 +19,7 @@ import type {
   TradingOrderOptions,
   TradingAvailabilityResult,
 } from '@diamond/feed-registry';
+import { updateDiamondAvailability } from '@diamond/database';
 import { NivodaAdapter, type NivodaAdapterConfig } from './adapter.js';
 import { mapRawPayloadToDiamond } from './mapper.js';
 import type { NivodaQuery, NivodaItem } from './types.js';
@@ -167,9 +168,11 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
 
   async checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult> {
     try {
-      const result = await this.getOrCreateAdapter().checkDiamondAvailability(diamond.supplierStoneId);
+      const result = await this.getOrCreateAdapter().getDiamondById(diamond.supplierStoneId);
 
       if (!result) {
+        // Diamond not found in Nivoda - mark as unavailable in our DB
+        await updateDiamondAvailability(diamond.id, 'unavailable');
         return {
           available: false,
           status: 'unavailable',
@@ -179,31 +182,48 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
 
       // Map Nivoda availability status to our canonical status
       const availability = result.availability.toUpperCase();
+      let canonicalStatus: Diamond['availability'];
+      let response: TradingAvailabilityResult;
 
       if (availability === 'AVAILABLE') {
-        return {
+        canonicalStatus = 'available';
+        response = {
           available: true,
           status: 'available',
         };
       } else if (availability === 'ON HOLD' || availability === 'HOLD' || result.HoldId) {
-        return {
+        canonicalStatus = 'on_hold';
+        response = {
           available: false,
           status: 'on_hold',
           message: result.HoldId ? `Diamond is on hold (Hold ID: ${result.HoldId})` : 'Diamond is on hold',
         };
       } else if (availability === 'SOLD' || availability === 'MEMO') {
-        return {
+        canonicalStatus = 'sold';
+        response = {
           available: false,
           status: 'sold',
           message: 'Diamond has been sold',
         };
       } else {
-        return {
+        canonicalStatus = 'unavailable';
+        response = {
           available: false,
           status: 'unavailable',
           message: `Diamond status: ${result.availability}`,
         };
       }
+
+      // Update our database if the availability has changed
+      if (diamond.availability !== canonicalStatus) {
+        await updateDiamondAvailability(
+          diamond.id,
+          canonicalStatus,
+          result.HoldId || undefined
+        );
+      }
+
+      return response;
     } catch (error) {
       throw new Error(
         `Failed to check availability with Nivoda: ${error instanceof Error ? error.message : String(error)}`

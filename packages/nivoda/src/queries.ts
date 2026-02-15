@@ -192,13 +192,15 @@ export const CREATE_ORDER_MUTATION = gql`
   }
 `;
 
-export const DIAMOND_BY_ID_QUERY = gql`
-  query DiamondById($token: String!, $diamondId: ID!) {
+export const GET_DIAMOND_BY_ID_QUERY = gql`
+  query GetDiamondById($token: String!, $diamond_id: ID!) {
     as(token: $token) {
-      diamond(id: $diamondId) {
-        id
-        availability
-        HoldId
+      get_diamond_by_id(diamond_id: $diamond_id) {
+        diamond {
+          id
+          availability
+          HoldId
+        }
       }
     }
   }
