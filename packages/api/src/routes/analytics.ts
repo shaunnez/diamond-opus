@@ -223,7 +223,7 @@ router.put('/watermark', async (req: Request, res: Response, next: NextFunction)
  *         schema:
  *           type: integer
  *           default: 50
- *           maximum: 100
+ *           maximum: 500
  *     responses:
  *       200:
  *         description: List of runs with statistics

@@ -265,22 +265,22 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   let paramIndex = 1;
 
   if (filters.runType) {
-    conditions.push(`run_type = $${paramIndex++}`);
+    conditions.push(`rm.run_type = $${paramIndex++}`);
     values.push(filters.runType);
   }
 
   if (filters.feed) {
-    conditions.push(`feed = $${paramIndex++}`);
+    conditions.push(`rm.feed = $${paramIndex++}`);
     values.push(filters.feed);
   }
 
   if (filters.startedAfter) {
-    conditions.push(`started_at >= $${paramIndex++}`);
+    conditions.push(`rm.started_at >= $${paramIndex++}`);
     values.push(filters.startedAfter);
   }
 
   if (filters.startedBefore) {
-    conditions.push(`started_at <= $${paramIndex++}`);
+    conditions.push(`rm.started_at <= $${paramIndex++}`);
     values.push(filters.startedBefore);
   }
 
@@ -294,9 +294,10 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   const limit = filters.limit ?? 50;
   const offset = filters.offset ?? 0;
 
+  console.log(`SELECT COUNT(*) as count FROM run_metadata WHERE ${whereClause}`)
   const [countResult, dataResult] = await Promise.all([
     query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM run_metadata WHERE ${whereClause}`,
+      `SELECT COUNT(*) as count FROM run_metadata rm WHERE ${whereClause}`,
       values
     ),
     query<{

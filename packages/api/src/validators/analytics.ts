@@ -7,7 +7,7 @@ export const runsQuerySchema = z.object({
   started_after: z.coerce.date().optional(),
   started_before: z.coerce.date().optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(50),
+  limit: z.coerce.number().int().positive().max(500).default(50),
 });
 
 export type RunsQuery = z.infer<typeof runsQuerySchema>;
