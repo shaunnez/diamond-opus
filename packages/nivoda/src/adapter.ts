@@ -19,6 +19,7 @@ import {
   CREATE_HOLD_MUTATION,
   CANCEL_HOLD_MUTATION,
   CREATE_ORDER_MUTATION,
+  DIAMOND_BY_ID_QUERY,
 } from './queries.js';
 import type {
   NivodaQuery,
@@ -26,6 +27,7 @@ import type {
   NivodaHoldResponse,
   NivodaOrderItemInput,
   NivodaOrder,
+  NivodaDiamondAvailability,
 } from './types.js';
 import { ProxyGraphqlTransport } from "./proxyTransport.js";
 
@@ -66,6 +68,12 @@ interface CancelHoldResponse {
 interface CreateOrderResponse {
   as: {
     create_order: string;
+  };
+}
+
+interface DiamondByIdResponse {
+  as: {
+    diamond: NivodaDiamondAvailability | null;
   };
 }
 
@@ -406,6 +414,19 @@ export class NivodaAdapter {
         }
       );
       return response.as.create_order;
+    });
+  }
+
+  async checkDiamondAvailability(diamondId: string): Promise<NivodaDiamondAvailability | null> {
+    return this.executeWithTokenRefresh(async (token) => {
+      const response = await this.transport.request<DiamondByIdResponse>(
+        DIAMOND_BY_ID_QUERY,
+        {
+          token,
+          diamondId
+        }
+      );
+      return response.as.diamond;
     });
   }
 

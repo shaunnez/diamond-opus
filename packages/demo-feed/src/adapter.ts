@@ -12,6 +12,7 @@ import type {
   TradingHoldResult,
   TradingOrderResult,
   TradingOrderOptions,
+  TradingAvailabilityResult,
 } from '@diamond/feed-registry';
 import { mapRawPayloadToDiamond } from './mapper.js';
 import type { DemoFeedSearchResponse, DemoFeedCountResponse, DemoFeedItem } from './types.js';
@@ -166,6 +167,40 @@ export class DemoFeedAdapter implements FeedAdapter, TradingAdapter {
   async cancelOrder(_feedOrderId: string): Promise<void> {
     // Simulate API call (0.5-1.5s)
     await simulatedDelay(500, 1500);
+  }
+
+  async checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult> {
+    // Simulate API call with realistic delay (1-2.5s)
+    await simulatedDelay(1000, 2500);
+
+    // For demo feed, return the current availability status from the diamond
+    // In a real implementation, this would query the demo feed API
+    const availability = diamond.availability as 'available' | 'on_hold' | 'sold';
+
+    if (availability === 'available') {
+      return {
+        available: true,
+        status: 'available',
+      };
+    } else if (availability === 'on_hold') {
+      return {
+        available: false,
+        status: 'on_hold',
+        message: diamond.holdId ? `Diamond is on hold (Hold ID: ${diamond.holdId})` : 'Diamond is on hold',
+      };
+    } else if (availability === 'sold') {
+      return {
+        available: false,
+        status: 'sold',
+        message: 'Diamond has been sold',
+      };
+    } else {
+      return {
+        available: false,
+        status: 'unavailable',
+        message: `Diamond status: ${availability}`,
+      };
+    }
   }
 
   private buildQueryParams(query: FeedQuery): URLSearchParams {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, ShoppingCart, XCircle, Loader2 } from 'lucide-react';
+import { Shield, ShoppingCart, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Tooltip } from '../ui/Tooltip';
@@ -16,15 +16,19 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
   const [cancelHoldModalOpen, setCancelHoldModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(null);
 
   const actions = useDiamondActions(diamond.id);
   const isDemo = diamond.feed === 'demo';
+  const isNivoda = diamond.feed === 'nivoda';
   const isAvailable = diamond.availability === 'available';
   const isOnHold = diamond.availability === 'on_hold';
+  const supportsAvailabilityCheck = isDemo || isNivoda;
 
   const clearMessages = () => {
     setSuccessMessage(null);
     setErrorMessage(null);
+    setAvailabilityMessage(null);
   };
 
   const handleHold = async () => {
@@ -68,7 +72,27 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
     }
   };
 
-  const isActing = actions.hold.isPending || actions.purchase.isPending || actions.cancelHold.isPending;
+  const handleCheckAvailability = async () => {
+    clearMessages();
+    try {
+      const result = await actions.checkAvailability.mutateAsync();
+      if (result.available) {
+        setAvailabilityMessage('Diamond is available for purchase');
+      } else {
+        setAvailabilityMessage(
+          result.message || `Diamond is ${result.status.replace('_', ' ')}`
+        );
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to check availability');
+    }
+  };
+
+  const isActing =
+    actions.hold.isPending ||
+    actions.purchase.isPending ||
+    actions.cancelHold.isPending ||
+    actions.checkAvailability.isPending;
 
   return (
     <div className="space-y-3">
@@ -82,6 +106,28 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
         <div className="px-4 py-3 bg-sold/10 border border-sold/20 text-sold text-sm">
           {errorMessage}
         </div>
+      )}
+      {availabilityMessage && (
+        <div className="px-4 py-3 bg-primary/10 border border-primary/20 text-primary text-sm">
+          {availabilityMessage}
+        </div>
+      )}
+
+      {/* Check Availability Button */}
+      {supportsAvailabilityCheck && (
+        <Button
+          variant="secondary"
+          onClick={handleCheckAvailability}
+          disabled={isActing}
+          className="flex items-center justify-center gap-2 w-full"
+        >
+          {actions.checkAvailability.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
+          Check Live Availability
+        </Button>
       )}
 
       {/* Action Buttons */}

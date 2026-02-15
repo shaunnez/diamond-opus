@@ -51,7 +51,7 @@ export async function getDiamond(id: string): Promise<Diamond> {
 }
 
 export async function checkAvailability(id: string): Promise<AvailabilityResponse> {
-  const response = await api.post<{ data: AvailabilityResponse }>(`/diamonds/${id}/availability`);
+  const response = await api.get<{ data: AvailabilityResponse }>(`/trading/diamonds/${id}/check-availability`);
   return response.data.data;
 }
 

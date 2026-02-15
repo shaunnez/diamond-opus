@@ -40,6 +40,77 @@ function getTradingAdapter(feedId: string): TradingAdapter {
 
 /**
  * @openapi
+ * /api/v2/trading/diamonds/{id}/check-availability:
+ *   get:
+ *     summary: Check live availability of a diamond from the feed source
+ *     description: |
+ *       Queries the upstream feed (Nivoda, demo, etc.) to get the current real-time
+ *       availability status of a diamond. This checks the actual feed source,
+ *       not just our cached database state.
+ *     tags:
+ *       - Trading
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Internal diamond ID
+ *     responses:
+ *       200:
+ *         description: Availability check result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     available:
+ *                       type: boolean
+ *                     status:
+ *                       type: string
+ *                       enum: [available, on_hold, sold, unavailable]
+ *                     message:
+ *                       type: string
+ *       404:
+ *         description: Diamond not found
+ *       500:
+ *         description: Failed to check availability with feed
+ */
+router.get(
+  '/diamonds/:id/check-availability',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const diamond = await getDiamondById(req.params.id) as Diamond | null;
+      if (!diamond) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Diamond not found' } });
+        return;
+      }
+
+      const adapter = getTradingAdapter(diamond.feed);
+      const result = await adapter.checkAvailability(diamond);
+
+      res.json({ data: result });
+    } catch (error) {
+      insertErrorLog(
+        'api',
+        `Availability check failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+        { operation: 'trading_check_availability', diamond_id: req.params.id },
+      ).catch(() => {});
+      next(error);
+    }
+  },
+);
+
+/**
+ * @openapi
  * /api/v2/trading/diamonds/search:
  *   get:
  *     summary: Quick search for diamonds by stock ID, offer ID, or cert number
@@ -174,6 +245,20 @@ router.post(
       const diamond = await getDiamondById(diamond_id) as Diamond | null;
       if (!diamond) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Diamond not found' } });
+        return;
+      }
+
+      // Check if diamond is already held or sold
+      if (diamond.availability === 'on_hold') {
+        res.status(400).json({
+          error: { code: 'ALREADY_ON_HOLD', message: 'Diamond is already on hold' },
+        });
+        return;
+      }
+      if (diamond.availability === 'sold') {
+        res.status(400).json({
+          error: { code: 'ALREADY_SOLD', message: 'Diamond has already been purchased' },
+        });
         return;
       }
 
@@ -347,6 +432,20 @@ router.post(
       const diamond = await getDiamondById(diamond_id) as Diamond | null;
       if (!diamond) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Diamond not found' } });
+        return;
+      }
+
+      // Check if diamond is already held or sold
+      if (diamond.availability === 'on_hold') {
+        res.status(400).json({
+          error: { code: 'ALREADY_ON_HOLD', message: 'Diamond is already on hold. Please release the hold before purchasing.' },
+        });
+        return;
+      }
+      if (diamond.availability === 'sold') {
+        res.status(400).json({
+          error: { code: 'ALREADY_SOLD', message: 'Diamond has already been purchased' },
+        });
         return;
       }
 

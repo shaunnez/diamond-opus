@@ -17,6 +17,7 @@ import type {
   TradingHoldResult,
   TradingOrderResult,
   TradingOrderOptions,
+  TradingAvailabilityResult,
 } from '@diamond/feed-registry';
 import { NivodaAdapter, type NivodaAdapterConfig } from './adapter.js';
 import { mapRawPayloadToDiamond } from './mapper.js';
@@ -162,5 +163,51 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
 
   async cancelOrder(_feedOrderId: string): Promise<void> {
     throw new Error('Order cancellation is not supported for the Nivoda feed');
+  }
+
+  async checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult> {
+    try {
+      const result = await this.getOrCreateAdapter().checkDiamondAvailability(diamond.supplierStoneId);
+
+      if (!result) {
+        return {
+          available: false,
+          status: 'unavailable',
+          message: 'Diamond not found in Nivoda',
+        };
+      }
+
+      // Map Nivoda availability status to our canonical status
+      const availability = result.availability.toUpperCase();
+
+      if (availability === 'AVAILABLE') {
+        return {
+          available: true,
+          status: 'available',
+        };
+      } else if (availability === 'ON HOLD' || availability === 'HOLD' || result.HoldId) {
+        return {
+          available: false,
+          status: 'on_hold',
+          message: result.HoldId ? `Diamond is on hold (Hold ID: ${result.HoldId})` : 'Diamond is on hold',
+        };
+      } else if (availability === 'SOLD' || availability === 'MEMO') {
+        return {
+          available: false,
+          status: 'sold',
+          message: 'Diamond has been sold',
+        };
+      } else {
+        return {
+          available: false,
+          status: 'unavailable',
+          message: `Diamond status: ${result.availability}`,
+        };
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to check availability with Nivoda: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 }
