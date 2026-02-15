@@ -15,8 +15,12 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
+        url: '/api/v2',
+        description: 'Current environment (relative path)',
+      },
+      {
         url: 'http://localhost:3000',
-        description: 'Development server',
+        description: 'Local development server',
       },
     ],
     components: {
