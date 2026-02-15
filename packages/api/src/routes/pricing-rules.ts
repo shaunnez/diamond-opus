@@ -5,13 +5,28 @@ import {
   createPricingRule,
   updatePricingRule,
   deactivatePricingRule,
+  createReapplyJob,
+  getReapplyJob,
+  getReapplyJobs,
+  getRunningReapplyJob,
+  updateReapplyJobStatus,
+  countAvailableDiamonds,
+  getAvailableDiamondsBatch,
+  batchUpdateDiamondPricing,
+  insertReapplySnapshots,
+  revertDiamondPricingFromSnapshots,
+  incrementDatasetVersion,
 } from "@diamond/database";
 import type { StoneType } from "@diamond/shared";
+import { createServiceLogger } from "@diamond/shared";
+import { PricingEngine } from "@diamond/pricing-engine";
 import { badRequest } from "../middleware/index.js";
 
 const router = Router();
+const log = createServiceLogger("pricing-reapply");
 
 const VALID_STONE_TYPES: StoneType[] = ['natural', 'lab', 'fancy'];
+const REAPPLY_BATCH_SIZE = 500;
 
 /**
  * @openapi
@@ -341,5 +356,359 @@ router.delete(
     }
   }
 );
+
+// =============================================
+// Reapply pricing endpoints
+// =============================================
+
+function formatReapplyJob(job: {
+  id: string;
+  status: string;
+  totalDiamonds: number;
+  processedDiamonds: number;
+  failedDiamonds: number;
+  feedsAffected: string[];
+  error: string | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  revertedAt: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: job.id,
+    status: job.status,
+    total_diamonds: job.totalDiamonds,
+    processed_diamonds: job.processedDiamonds,
+    failed_diamonds: job.failedDiamonds,
+    feeds_affected: job.feedsAffected,
+    error: job.error,
+    started_at: job.startedAt,
+    completed_at: job.completedAt,
+    reverted_at: job.revertedAt,
+    created_at: job.createdAt,
+  };
+}
+
+/**
+ * Background job that reprices all available diamonds using current pricing rules.
+ * Updates progress in the job row as it processes batches.
+ */
+async function executeReapplyJob(jobId: string): Promise<void> {
+  const startedAt = new Date();
+  try {
+    await updateReapplyJobStatus(jobId, "running", { startedAt });
+    log.info("Reapply job started", { jobId });
+
+    const engine = new PricingEngine();
+    await engine.loadRules();
+
+    let cursor: string | null = null;
+    let processedDiamonds = 0;
+    let failedDiamonds = 0;
+    const feedsSet = new Set<string>();
+
+    while (true) {
+      const batch = await getAvailableDiamondsBatch(cursor, REAPPLY_BATCH_SIZE);
+      if (batch.length === 0) break;
+
+      cursor = batch[batch.length - 1]!.id;
+
+      const updates: Array<{
+        id: string;
+        priceModelPrice: number;
+        markupRatio: number;
+        rating: number | undefined;
+      }> = [];
+      const snapshots: Array<{
+        diamondId: string;
+        feed: string;
+        oldPriceModelPrice: number;
+        oldMarkupRatio: number | null;
+        oldRating: number | null;
+        newPriceModelPrice: number;
+        newMarkupRatio: number | null;
+        newRating: number | null;
+      }> = [];
+
+      for (const diamond of batch) {
+        try {
+          const pricing = engine.calculatePricing({
+            feedPrice: diamond.feedPrice,
+            carats: diamond.carats ?? undefined,
+            labGrown: diamond.labGrown,
+            fancyColor: diamond.fancyColor ?? undefined,
+            feed: diamond.feed,
+          });
+
+          updates.push({
+            id: diamond.id,
+            priceModelPrice: pricing.priceModelPrice,
+            markupRatio: pricing.markupRatio,
+            rating: pricing.rating,
+          });
+
+          snapshots.push({
+            diamondId: diamond.id,
+            feed: diamond.feed,
+            oldPriceModelPrice: diamond.priceModelPrice ?? diamond.feedPrice,
+            oldMarkupRatio: diamond.markupRatio,
+            oldRating: diamond.rating,
+            newPriceModelPrice: pricing.priceModelPrice,
+            newMarkupRatio: pricing.markupRatio,
+            newRating: pricing.rating ?? null,
+          });
+
+          feedsSet.add(diamond.feed);
+        } catch (err) {
+          failedDiamonds++;
+          log.warn("Failed to reprice diamond", {
+            jobId,
+            diamondId: diamond.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      if (updates.length > 0) {
+        await batchUpdateDiamondPricing(updates);
+        await insertReapplySnapshots(jobId, snapshots);
+      }
+
+      processedDiamonds += batch.length;
+
+      await updateReapplyJobStatus(jobId, "running", {
+        processedDiamonds,
+        failedDiamonds,
+      });
+
+      log.info("Reapply batch processed", {
+        jobId,
+        processedDiamonds,
+        batchSize: batch.length,
+      });
+    }
+
+    const feedsAffected = Array.from(feedsSet);
+
+    await updateReapplyJobStatus(jobId, "completed", {
+      processedDiamonds,
+      failedDiamonds,
+      feedsAffected,
+      completedAt: new Date(),
+    });
+
+    // Invalidate cache for affected feeds
+    for (const feed of feedsAffected) {
+      const newVersion = await incrementDatasetVersion(feed);
+      log.info("Dataset version incremented after reapply", { feed, version: newVersion });
+    }
+
+    log.info("Reapply job completed", {
+      jobId,
+      processedDiamonds,
+      failedDiamonds,
+      feedsAffected,
+      durationMs: Date.now() - startedAt.getTime(),
+    });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    log.error("Reapply job failed", { jobId, error: errorMsg });
+    await updateReapplyJobStatus(jobId, "failed", {
+      error: errorMsg,
+      completedAt: new Date(),
+    });
+  }
+}
+
+/**
+ * @openapi
+ * /api/v2/pricing-rules/reapply:
+ *   post:
+ *     summary: Start an async repricing job for all available diamonds
+ *     tags:
+ *       - Pricing Rules
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     responses:
+ *       202:
+ *         description: Repricing job accepted
+ *       409:
+ *         description: A repricing job is already running
+ *       401:
+ *         description: Unauthorized
+ */
+router.post("/reapply", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const running = await getRunningReapplyJob();
+    if (running) {
+      res.status(409).json({
+        error: "A repricing job is already in progress",
+        data: formatReapplyJob(running),
+      });
+      return;
+    }
+
+    const totalDiamonds = await countAvailableDiamonds();
+    if (totalDiamonds === 0) {
+      throw badRequest("No available diamonds to reprice");
+    }
+
+    const jobId = await createReapplyJob(totalDiamonds);
+
+    // Fire-and-forget
+    executeReapplyJob(jobId).catch((err) => {
+      log.error("Unhandled error in reapply job", {
+        jobId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    res.status(202).json({
+      data: {
+        id: jobId,
+        total_diamonds: totalDiamonds,
+        message: "Repricing job started",
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v2/pricing-rules/reapply/jobs:
+ *   get:
+ *     summary: List repricing job history
+ *     tags:
+ *       - Pricing Rules
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     responses:
+ *       200:
+ *         description: List of repricing jobs
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/reapply/jobs", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const jobs = await getReapplyJobs();
+    res.json({ data: { jobs: jobs.map(formatReapplyJob) } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v2/pricing-rules/reapply/jobs/{id}:
+ *   get:
+ *     summary: Get repricing job status
+ *     tags:
+ *       - Pricing Rules
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Job status
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/reapply/jobs/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const job = await getReapplyJob(req.params.id!);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    res.json({ data: formatReapplyJob(job) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v2/pricing-rules/reapply/jobs/{id}/revert:
+ *   post:
+ *     summary: Revert a completed repricing job
+ *     tags:
+ *       - Pricing Rules
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Revert completed
+ *       400:
+ *         description: Job is not in a revertable state
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post("/reapply/jobs/:id/revert", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const job = await getReapplyJob(req.params.id!);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    if (job.status !== "completed") {
+      throw badRequest(`Cannot revert job with status '${job.status}'. Only completed jobs can be reverted.`);
+    }
+
+    await updateReapplyJobStatus(job.id, "running");
+    log.info("Revert started", { jobId: job.id });
+
+    try {
+      const reverted = await revertDiamondPricingFromSnapshots(job.id);
+
+      await updateReapplyJobStatus(job.id, "reverted", {
+        revertedAt: new Date(),
+      });
+
+      // Invalidate cache for affected feeds
+      for (const feed of job.feedsAffected) {
+        const newVersion = await incrementDatasetVersion(feed);
+        log.info("Dataset version incremented after revert", { feed, version: newVersion });
+      }
+
+      log.info("Revert completed", { jobId: job.id, diamondsReverted: reverted });
+
+      res.json({
+        data: {
+          message: "Revert completed",
+          diamonds_reverted: reverted,
+        },
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      await updateReapplyJobStatus(job.id, "failed", { error: `Revert failed: ${errorMsg}` });
+      throw err;
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

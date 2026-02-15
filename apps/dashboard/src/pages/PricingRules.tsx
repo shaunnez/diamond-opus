@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, DollarSign, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2, DollarSign, Star, RefreshCw, RotateCcw } from 'lucide-react';
 import {
   getPricingRules,
   createPricingRule,
   updatePricingRule,
   deletePricingRule,
+  triggerReapplyPricing,
+  getReapplyJobs,
+  getReapplyJob,
+  revertReapplyJob,
   type PricingRule,
   type CreatePricingRuleInput,
   type UpdatePricingRuleInput,
   type StoneType,
+  type ReapplyJob,
 } from '../api/pricing-rules';
 import { Header } from '../components/layout/Header';
 import { PageContainer } from '../components/layout/Layout';
@@ -23,6 +28,8 @@ import {
   Alert,
   ConfirmModal,
   useToast,
+  ProgressBar,
+  StatusBadge,
 } from '../components/ui';
 
 const BASE_MARGINS: Record<StoneType, number> = {
@@ -59,6 +66,22 @@ function formatPrice(price: number): string {
   return `$${price.toLocaleString()}`;
 }
 
+function formatDuration(startedAt: string | null, completedAt: string | null): string {
+  if (!startedAt) return '-';
+  const start = new Date(startedAt).getTime();
+  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+  const seconds = Math.round((end - start) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleString();
+}
+
 export function PricingRules() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -67,11 +90,41 @@ export function PricingRules() {
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [formData, setFormData] = useState<RuleFormData>(emptyFormData);
   const [feedFilter, setFeedFilter] = useState<string>('all');
+  const [showReapplyConfirm, setShowReapplyConfirm] = useState(false);
+  const [revertingJobId, setRevertingJobId] = useState<string | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['pricing-rules'],
     queryFn: getPricingRules,
   });
+
+  // Reapply job history
+  const { data: reapplyJobs } = useQuery({
+    queryKey: ['reapply-jobs'],
+    queryFn: getReapplyJobs,
+    refetchInterval: activeJobId ? 3000 : false,
+  });
+
+  // Active job polling
+  const { data: activeJob } = useQuery({
+    queryKey: ['reapply-job', activeJobId],
+    queryFn: () => getReapplyJob(activeJobId!),
+    enabled: !!activeJobId,
+    refetchInterval: 3000,
+  });
+
+  // Detect active job from job list and stop polling when done
+  const runningJob = reapplyJobs?.find(
+    (j: ReapplyJob) => j.status === 'pending' || j.status === 'running'
+  );
+  if (runningJob && activeJobId !== runningJob.id) {
+    setActiveJobId(runningJob.id);
+  }
+  if (activeJob && activeJob.status !== 'pending' && activeJob.status !== 'running' && activeJobId) {
+    setActiveJobId(null);
+    queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
+  }
 
   const createMutation = useMutation({
     mutationFn: createPricingRule,
@@ -109,6 +162,33 @@ export function PricingRules() {
     },
     onError: (error) => {
       addToast({ variant: 'error', title: 'Failed to delete rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
+    },
+  });
+
+  const reapplyMutation = useMutation({
+    mutationFn: triggerReapplyPricing,
+    onSuccess: (data) => {
+      setActiveJobId(data.id);
+      queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
+      setShowReapplyConfirm(false);
+      addToast({ variant: 'success', title: 'Repricing job started', message: `Processing ${data.total_diamonds.toLocaleString()} diamonds` });
+    },
+    onError: (error) => {
+      setShowReapplyConfirm(false);
+      addToast({ variant: 'error', title: 'Failed to start repricing', message: error instanceof Error ? error.message : 'An unknown error occurred' });
+    },
+  });
+
+  const revertMutation = useMutation({
+    mutationFn: revertReapplyJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
+      setRevertingJobId(null);
+      addToast({ variant: 'success', title: 'Pricing reverted successfully' });
+    },
+    onError: (error) => {
+      setRevertingJobId(null);
+      addToast({ variant: 'error', title: 'Failed to revert pricing', message: error instanceof Error ? error.message : 'An unknown error occurred' });
     },
   });
 
@@ -161,6 +241,8 @@ export function PricingRules() {
     return rule.feed === feedFilter;
   }) ?? [];
 
+  const isJobActive = !!runningJob || !!activeJobId;
+
   return (
     <>
       <Header />
@@ -174,14 +256,54 @@ export function PricingRules() {
                 Manage pricing rules for diamond margin modifiers by stone type and cost
               </p>
             </div>
-            <Button
-              variant="primary"
-              onClick={handleOpenCreate}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              Add Rule
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setShowReapplyConfirm(true)}
+                disabled={isJobActive || reapplyMutation.isPending}
+                icon={<RefreshCw className={`w-4 h-4 ${isJobActive ? 'animate-spin' : ''}`} />}
+              >
+                {isJobActive ? 'Repricing...' : 'Reapply Pricing'}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleOpenCreate}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                Add Rule
+              </Button>
+            </div>
           </div>
+
+          {/* Active Job Progress */}
+          {activeJob && (activeJob.status === 'pending' || activeJob.status === 'running') && (
+            <Card>
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-primary-500" />
+                    <span className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                      Repricing in progress
+                    </span>
+                  </div>
+                  <span className="text-sm text-stone-500 dark:text-stone-400">
+                    {activeJob.processed_diamonds.toLocaleString()} / {activeJob.total_diamonds.toLocaleString()} diamonds
+                  </span>
+                </div>
+                <ProgressBar
+                  value={activeJob.processed_diamonds}
+                  max={activeJob.total_diamonds}
+                  showLabel
+                  variant="primary"
+                />
+                {activeJob.failed_diamonds > 0 && (
+                  <p className="text-xs text-error-600 dark:text-error-400">
+                    {activeJob.failed_diamonds} diamonds failed to reprice
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Info */}
           <Alert variant="info" title="How Dynamic Pricing Works">
@@ -343,6 +465,91 @@ export function PricingRules() {
               </div>
             )}
           </Card>
+
+          {/* Repricing Job History */}
+          {reapplyJobs && reapplyJobs.length > 0 && (
+            <Card>
+              <CardHeader
+                title="Repricing History"
+                subtitle="Recent repricing job runs"
+              />
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-600">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Diamonds
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Feeds
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Duration
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Started
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-200 dark:divide-stone-600">
+                    {reapplyJobs.map((job: ReapplyJob) => (
+                      <tr key={job.id} className="hover:bg-stone-50 dark:hover:bg-stone-700/50">
+                        <td className="px-4 py-3">
+                          <StatusBadge status={job.status} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-700 dark:text-stone-300">
+                          {job.processed_diamonds.toLocaleString()} / {job.total_diamonds.toLocaleString()}
+                          {job.failed_diamonds > 0 && (
+                            <span className="text-error-600 dark:text-error-400 ml-1">
+                              ({job.failed_diamonds} failed)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1">
+                            {job.feeds_affected.length > 0
+                              ? job.feeds_affected.map((feed) => (
+                                  <Badge key={feed} variant="info">{feed}</Badge>
+                                ))
+                              : <span className="text-stone-400 dark:text-stone-500 text-sm">-</span>
+                            }
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-700 dark:text-stone-300">
+                          {formatDuration(job.started_at, job.completed_at)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-700 dark:text-stone-300">
+                          {formatDate(job.created_at)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {job.status === 'completed' && (
+                            <button
+                              onClick={() => setRevertingJobId(job.id)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-warning-700 dark:text-warning-400 bg-warning-50 dark:bg-warning-900/20 rounded hover:bg-warning-100 dark:hover:bg-warning-900/40 transition-colors"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Revert
+                            </button>
+                          )}
+                          {job.status === 'failed' && job.error && (
+                            <span className="text-xs text-error-600 dark:text-error-400 max-w-[200px] truncate block">
+                              {job.error}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Create/Edit Modal */}
@@ -513,6 +720,30 @@ export function PricingRules() {
           confirmText="Delete"
           variant="danger"
           loading={deleteMutation.isPending}
+        />
+
+        {/* Reapply Confirmation */}
+        <ConfirmModal
+          isOpen={showReapplyConfirm}
+          onClose={() => setShowReapplyConfirm(false)}
+          onConfirm={() => reapplyMutation.mutate()}
+          title="Reapply Pricing Model"
+          message="This will recalculate prices for all available diamonds using the current pricing rules. The operation runs in the background and can be reverted afterwards. Continue?"
+          confirmText="Reapply"
+          variant="danger"
+          loading={reapplyMutation.isPending}
+        />
+
+        {/* Revert Confirmation */}
+        <ConfirmModal
+          isOpen={!!revertingJobId}
+          onClose={() => setRevertingJobId(null)}
+          onConfirm={() => revertingJobId && revertMutation.mutate(revertingJobId)}
+          title="Revert Pricing Changes"
+          message="This will restore all diamond prices to their values before this repricing job was run. Continue?"
+          confirmText="Revert"
+          variant="danger"
+          loading={revertMutation.isPending}
         />
       </PageContainer>
     </>
