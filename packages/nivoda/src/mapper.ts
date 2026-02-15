@@ -100,7 +100,7 @@ export function mapNivodaItemToDiamond(
     fancyIntensity: certificate.f_intensity ?? undefined,
     fancyOvertone: certificate.f_overtone ?? undefined,
     ratio: computeRatio(certificate.length, certificate.width),
-    labGrown: certificate.labgrown ?? false,
+    labGrown: certificate.labgrown ?? Boolean(certificate.labgrown_type),
     treated: certificate.treated ?? false,
     feedPrice,
     diamondPrice,
