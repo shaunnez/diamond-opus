@@ -95,7 +95,7 @@ export function Holds() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['holds', page],
     queryFn: () => getHolds(page, limit),
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 

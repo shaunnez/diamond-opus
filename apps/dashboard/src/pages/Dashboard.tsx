@@ -67,7 +67,7 @@ export function Dashboard() {
     queryKey: ['dashboard-summary'],
     queryFn: getDashboardSummary,
     refetchInterval: 30000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -79,7 +79,7 @@ export function Dashboard() {
     queryKey: ['recent-runs'],
     queryFn: () => getRuns({ limit: 5 }),
     refetchInterval: 30000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -90,7 +90,7 @@ export function Dashboard() {
     queryKey: ['recent-failed-workers'],
     queryFn: () => getRecentFailedWorkers(10),
     refetchInterval: 30000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -101,7 +101,7 @@ export function Dashboard() {
     queryKey: ['watermark', 'nivoda'],
     queryFn: () => getWatermark('nivoda'),
     refetchInterval: 60000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -112,7 +112,7 @@ export function Dashboard() {
     queryKey: ['watermark', 'demo'],
     queryFn: () => getWatermark('demo'),
     refetchInterval: 60000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -126,7 +126,7 @@ export function Dashboard() {
   } = useQuery({
     queryKey: ['system-config'],
     queryFn: getSystemConfig,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     staleTime: Infinity, // Config rarely changes
   });

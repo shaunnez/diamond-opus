@@ -82,14 +82,14 @@ export function ErrorLogs() {
     queryKey: ['error-logs', filters],
     queryFn: () => getErrorLogs(filters),
     refetchInterval: 30000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
   const { data: services } = useQuery({
     queryKey: ['error-log-services'],
     queryFn: () => getErrorLogServices(),
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 

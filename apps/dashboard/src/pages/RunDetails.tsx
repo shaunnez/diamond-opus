@@ -58,7 +58,7 @@ export function RunDetails() {
       const status = query.state.data?.run?.status;
       return (status === 'running' || status === 'stalled') ? 5000 : false;
     },
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 

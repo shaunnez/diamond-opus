@@ -18,6 +18,7 @@ import {
   PageLoader,
   Alert,
 } from '../components/ui';
+import { RunsChart } from '../components/charts/RunsChart';
 import {
   formatDateShort,
   formatDuration,
@@ -34,11 +35,28 @@ export function Runs() {
   });
   const [showFilters, setShowFilters] = useState(false);
 
+  // Get last week's date for chart
+  const lastWeekDate = new Date();
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+
+  // Chart data query - fetch last week's runs
+  const { data: chartData } = useQuery({
+    queryKey: ['runs-chart'],
+    queryFn: () => getRuns({
+      limit: 350,
+      started_after: lastWeekDate.toISOString(),
+    }),
+    refetchInterval: 60000, // Refresh every minute
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+
+  // Table data query
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['runs', filters],
     queryFn: () => getRuns(filters),
     refetchInterval: (filters.status === 'running' || filters.status === 'stalled') ? 5000 : 30000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
@@ -133,6 +151,11 @@ export function Runs() {
     <>
       <Header onRefresh={refetch} isRefreshing={isFetching} />
       <PageContainer>
+        {/* Pipeline Activity Chart */}
+        {chartData && chartData.data.length > 0 && (
+          <RunsChart runs={chartData.data} />
+        )}
+
         {/* Filters */}
         <Card className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

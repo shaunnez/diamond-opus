@@ -96,7 +96,7 @@ export function Orders() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['orders', page],
     queryFn: () => getOrders(page, limit),
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 
