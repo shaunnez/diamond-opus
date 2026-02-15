@@ -1,18 +1,10 @@
 import { Header } from '../components/layout/Header';
-import { getApiBaseUrl } from '../api/client';
 
+// Always use relative path to leverage nginx proxy in production
+// and Vite proxy in development. This avoids CORS issues and
+// ensures we're loading through the same origin.
 function getSwaggerUrl(): string {
-  const apiBaseUrl = getApiBaseUrl();
-  try {
-    // If VITE_API_URL is an absolute URL (e.g. https://api.example.com/api/v2),
-    // derive /api-docs from the same origin
-    const url = new URL(apiBaseUrl);
-    return `${url.origin}/api-docs/`;
-  } catch {
-    // Relative path (e.g. /api/v2) — api-docs is served from the same host,
-    // either via vite proxy (dev) or nginx proxy (prod)
-    return '/api-docs/';
-  }
+  return '/api-docs';
 }
 
 export function ApiDocs() {

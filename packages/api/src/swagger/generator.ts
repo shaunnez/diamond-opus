@@ -35,7 +35,8 @@ Use either API key OR HMAC authentication, not both.`,
       },
     },
   },
-  apis: [path.join(__dirname, '../routes/diamonds.ts')],
+  // Use glob pattern to match both .ts (dev) and .js (production)
+  apis: [path.join(__dirname, '../routes/diamonds.{ts,js}')],
 };
 
 const spec = swaggerJsdoc(options);
