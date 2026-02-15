@@ -167,7 +167,7 @@ export async function searchDiamonds(
 
   if (params.labGrown !== undefined) {
     conditions.push(`lab_grown = $${paramIndex++}`);
-    values.push(params.labGrown.toString());
+    values.push(params.labGrown);
   }
 
   if (params.priceMin !== undefined) {
