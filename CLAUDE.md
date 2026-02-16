@@ -105,6 +105,14 @@ Feed-specific behaviour belongs in `FeedAdapter` implementations and feed regist
 **Pricing rules and margins**
 `packages/pricing-engine`, `packages/shared/src/constants.ts` for base margins, `pricing_rules` table in sql.
 
+**Optional repricing workflow**
+When creating or updating a pricing rule, the dashboard form includes an optional "Recalculate pricing now" checkbox (default: OFF).
+If enabled, the API creates a repricing job and starts it asynchronously, returning immediately with the job ID.
+The job processes available diamonds in batches, only updating rows where pricing changed (compared with cents rounding for money, epsilon for floats).
+Email notifications are sent on completion or failure.
+Progress is shown in the dashboard with live polling.
+Key files: `packages/api/src/routes/pricing-rules.ts`, `packages/api/src/services/reapply-emails.ts`, `packages/database/src/queries/pricing-reapply.ts`.
+
 **Rate limiting:**
 - Rate limiting is enforced at the API proxy layer using an in-memory token bucket
 - Each API replica rate-limits independently — effective global rate = `per_replica_limit * num_replicas`
@@ -193,15 +201,22 @@ Dual auth system (checked in order):
 - `packages/api/src/middleware/nivodaProxyAuth.ts` - Internal proxy auth (constant-time token comparison)
 - `packages/api/src/middleware/rateLimiter.ts` - In-memory rate limiter for Nivoda proxy (token bucket with FIFO queue)
 - `packages/api/src/routes/nivodaProxy.ts` - Nivoda proxy route (rate-limited, forwards GraphQL to Nivoda)
+- `packages/api/src/routes/pricing-rules.ts` - Pricing rule CRUD and repricing job endpoints
 - `packages/nivoda/src/proxyTransport.ts` - Proxy transport (used when NIVODA_PROXY_BASE_URL is set)
 - `packages/api/src/services/cache.ts` - In-memory LRU search cache with version-keyed invalidation
+- `packages/api/src/services/reapply-emails.ts` - Email notifications for repricing jobs
 - `packages/database/src/queries/dataset-versions.ts` - Dataset version queries (get/increment)
+- `packages/database/src/queries/pricing-reapply.ts` - Repricing job queries (job CRUD, batch scanning, snapshots)
 - `packages/database/src/client.ts` - PostgreSQL connection pool
 
 ### Schema
 - `sql/full_schema.sql` - Database schema (run manually in Supabase)
 - `sql/migrations/001_dynamic_pricing_rules.sql` - Dynamic pricing migration (cost-based rules)
 - `sql/migrations/003_dataset_versions.sql` - Dataset version table for cache invalidation
+- `sql/migrations/005_pricing_reapply_jobs.sql` - Pricing reapply jobs and snapshots tables
+- `sql/migrations/006_pricing_reapply_retry.sql` - Add retry and monitoring columns to reapply jobs
+- `sql/migrations/007_pricing_reapply_updated_diamonds.sql` - Add updated_diamonds column to track changed rows
+- `sql/migrations/008_pricing_reapply_scan_index.sql` - Composite index for efficient reapply job scanning
 
 ### Dashboard
 - `apps/dashboard/src/App.tsx` - Main app with routing
@@ -249,6 +264,22 @@ INCREMENTAL_RUN_SAFETY_BUFFER_MINUTES = 15        // Safety buffer for increment
 CACHE_MAX_ENTRIES = 500              // LRU size per replica (env: CACHE_MAX_ENTRIES)
 CACHE_TTL_MS = 300000                // 5 min safety TTL (env: CACHE_TTL_MS)
 CACHE_VERSION_POLL_INTERVAL_MS = 30000  // Version poll interval (env: CACHE_VERSION_POLL_INTERVAL_MS)
+
+// Pricing reapply job monitoring
+REAPPLY_JOB_STALL_THRESHOLD_MINUTES = 15  // Threshold for detecting stalled jobs
+REAPPLY_MAX_RETRIES = 3                   // Maximum retry attempts for failed jobs
+REAPPLY_BATCH_SIZE = 1000                 // Diamonds per batch (env: REAPPLY_BATCH_SIZE)
+REAPPLY_MONITOR_INTERVAL_MS = 300000      // How often to check for stalled/retryable jobs (5 min)
+REAPPLY_RETRY_BASE_DELAY_MINUTES = 5      // Base delay for first retry
+REAPPLY_RETRY_MAX_DELAY_MINUTES = 30      // Maximum retry delay cap
+```
+
+**Email notifications**
+```bash
+RESEND_API_KEY           # Resend API key for sending emails
+ALERT_EMAIL_FROM         # From email address (default: onboarding@resend.dev)
+ALERT_EMAIL_TO           # Recipient email for alerts and repricing notifications
+DASHBOARD_URL            # Dashboard URL for links in emails (e.g., https://dashboard.example.com)
 ```
 
 **Database pool tuning**

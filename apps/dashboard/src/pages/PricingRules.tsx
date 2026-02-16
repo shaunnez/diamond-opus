@@ -46,6 +46,7 @@ interface RuleFormData {
   feed: string;
   margin_modifier: string;
   rating: string;
+  recalculate_pricing: boolean;
 }
 
 const emptyFormData: RuleFormData = {
@@ -56,6 +57,7 @@ const emptyFormData: RuleFormData = {
   feed: '',
   margin_modifier: '0',
   rating: '',
+  recalculate_pricing: false,
 };
 
 function formatModifier(modifier: number): string {
@@ -128,11 +130,17 @@ export function PricingRules() {
 
   const createMutation = useMutation({
     mutationFn: createPricingRule,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pricing-rules'] });
       setShowCreateModal(false);
       setFormData(emptyFormData);
       addToast({ variant: 'success', title: 'Pricing rule created' });
+
+      if (data.reapply_job_id) {
+        setActiveJobId(data.reapply_job_id);
+        queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
+        addToast({ variant: 'info', title: 'Repricing job started', message: 'Background repricing has been initiated' });
+      }
     },
     onError: (error) => {
       addToast({ variant: 'error', title: 'Failed to create rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
@@ -142,11 +150,17 @@ export function PricingRules() {
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: UpdatePricingRuleInput }) =>
       updatePricingRule(id, updates),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pricing-rules'] });
       setEditingRule(null);
       setFormData(emptyFormData);
       addToast({ variant: 'success', title: 'Pricing rule updated' });
+
+      if (data.reapply_job_id) {
+        setActiveJobId(data.reapply_job_id);
+        queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
+        addToast({ variant: 'info', title: 'Repricing job started', message: 'Background repricing has been initiated' });
+      }
     },
     onError: (error) => {
       addToast({ variant: 'error', title: 'Failed to update rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
@@ -206,6 +220,7 @@ export function PricingRules() {
       feed: rule.feed ?? '',
       margin_modifier: rule.margin_modifier.toString(),
       rating: rule.rating?.toString() ?? '',
+      recalculate_pricing: false,
     });
     setEditingRule(rule);
   };
@@ -214,6 +229,7 @@ export function PricingRules() {
     const input: CreatePricingRuleInput = {
       priority: parseInt(formData.priority, 10),
       margin_modifier: parseFloat(formData.margin_modifier),
+      recalculate_pricing: formData.recalculate_pricing,
     };
 
     if (formData.stone_type !== 'any') input.stone_type = formData.stone_type;
@@ -505,6 +521,11 @@ export function PricingRules() {
                         </td>
                         <td className="px-4 py-3 text-sm text-stone-700 dark:text-stone-300">
                           {job.processed_diamonds.toLocaleString()} / {job.total_diamonds.toLocaleString()}
+                          {job.updated_diamonds > 0 && (
+                            <span className="text-success-600 dark:text-success-400 ml-1">
+                              ({job.updated_diamonds} changed)
+                            </span>
+                          )}
                           {job.failed_diamonds > 0 && (
                             <span className="text-error-600 dark:text-error-400 ml-1">
                               ({job.failed_diamonds} failed)
@@ -673,6 +694,34 @@ export function PricingRules() {
                     }
                     placeholder="Optional quality rating"
                   />
+                </div>
+
+                {/* Recalculate Pricing */}
+                <div className="border-t border-stone-200 dark:border-stone-600 pt-4">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.recalculate_pricing}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, recalculate_pricing: e.target.checked }))
+                      }
+                      className="mt-1 w-4 h-4 rounded border-stone-300 text-primary-600 focus:ring-primary-500"
+                      disabled={isJobActive || createMutation.isPending || updateMutation.isPending}
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-stone-900 dark:text-stone-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                        Recalculate pricing now
+                      </span>
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                        Runs a background repricing job for available diamonds using the latest active rules. The UI will show progress and you will get an email when it completes or fails.
+                      </p>
+                      {isJobActive && (
+                        <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
+                          A repricing job is already running. Please wait for it to complete.
+                        </p>
+                      )}
+                    </div>
+                  </label>
                 </div>
 
                 {(createMutation.error || updateMutation.error) && (

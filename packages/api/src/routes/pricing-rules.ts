@@ -28,6 +28,7 @@ import {
 } from "@diamond/shared";
 import { PricingEngine } from "@diamond/pricing-engine";
 import { badRequest } from "../middleware/index.js";
+import { sendReapplyJobEmail } from "../services/reapply-emails.js";
 
 const router = Router();
 const log = createServiceLogger("pricing-reapply");
@@ -119,6 +120,9 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
  *                 type: integer
  *                 minimum: 1
  *                 maximum: 10
+ *               recalculate_pricing:
+ *                 type: boolean
+ *                 description: If true, start a background repricing job for all available diamonds
  *     responses:
  *       201:
  *         description: Rule created successfully
@@ -126,6 +130,8 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
  *         description: Invalid request
  *       401:
  *         description: Unauthorized
+ *       409:
+ *         description: A repricing job is already running (if recalculate_pricing=true)
  */
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -168,6 +174,53 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       rating: body.rating !== undefined ? parseInt(body.rating, 10) : undefined,
     });
 
+    // Handle optional repricing job
+    let reapplyJobId: string | undefined;
+    if (body.recalculate_pricing === true) {
+      const running = await getRunningReapplyJob();
+      if (running) {
+        res.status(409).json({
+          error: "A repricing job is already in progress",
+          data: {
+            rule: {
+              id: rule.id,
+              priority: rule.priority,
+              stone_type: rule.stoneType,
+              price_min: rule.priceMin,
+              price_max: rule.priceMax,
+              feed: rule.feed,
+              margin_modifier: rule.marginModifier,
+              rating: rule.rating,
+              active: rule.active,
+              created_at: rule.createdAt,
+              updated_at: rule.updatedAt,
+            },
+            running_job: formatReapplyJob(running),
+          },
+        });
+        return;
+      }
+
+      const totalDiamonds = await countAvailableDiamonds();
+      if (totalDiamonds > 0) {
+        reapplyJobId = await createReapplyJob(totalDiamonds);
+
+        // Fire-and-forget
+        executeReapplyJob(reapplyJobId).catch((err) => {
+          log.error("Unhandled error in reapply job", {
+            jobId: reapplyJobId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+
+        log.info("Repricing job started after rule creation", {
+          ruleId: rule.id,
+          jobId: reapplyJobId,
+          totalDiamonds,
+        });
+      }
+    }
+
     res.status(201).json({
       data: {
         id: rule.id,
@@ -181,6 +234,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         active: rule.active,
         created_at: rule.createdAt,
         updated_at: rule.updatedAt,
+        reapply_job_id: reapplyJobId,
       },
     });
   } catch (error) {
@@ -229,6 +283,9 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
  *                 type: integer
  *               active:
  *                 type: boolean
+ *               recalculate_pricing:
+ *                 type: boolean
+ *                 description: If true, start a background repricing job for all available diamonds
  *     responses:
  *       200:
  *         description: Rule updated successfully
@@ -238,6 +295,8 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
  *         description: Unauthorized
  *       404:
  *         description: Rule not found
+ *       409:
+ *         description: A repricing job is already running (if recalculate_pricing=true)
  */
 router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -302,10 +361,47 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
 
     await updatePricingRule(id, updates);
 
+    // Handle optional repricing job
+    let reapplyJobId: string | undefined;
+    if (body.recalculate_pricing === true) {
+      const running = await getRunningReapplyJob();
+      if (running) {
+        res.status(409).json({
+          error: "A repricing job is already in progress",
+          data: {
+            message: "Rule updated successfully",
+            id,
+            running_job: formatReapplyJob(running),
+          },
+        });
+        return;
+      }
+
+      const totalDiamonds = await countAvailableDiamonds();
+      if (totalDiamonds > 0) {
+        reapplyJobId = await createReapplyJob(totalDiamonds);
+
+        // Fire-and-forget
+        executeReapplyJob(reapplyJobId).catch((err) => {
+          log.error("Unhandled error in reapply job", {
+            jobId: reapplyJobId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+
+        log.info("Repricing job started after rule update", {
+          ruleId: id,
+          jobId: reapplyJobId,
+          totalDiamonds,
+        });
+      }
+    }
+
     res.json({
       data: {
         message: "Rule updated successfully",
         id,
+        reapply_job_id: reapplyJobId,
       },
     });
   } catch (error) {
@@ -372,6 +468,7 @@ function formatReapplyJob(job: {
   status: string;
   totalDiamonds: number;
   processedDiamonds: number;
+  updatedDiamonds: number;
   failedDiamonds: number;
   feedsAffected: string[];
   error: string | null;
@@ -388,6 +485,7 @@ function formatReapplyJob(job: {
     status: job.status,
     total_diamonds: job.totalDiamonds,
     processed_diamonds: job.processedDiamonds,
+    updated_diamonds: job.updatedDiamonds,
     failed_diamonds: job.failedDiamonds,
     feeds_affected: job.feedsAffected,
     error: job.error,
@@ -424,8 +522,34 @@ function calculateNextRetryTime(retryCount: number): Date | null {
 }
 
 /**
+ * Compare two pricing values for equality with proper rounding.
+ * Money values (prices) are rounded to cents, floats use epsilon.
+ * @param oldVal - Old value (can be null)
+ * @param newVal - New value
+ * @param isMoney - True for money (cents rounding), false for ratio (epsilon)
+ * @returns True if values are effectively equal
+ */
+function pricingValuesEqual(
+  oldVal: number | null,
+  newVal: number | null,
+  isMoney: boolean
+): boolean {
+  if (oldVal === null && newVal === null) return true;
+  if (oldVal === null || newVal === null) return false;
+
+  if (isMoney) {
+    // Round to cents for money
+    return Math.round(oldVal * 100) === Math.round(newVal * 100);
+  } else {
+    // Use epsilon for floating point comparison
+    return Math.abs(oldVal - newVal) < 0.0001;
+  }
+}
+
+/**
  * Background job that reprices all available diamonds using current pricing rules.
  * Updates progress in the job row as it processes batches.
+ * Only writes updates and snapshots for diamonds with changed pricing.
  * @param jobId - Reapply job ID
  * @param currentRetryCount - Current retry attempt (0 for first attempt)
  */
@@ -444,6 +568,7 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
 
     let cursor: string | null = null;
     let processedDiamonds = 0;
+    let updatedDiamonds = 0;
     let failedDiamonds = 0;
     const feedsSet = new Set<string>();
 
@@ -480,25 +605,39 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
             feed: diamond.feed,
           });
 
-          updates.push({
-            id: diamond.id,
-            priceModelPrice: pricing.priceModelPrice,
-            markupRatio: pricing.markupRatio,
-            rating: pricing.rating,
-          });
+          const oldPrice = diamond.priceModelPrice ?? diamond.feedPrice;
+          const newPrice = pricing.priceModelPrice;
+          const oldRatio = diamond.markupRatio;
+          const newRatio = pricing.markupRatio;
+          const oldRating = diamond.rating;
+          const newRating = pricing.rating ?? null;
 
-          snapshots.push({
-            diamondId: diamond.id,
-            feed: diamond.feed,
-            oldPriceModelPrice: diamond.priceModelPrice ?? diamond.feedPrice,
-            oldMarkupRatio: diamond.markupRatio,
-            oldRating: diamond.rating,
-            newPriceModelPrice: pricing.priceModelPrice,
-            newMarkupRatio: pricing.markupRatio,
-            newRating: pricing.rating ?? null,
-          });
+          // Only update if pricing changed
+          const priceChanged = !pricingValuesEqual(oldPrice, newPrice, true);
+          const ratioChanged = !pricingValuesEqual(oldRatio, newRatio, false);
+          const ratingChanged = oldRating !== newRating;
 
-          feedsSet.add(diamond.feed);
+          if (priceChanged || ratioChanged || ratingChanged) {
+            updates.push({
+              id: diamond.id,
+              priceModelPrice: pricing.priceModelPrice,
+              markupRatio: pricing.markupRatio,
+              rating: pricing.rating,
+            });
+
+            snapshots.push({
+              diamondId: diamond.id,
+              feed: diamond.feed,
+              oldPriceModelPrice: oldPrice,
+              oldMarkupRatio: oldRatio,
+              oldRating: oldRating,
+              newPriceModelPrice: newPrice,
+              newMarkupRatio: newRatio,
+              newRating: newRating,
+            });
+
+            feedsSet.add(diamond.feed);
+          }
         } catch (err) {
           failedDiamonds++;
           log.warn("Failed to reprice diamond", {
@@ -512,12 +651,14 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
       if (updates.length > 0) {
         await batchUpdateDiamondPricing(updates);
         await insertReapplySnapshots(jobId, snapshots);
+        updatedDiamonds += updates.length;
       }
 
       processedDiamonds += batch.length;
 
       await updateReapplyJobStatus(jobId, "running", {
         processedDiamonds,
+        updatedDiamonds,
         failedDiamonds,
         lastProgressAt: new Date(),
       });
@@ -525,17 +666,21 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
       log.info("Reapply batch processed", {
         jobId,
         processedDiamonds,
+        updatedDiamonds,
         batchSize: batch.length,
+        changedInBatch: updates.length,
       });
     }
 
     const feedsAffected = Array.from(feedsSet);
+    const completedAt = new Date();
 
     await updateReapplyJobStatus(jobId, "completed", {
       processedDiamonds,
+      updatedDiamonds,
       failedDiamonds,
       feedsAffected,
-      completedAt: new Date(),
+      completedAt,
     });
 
     // Invalidate cache for affected feeds
@@ -547,13 +692,32 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
     log.info("Reapply job completed", {
       jobId,
       processedDiamonds,
+      updatedDiamonds,
       failedDiamonds,
       feedsAffected,
       durationMs: Date.now() - startedAt.getTime(),
     });
+
+    // Send completion email
+    sendReapplyJobEmail({
+      jobId,
+      status: 'completed',
+      totalDiamonds: processedDiamonds,
+      processedDiamonds,
+      updatedDiamonds,
+      failedDiamonds,
+      startedAt,
+      completedAt,
+    }).catch((emailErr) => {
+      log.error("Failed to send completion email", {
+        jobId,
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+      });
+    });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     const nextRetryAt = calculateNextRetryTime(currentRetryCount + 1);
+    const completedAt = new Date();
 
     log.error("Reapply job failed", {
       jobId,
@@ -565,8 +729,26 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
 
     await updateReapplyJobStatus(jobId, "failed", {
       error: errorMsg,
-      completedAt: new Date(),
+      completedAt,
       nextRetryAt,
+    });
+
+    // Send failure email
+    sendReapplyJobEmail({
+      jobId,
+      status: 'failed',
+      totalDiamonds: 0,
+      processedDiamonds: 0,
+      updatedDiamonds: 0,
+      failedDiamonds: 0,
+      startedAt,
+      completedAt,
+      error: errorMsg,
+    }).catch((emailErr) => {
+      log.error("Failed to send failure email", {
+        jobId,
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+      });
     });
   }
 }
