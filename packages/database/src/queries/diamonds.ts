@@ -310,6 +310,16 @@ export async function searchDiamonds(
     )`);
   }
 
+  if (params.ratingMin !== undefined) {
+    conditions.push(`rating >= $${paramIndex++}`);
+    values.push(params.ratingMin);
+  }
+
+  if (params.ratingMax !== undefined) {
+    conditions.push(`rating <= $${paramIndex++}`);
+    values.push(params.ratingMax);
+  }
+
   const whereClause = conditions.join(' AND ');
   const page = params.page ?? 1;
   const limit = Math.min(params.limit ?? 50, 100);

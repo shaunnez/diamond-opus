@@ -11,6 +11,7 @@ import {
   X,
   BarChart3,
   DollarSign,
+  Star,
   AlertTriangle,
   Hand,
   Package,
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Holds', href: '/holds', icon: Hand },
   { name: 'Orders', href: '/orders', icon: Package },
   { name: 'Price Models', href: '/pricing-rules', icon: DollarSign },
+  { name: 'Rating Rules', href: '/rating-rules', icon: Star },
   { name: 'Error Logs', href: '/error-logs', icon: AlertTriangle },
   { name: 'API Docs', href: '/api-docs', icon: FileText },
 ];
