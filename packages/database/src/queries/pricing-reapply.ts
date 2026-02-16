@@ -330,6 +330,8 @@ export async function insertReapplySnapshots(
 ): Promise<void> {
   if (snapshots.length === 0) return;
 
+  console.log(`[insertReapplySnapshots] Attempting to insert ${snapshots.length} snapshots for job ${jobId}`);
+
   const jobIds: string[] = [];
   const diamondIds: string[] = [];
   const feeds: string[] = [];
@@ -352,19 +354,30 @@ export async function insertReapplySnapshots(
     newRatings.push(s.newRating);
   }
 
-  await query(
-    `INSERT INTO pricing_reapply_snapshots (
-      job_id, diamond_id, feed,
-      old_price_model_price, old_markup_ratio, old_rating,
-      new_price_model_price, new_markup_ratio, new_rating
-    )
-    SELECT * FROM UNNEST(
-      $1::uuid[], $2::uuid[], $3::text[],
-      $4::numeric[], $5::numeric[], $6::integer[],
-      $7::numeric[], $8::numeric[], $9::integer[]
-    )`,
-    [jobIds, diamondIds, feeds, oldPrices, oldRatios, oldRatings, newPrices, newRatios, newRatings]
-  );
+  try {
+    await query(
+      `INSERT INTO pricing_reapply_snapshots (
+        job_id, diamond_id, feed,
+        old_price_model_price, old_markup_ratio, old_rating,
+        new_price_model_price, new_markup_ratio, new_rating
+      )
+      SELECT * FROM UNNEST(
+        $1::uuid[], $2::uuid[], $3::text[],
+        $4::numeric[], $5::numeric[], $6::integer[],
+        $7::numeric[], $8::numeric[], $9::integer[]
+      )
+      ON CONFLICT (job_id, diamond_id) DO NOTHING`,
+      [jobIds, diamondIds, feeds, oldPrices, oldRatios, oldRatings, newPrices, newRatios, newRatings]
+    );
+    console.log(`[insertReapplySnapshots] Successfully inserted/skipped ${snapshots.length} snapshots for job ${jobId}`);
+  } catch (err) {
+    console.error(`[insertReapplySnapshots] Failed to insert snapshots for job ${jobId}`, {
+      error: err instanceof Error ? err.message : String(err),
+      snapshotCount: snapshots.length,
+      firstDiamondId: diamondIds[0],
+    });
+    throw err;
+  }
 }
 
 export async function getReapplySnapshotsBatch(
