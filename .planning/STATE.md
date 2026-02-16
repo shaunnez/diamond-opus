@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 Phase: 1 of 8 (Rate Limiting Separation)
 Plan: 1 of 4 in current phase
 Status: Executing plans
-Last activity: 2026-02-16 — Completed 01-02-PLAN.md (Terraform Infrastructure for Ingestion Proxy)
+Last activity: 2026-02-16 — Completed 01-01-PLAN.md (Create Standalone Ingestion-Proxy Service)
 
 Progress: [██░░░░░░░░] 12%
 
@@ -20,17 +20,17 @@ Progress: [██░░░░░░░░] 12%
 
 **Velocity:**
 - Total plans completed: 1
-- Average duration: 1 min
-- Total execution time: 0.02 hours
+- Average duration: 15 min
+- Total execution time: 0.25 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 1 | 1 min | 1 min |
+| 01 | 1 | 15 min | 15 min |
 
 **Recent Completions:**
-| Phase 01 P02 | 1 min | 2 tasks | 3 files |
+| Phase 01 P01 | 15 min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -45,6 +45,8 @@ Recent decisions affecting current work:
 - Distributed tracing with correlation IDs (critical for debugging multi-service flows)
 - [Phase 01]: Default rate limit set to 25 req/s for ingestion proxy (conservative global bottleneck)
 - [Phase 01]: TCP probes instead of HTTP for ingestion proxy health checks (Pattern 4 from research)
+- [Phase 01-01]: Move rate limiter middleware to shared package for reuse across services (enables proper layering without circular dependencies)
+- [Phase 01-01]: Follow Dockerfile.api pattern for ingestion-proxy Docker build (consistency with existing infrastructure)
 
 ### Pending Todos
 
@@ -52,10 +54,10 @@ None yet.
 
 ### Blockers/Concerns
 
-None yet.
+- [Phase 01-01]: Docker build fails locally with npm "Exit handler never called!" bug (deferred - pattern matches Dockerfile.api which likely works in CI/CD)
 
 ## Session Continuity
 
-Last session: 2026-02-16T23:07:16Z
-Stopped at: Completed 01-02-PLAN.md (Terraform Infrastructure for Ingestion Proxy)
+Last session: 2026-02-16T23:21:54Z
+Stopped at: Completed 01-01-PLAN.md (Create Standalone Ingestion-Proxy Service)
 Resume file: None
