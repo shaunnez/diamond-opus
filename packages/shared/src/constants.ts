@@ -173,7 +173,7 @@ export const REAPPLY_JOB_STALL_THRESHOLD_MINUTES = 15;
 /** Maximum retry attempts for failed reapply jobs */
 export const REAPPLY_MAX_RETRIES = 3;
 /** Number of diamonds to reapply pricing per batch */
-export const REAPPLY_BATCH_SIZE = 500;
+export const REAPPLY_BATCH_SIZE = 5000;
 /** How often to check for stalled and retryable jobs (ms) */
 export const REAPPLY_MONITOR_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 /** Base delay for first retry (minutes) - multiplied exponentially for subsequent retries */
