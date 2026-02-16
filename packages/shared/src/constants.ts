@@ -163,6 +163,18 @@ export const CACHE_VERSION_POLL_INTERVAL_MS = parseInt(
   10
 );
 
+// Analytics cache (in-memory per replica, shorter TTL than search cache)
+/** Max cached analytics responses per API replica */
+export const ANALYTICS_CACHE_MAX_ENTRIES = parseInt(
+  process.env.ANALYTICS_CACHE_MAX_ENTRIES ?? '50',
+  10
+);
+/** Analytics cache TTL — 15 seconds (ms) */
+export const ANALYTICS_CACHE_TTL_MS = parseInt(
+  process.env.ANALYTICS_CACHE_TTL_MS ?? '15000',
+  10
+);
+
 // Currency conversion
 export const FRANKFURTER_API_URL = 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=NZD';
 export const CURRENCY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours

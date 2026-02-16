@@ -36,7 +36,7 @@ import {
   formatNumber,
   truncateId,
 } from '../utils/formatters';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export function RunDetails() {
   const { runId } = useParams<{ runId: string }>();
@@ -138,18 +138,20 @@ export function RunDetails() {
   const canCancel = run.status === 'running' || isStalled;
   const canDelete = run.status === 'failed';
 
-  // Sort workers numerically by partition ID
-  const sortedWorkers = [...workers].sort((a, b) => {
-    const aNum = parseInt(a.partitionId, 10);
-    const bNum = parseInt(b.partitionId, 10);
-    return aNum - bNum;
-  });
+  // Sort workers numerically by partition ID (memoized to avoid re-sorting on every render)
+  const sortedWorkers = useMemo(
+    () => [...workers].sort((a, b) => parseInt(a.partitionId, 10) - parseInt(b.partitionId, 10)),
+    [workers]
+  );
 
-  // Calculate heatmap estimate (approximate - may differ from actual records processed)
-  const heatmapEstimate = workers.reduce((sum, worker) => {
-    const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
-    return sum + (estimate || 0);
-  }, 0);
+  // Calculate heatmap estimate (memoized — only changes when workers change)
+  const heatmapEstimate = useMemo(
+    () => workers.reduce((sum, worker) => {
+      const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
+      return sum + (estimate || 0);
+    }, 0),
+    [workers]
+  );
   const isRunFinished = run.status === 'completed' || run.status === 'failed' ; //|| run.status === 'partial';
 
   // Calculate live duration for running jobs

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -15,10 +15,7 @@ import {
   Server,
 } from 'lucide-react';
 import {
-  getDashboardSummary,
-  getRuns,
-  getRecentFailedWorkers,
-  getWatermark,
+  getDashboardData,
   updateWatermark,
   type RunWithStats,
   type RecentFailedWorker,
@@ -58,68 +55,27 @@ export function Dashboard() {
   const [editingFeed, setEditingFeed] = useState<Feed>('nivoda');
   const [watermarkDate, setWatermarkDate] = useState('');
 
+  // Single combined query replaces 5 separate API calls
   const {
-    data: summary,
-    isLoading: summaryLoading,
-    error: summaryError,
-    refetch: refetchSummary,
+    data: dashboardData,
+    isLoading: dashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
   } = useQuery({
-    queryKey: ['dashboard-summary'],
-    queryFn: getDashboardSummary,
+    queryKey: ['dashboard-data'],
+    queryFn: getDashboardData,
     refetchInterval: 30000,
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
   });
 
-  const {
-    data: recentRuns,
-    isLoading: runsLoading,
-    refetch: refetchRuns,
-  } = useQuery({
-    queryKey: ['recent-runs'],
-    queryFn: () => getRuns({ limit: 5 }),
-    refetchInterval: 30000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: failedWorkers,
-    refetch: refetchFailed,
-  } = useQuery({
-    queryKey: ['recent-failed-workers'],
-    queryFn: () => getRecentFailedWorkers(10),
-    refetchInterval: 30000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: nivodaWatermark,
-    refetch: refetchNivodaWatermark,
-  } = useQuery({
-    queryKey: ['watermark', 'nivoda'],
-    queryFn: () => getWatermark('nivoda'),
-    refetchInterval: 60000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: demoWatermark,
-    refetch: refetchDemoWatermark,
-  } = useQuery({
-    queryKey: ['watermark', 'demo'],
-    queryFn: () => getWatermark('demo'),
-    refetchInterval: 60000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-  });
-
-  const watermarks: Record<Feed, Watermark | null | undefined> = {
-    nivoda: nivodaWatermark,
-    demo: demoWatermark,
-  };
+  // Derive individual pieces from the combined response
+  const summary = dashboardData?.summary;
+  const recentRuns = dashboardData?.runs;
+  const failedWorkers = dashboardData?.failedWorkers;
+  const watermarks = useMemo<Record<Feed, Watermark | null | undefined>>(() => ({
+    nivoda: dashboardData?.watermarks?.nivoda ?? null,
+    demo: dashboardData?.watermarks?.demo ?? null,
+  }), [dashboardData?.watermarks]);
 
   const {
     data: systemConfig,
@@ -127,16 +83,13 @@ export function Dashboard() {
     queryKey: ['system-config'],
     queryFn: getSystemConfig,
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
     staleTime: Infinity, // Config rarely changes
   });
 
   const updateWatermarkMutation = useMutation({
     mutationFn: ({ wm, feed }: { wm: Watermark; feed: Feed }) => updateWatermark(wm, feed),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['watermark'] });
-      refetchNivodaWatermark();
-      refetchDemoWatermark();
+      queryClient.invalidateQueries({ queryKey: ['dashboard-data'] });
       setEditWatermark(false);
       addToast({ variant: 'success', title: 'Watermark updated' });
     },
@@ -150,11 +103,7 @@ export function Dashboard() {
   });
 
   const handleRefresh = () => {
-    refetchSummary();
-    refetchRuns();
-    refetchFailed();
-    refetchNivodaWatermark();
-    refetchDemoWatermark();
+    refetchDashboard();
   };
 
   const [watermarkRunId, setWatermarkRunId] = useState('');
@@ -194,11 +143,11 @@ export function Dashboard() {
     });
   };
 
-  if (summaryLoading) {
+  if (dashboardLoading) {
     return <PageLoader />;
   }
 
-  if (summaryError) {
+  if (dashboardError) {
     return (
       <>
         <Header />
@@ -212,7 +161,7 @@ export function Dashboard() {
   }
 
   // Use nivoda watermark for the "Last Sync" stat card
-  const primaryWatermark = nivodaWatermark;
+  const primaryWatermark = watermarks.nivoda;
 
   return (
     <>
@@ -428,17 +377,17 @@ export function Dashboard() {
                   </Button>
                 }
               />
-              {runsLoading ? (
+              {!recentRuns ? (
                 <div className="animate-pulse space-y-3">
                   {[...Array(3)].map((_, i) => (
                     <div key={i} className="h-16 bg-stone-100 dark:bg-stone-700 rounded-lg" />
                   ))}
                 </div>
-              ) : recentRuns?.data.length === 0 ? (
+              ) : recentRuns.length === 0 ? (
                 <div className="text-center py-8 text-stone-500 dark:text-stone-400">No runs yet</div>
               ) : (
                 <div className="space-y-3">
-                  {recentRuns?.data.map((run: RunWithStats) => (
+                  {recentRuns.map((run: RunWithStats) => (
                     <div
                       key={run.runId}
                       onClick={() => navigate(`/runs/${run.runId}`)}

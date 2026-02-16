@@ -1,22 +1,33 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
-import { Dashboard } from './pages/Dashboard';
-import { Runs } from './pages/Runs';
-import { RunDetails } from './pages/RunDetails';
-import { Consolidation } from './pages/Consolidation';
-import { Feeds } from './pages/Feeds';
-import { Query } from './pages/Query';
-import { Triggers } from './pages/Triggers';
-import { Heatmap } from './pages/Heatmap';
-import { PricingRules } from './pages/PricingRules';
-import { ErrorLogs } from './pages/ErrorLogs';
-import { ApiDocs } from './pages/ApiDocs';
-import { Holds } from './pages/Holds';
-import { Orders } from './pages/Orders';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 import { ToastProvider } from './components/ui';
+
+// Lazy-loaded page components for route-based code splitting
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Runs = lazy(() => import('./pages/Runs').then(m => ({ default: m.Runs })));
+const RunDetails = lazy(() => import('./pages/RunDetails').then(m => ({ default: m.RunDetails })));
+const Consolidation = lazy(() => import('./pages/Consolidation').then(m => ({ default: m.Consolidation })));
+const Feeds = lazy(() => import('./pages/Feeds').then(m => ({ default: m.Feeds })));
+const Query = lazy(() => import('./pages/Query').then(m => ({ default: m.Query })));
+const Triggers = lazy(() => import('./pages/Triggers').then(m => ({ default: m.Triggers })));
+const Heatmap = lazy(() => import('./pages/Heatmap').then(m => ({ default: m.Heatmap })));
+const PricingRules = lazy(() => import('./pages/PricingRules').then(m => ({ default: m.PricingRules })));
+const ErrorLogs = lazy(() => import('./pages/ErrorLogs').then(m => ({ default: m.ErrorLogs })));
+const ApiDocs = lazy(() => import('./pages/ApiDocs').then(m => ({ default: m.ApiDocs })));
+const Holds = lazy(() => import('./pages/Holds').then(m => ({ default: m.Holds })));
+const Orders = lazy(() => import('./pages/Orders').then(m => ({ default: m.Orders })));
+
+function PageSpinner() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+    </div>
+  );
+}
 
 function ProtectedRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -39,22 +50,24 @@ function ProtectedRoutes() {
 
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/runs" element={<Runs />} />
-        <Route path="/runs/:runId" element={<RunDetails />} />
-        <Route path="/consolidation" element={<Consolidation />} />
-        <Route path="/feeds" element={<Feeds />} />
-        <Route path="/query" element={<Query />} />
-        <Route path="/triggers" element={<Triggers />} />
-        <Route path="/heatmap" element={<Heatmap />} />
-        <Route path="/pricing-rules" element={<PricingRules />} />
-        <Route path="/holds" element={<Holds />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/error-logs" element={<ErrorLogs />} />
-        <Route path="/api-docs" element={<ApiDocs />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageSpinner />}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/runs" element={<Runs />} />
+          <Route path="/runs/:runId" element={<RunDetails />} />
+          <Route path="/consolidation" element={<Consolidation />} />
+          <Route path="/feeds" element={<Feeds />} />
+          <Route path="/query" element={<Query />} />
+          <Route path="/triggers" element={<Triggers />} />
+          <Route path="/heatmap" element={<Heatmap />} />
+          <Route path="/pricing-rules" element={<PricingRules />} />
+          <Route path="/holds" element={<Holds />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/error-logs" element={<ErrorLogs />} />
+          <Route path="/api-docs" element={<ApiDocs />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </Layout>
   );
 }

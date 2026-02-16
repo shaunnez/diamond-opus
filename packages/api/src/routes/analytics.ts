@@ -39,32 +39,9 @@ import {
   type TableParams,
   type ConsolidationQuery,
 } from '../validators/index.js';
+import { getCachedAnalytics, setCachedAnalytics } from '../services/cache.js';
 
 const router = Router();
-
-// ============================================================================
-// Azure Blob Storage helpers for watermark
-// ============================================================================
-
-let blobServiceClient: BlobServiceClient | null = null;
-
-function getBlobServiceClient(): BlobServiceClient | null {
-  const connectionString = optionalEnv('AZURE_STORAGE_CONNECTION_STRING', '');
-  if (!connectionString) return null;
-  if (!blobServiceClient) {
-    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-  }
-  return blobServiceClient;
-}
-
-async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    readableStream.on('data', (data: Buffer) => chunks.push(data));
-    readableStream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    readableStream.on('error', reject);
-  });
-}
 
 // ============================================================================
 // Dashboard Summary
@@ -88,8 +65,18 @@ async function streamToString(readableStream: NodeJS.ReadableStream): Promise<st
  */
 router.get('/summary', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    const cacheKey = 'summary';
+    const cached = getCachedAnalytics(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      res.json(JSON.parse(cached));
+      return;
+    }
     const summary = await getDashboardSummary();
-    res.json({ data: summary });
+    const response = { data: summary };
+    setCachedAnalytics(cacheKey, JSON.stringify(response));
+    res.setHeader('X-Cache', 'MISS');
+    res.json(response);
   } catch (error) {
     next(error);
   }
@@ -107,6 +94,102 @@ function resolveWatermarkBlobName(feed?: string): string {
   }
   return WATERMARK_BLOB_NAME;
 }
+
+let blobServiceClient: BlobServiceClient | null = null;
+
+function getBlobServiceClient(): BlobServiceClient | null {
+  const connectionString = optionalEnv('AZURE_STORAGE_CONNECTION_STRING', '');
+  if (!connectionString) return null;
+  if (!blobServiceClient) {
+    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  }
+  return blobServiceClient;
+}
+
+async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    readableStream.on('data', (data: Buffer) => chunks.push(data));
+    readableStream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    readableStream.on('error', reject);
+  });
+}
+
+// ============================================================================
+// Combined Dashboard Endpoint
+// ============================================================================
+
+/**
+ * @openapi
+ * /api/v2/analytics/dashboard:
+ *   get:
+ *     summary: Get all dashboard data in a single request
+ *     description: |
+ *       Returns summary stats, recent runs, failed workers, and watermarks
+ *       in one response. Reduces dashboard page from 5+ API calls to 1.
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     responses:
+ *       200:
+ *         description: Combined dashboard data
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const cacheKey = 'dashboard';
+    const cached = getCachedAnalytics(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      res.json(JSON.parse(cached));
+      return;
+    }
+
+    // Fetch watermarks from blob storage in parallel with DB queries
+    const blobClient = getBlobServiceClient();
+
+    const [summary, runsResult, failedWorkers, ...watermarkResults] = await Promise.all([
+      getDashboardSummary(),
+      getRunsWithStats({ limit: 5 }),
+      getRecentFailedWorkers(10),
+      ...(blobClient
+        ? VALID_WATERMARK_FEEDS.map(async (feed) => {
+            try {
+              const containerClient = blobClient.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
+              const blobRef = containerClient.getBlobClient(`${feed}.json`);
+              const downloadResponse = await blobRef.download();
+              const content = await streamToString(downloadResponse.readableStreamBody!);
+              return JSON.parse(content) as Watermark;
+            } catch {
+              return null;
+            }
+          })
+        : [Promise.resolve(null), Promise.resolve(null)]),
+    ]);
+
+    const watermarks: Record<string, Watermark | null> = {};
+    VALID_WATERMARK_FEEDS.forEach((feed, i) => {
+      watermarks[feed] = (watermarkResults[i] as Watermark | null) ?? null;
+    });
+
+    const response = {
+      data: {
+        summary,
+        runs: runsResult.runs,
+        failedWorkers,
+        watermarks,
+      },
+    };
+    setCachedAnalytics(cacheKey, JSON.stringify(response));
+    res.setHeader('X-Cache', 'MISS');
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get('/watermark', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -367,8 +450,18 @@ router.get('/failed-workers', async (req: Request, res: Response, next: NextFunc
  */
 router.get('/feeds', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    const cacheKey = 'feeds';
+    const cached = getCachedAnalytics(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      res.json(JSON.parse(cached));
+      return;
+    }
     const feeds = await getFeedStats();
-    res.json({ data: feeds });
+    const response = { data: feeds };
+    setCachedAnalytics(cacheKey, JSON.stringify(response));
+    res.setHeader('X-Cache', 'MISS');
+    res.json(response);
   } catch (error) {
     next(error);
   }
@@ -408,8 +501,18 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { feed } = (req as Request & { validatedQuery: ConsolidationQuery }).validatedQuery;
+      const cacheKey = `consol:${feed}`;
+      const cached = getCachedAnalytics(cacheKey);
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        res.json(JSON.parse(cached));
+        return;
+      }
       const stats = await getOverallConsolidationStats(feed as AnalyticsFeed);
-      res.json({ data: stats });
+      const response = { data: stats };
+      setCachedAnalytics(cacheKey, JSON.stringify(response));
+      res.setHeader('X-Cache', 'MISS');
+      res.json(response);
     } catch (error) {
       next(error);
     }
@@ -458,8 +561,18 @@ router.get(
     try {
       const { feed, limit: validatedLimit } = (req as Request & { validatedQuery: ConsolidationQuery }).validatedQuery;
       const limit = validatedLimit ?? 10;
+      const cacheKey = `consol-status:${feed}:${limit}`;
+      const cached = getCachedAnalytics(cacheKey);
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        res.json(JSON.parse(cached));
+        return;
+      }
       const statuses = await getRunsConsolidationStatus(limit, feed as AnalyticsFeed);
-      res.json({ data: statuses });
+      const response = { data: statuses };
+      setCachedAnalytics(cacheKey, JSON.stringify(response));
+      res.setHeader('X-Cache', 'MISS');
+      res.json(response);
     } catch (error) {
       next(error);
     }

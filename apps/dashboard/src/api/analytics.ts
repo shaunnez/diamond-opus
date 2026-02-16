@@ -119,9 +119,22 @@ export interface RunsFilter {
   limit?: number;
 }
 
+// Combined dashboard response type
+export interface DashboardData {
+  summary: DashboardSummary;
+  runs: RunWithStats[];
+  failedWorkers: RecentFailedWorker[];
+  watermarks: Record<string, Watermark | null>;
+}
+
 // API Functions
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const response = await api.get<{ data: DashboardSummary }>('/analytics/summary');
+  return response.data.data;
+}
+
+export async function getDashboardData(): Promise<DashboardData> {
+  const response = await api.get<{ data: DashboardData }>('/analytics/dashboard');
   return response.data.data;
 }
 
