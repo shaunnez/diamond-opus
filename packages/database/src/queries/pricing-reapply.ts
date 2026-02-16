@@ -7,6 +7,7 @@ interface ReapplyJobRow {
   status: string;
   total_diamonds: number;
   processed_diamonds: number;
+  updated_diamonds: number;
   failed_diamonds: number;
   feeds_affected: string[];
   error: string | null;
@@ -50,6 +51,7 @@ export interface ReapplyJob {
   status: string;
   totalDiamonds: number;
   processedDiamonds: number;
+  updatedDiamonds: number;
   failedDiamonds: number;
   feedsAffected: string[];
   error: string | null;
@@ -94,6 +96,7 @@ function mapJobRow(row: ReapplyJobRow): ReapplyJob {
     status: row.status,
     totalDiamonds: row.total_diamonds,
     processedDiamonds: row.processed_diamonds,
+    updatedDiamonds: row.updated_diamonds,
     failedDiamonds: row.failed_diamonds,
     feedsAffected: row.feeds_affected,
     error: row.error,
@@ -159,6 +162,7 @@ export async function updateReapplyJobStatus(
   status: string,
   fields?: {
     processedDiamonds?: number;
+    updatedDiamonds?: number;
     failedDiamonds?: number;
     feedsAffected?: string[];
     error?: string;
@@ -177,6 +181,10 @@ export async function updateReapplyJobStatus(
   if (fields?.processedDiamonds !== undefined) {
     setClauses.push(`processed_diamonds = $${paramIndex++}`);
     values.push(fields.processedDiamonds);
+  }
+  if (fields?.updatedDiamonds !== undefined) {
+    setClauses.push(`updated_diamonds = $${paramIndex++}`);
+    values.push(fields.updatedDiamonds);
   }
   if (fields?.failedDiamonds !== undefined) {
     setClauses.push(`failed_diamonds = $${paramIndex++}`);

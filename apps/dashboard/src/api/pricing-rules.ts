@@ -29,6 +29,7 @@ export interface CreatePricingRuleInput {
   feed?: string;
   margin_modifier: number;
   rating?: number;
+  recalculate_pricing?: boolean;
 }
 
 export interface UpdatePricingRuleInput {
@@ -40,6 +41,7 @@ export interface UpdatePricingRuleInput {
   margin_modifier?: number;
   rating?: number | null;
   active?: boolean;
+  recalculate_pricing?: boolean;
 }
 
 export async function getPricingRules(): Promise<PricingRulesResponse> {
@@ -47,13 +49,15 @@ export async function getPricingRules(): Promise<PricingRulesResponse> {
   return response.data.data;
 }
 
-export async function createPricingRule(rule: CreatePricingRuleInput): Promise<PricingRule> {
-  const response = await api.post<{ data: PricingRule }>('/pricing-rules', rule);
-  return response.data.data;
+export async function createPricingRule(rule: CreatePricingRuleInput): Promise<{ rule: PricingRule; reapply_job_id?: string }> {
+  const response = await api.post<{ data: PricingRule & { reapply_job_id?: string } }>('/pricing-rules', rule);
+  const { reapply_job_id, ...ruleData } = response.data.data;
+  return { rule: ruleData, reapply_job_id };
 }
 
-export async function updatePricingRule(id: string, updates: UpdatePricingRuleInput): Promise<void> {
-  await api.put(`/pricing-rules/${id}`, updates);
+export async function updatePricingRule(id: string, updates: UpdatePricingRuleInput): Promise<{ reapply_job_id?: string }> {
+  const response = await api.put<{ data: { message: string; id: string; reapply_job_id?: string } }>(`/pricing-rules/${id}`, updates);
+  return { reapply_job_id: response.data.data.reapply_job_id };
 }
 
 export async function deletePricingRule(id: string): Promise<void> {
@@ -67,6 +71,7 @@ export interface ReapplyJob {
   status: 'pending' | 'running' | 'completed' | 'failed' | 'reverted';
   total_diamonds: number;
   processed_diamonds: number;
+  updated_diamonds: number;
   failed_diamonds: number;
   feeds_affected: string[];
   error: string | null;
