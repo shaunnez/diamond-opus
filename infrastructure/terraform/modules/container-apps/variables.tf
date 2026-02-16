@@ -280,7 +280,7 @@ variable "nivoda_proxy_timeout_ms" {
 variable "scheduler_cron_expression" {
   description = "Cron expression for scheduler job (e.g., '0 2 * * *' for 2 AM daily)"
   type        = string
-  default     = "0 2 * * *"
+  default     = "0 */4 * * *"
 }
 
 variable "enable_scheduler" {

@@ -180,7 +180,7 @@ variable "hmac_secrets" {
 variable "scheduler_cron_expression" {
   description = "Cron expression for scheduler job. Use '0 2 * * *' for 2 AM daily. Use '0 0 31 2 *' (Feb 31st) to disable scheduled runs while keeping manual trigger capability."
   type        = string
-  default     = "0 0 31 2 *" # Feb 31st = never runs, but job exists for manual triggers
+  default     = "0 */4 * * *" # Feb 31st = never runs, but job exists for manual triggers
 }
 
 variable "enable_scheduler" {
