@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Activity, BarChart3, Clock, History, Layers, Play, RefreshCw, Zap } from 'lucide-react';
 import {
@@ -123,12 +123,17 @@ export function Heatmap() {
 
   const isLoading = runMutation.isPending || previewMutation.isPending;
   const error = runMutation.error || previewMutation.error;
-  const maxCount = result ? Math.max(...result.density_map.map((d) => d.count)) : 0;
 
-  // Group density chunks into price bands for visualization
-  const priceBands = result
-    ? groupIntoPriceBands(result.density_map, 10)
-    : [];
+  // Memoize expensive density computations — only recalculate when result changes
+  const maxCount = useMemo(
+    () => (result ? Math.max(...result.density_map.map((d) => d.count)) : 0),
+    [result]
+  );
+
+  const priceBands = useMemo(
+    () => (result ? groupIntoPriceBands(result.density_map, 10) : []),
+    [result]
+  );
 
   return (
     <>

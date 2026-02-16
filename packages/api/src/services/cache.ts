@@ -3,6 +3,8 @@ import {
   CACHE_MAX_ENTRIES,
   CACHE_TTL_MS,
   CACHE_VERSION_POLL_INTERVAL_MS,
+  ANALYTICS_CACHE_MAX_ENTRIES,
+  ANALYTICS_CACHE_TTL_MS,
   createServiceLogger,
 } from '@diamond/shared';
 import { getAllDatasetVersions } from '@diamond/database';
@@ -123,6 +125,9 @@ const searchCache = new LRUCache<string>(CACHE_MAX_ENTRIES, CACHE_TTL_MS);
 /** Cache for count-only results, keyed by version:filters (shared across pages) */
 const countCache = new LRUCache<number>(Math.ceil(CACHE_MAX_ENTRIES / 2), CACHE_TTL_MS);
 
+/** Cache for analytics endpoint responses (summary, feeds, consolidation) */
+const analyticsCache = new LRUCache<string>(ANALYTICS_CACHE_MAX_ENTRIES, ANALYTICS_CACHE_TTL_MS);
+
 // ---------------------------------------------------------------------------
 // Cache key building
 // ---------------------------------------------------------------------------
@@ -186,10 +191,19 @@ export function setCachedCount(filterKey: string, count: number): void {
   countCache.set(filterKey, count, version);
 }
 
-export function getCacheStats(): { searchEntries: number; countEntries: number; version: string } {
+export function getCachedAnalytics(key: string): string | undefined {
+  return analyticsCache.get(key, getCompositeVersion());
+}
+
+export function setCachedAnalytics(key: string, json: string): void {
+  analyticsCache.set(key, json, getCompositeVersion());
+}
+
+export function getCacheStats(): { searchEntries: number; countEntries: number; analyticsEntries: number; version: string } {
   return {
     searchEntries: searchCache.size,
     countEntries: countCache.size,
+    analyticsEntries: analyticsCache.size,
     version: getCompositeVersion(),
   };
 }
@@ -224,4 +238,5 @@ export function stopCacheService(): void {
   }
   searchCache.clear();
   countCache.clear();
+  analyticsCache.clear();
 }

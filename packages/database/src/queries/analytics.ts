@@ -115,23 +115,32 @@ export interface RunsFilter {
 // ============================================================================
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  // Run all queries in parallel for efficiency
+  // Run queries in parallel — diamond stats merged into single scan
   const [
-    diamondCountsResult,
-    feedCountResult,
+    diamondStatsResult,
     lastSuccessfulRunResult,
     recentRunsResult,
-    availabilityResult,
   ] = await Promise.all([
-    // Total active diamonds
-    query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM diamonds WHERE status = 'active'`
+    // Single scan: total count, feed count, and availability breakdown
+    query<{
+      total_diamonds: string;
+      feed_count: string;
+      available: string;
+      on_hold: string;
+      sold: string;
+      unavailable: string;
+    }>(
+      `SELECT
+        COUNT(*) as total_diamonds,
+        COUNT(DISTINCT feed) as feed_count,
+        COUNT(*) FILTER (WHERE availability = 'available') as available,
+        COUNT(*) FILTER (WHERE availability = 'on_hold') as on_hold,
+        COUNT(*) FILTER (WHERE availability = 'sold') as sold,
+        COUNT(*) FILTER (WHERE availability = 'unavailable') as unavailable
+       FROM diamonds
+       WHERE status = 'active'`
     ),
-    // Total unique feeds
-    query<{ count: string }>(
-      `SELECT COUNT(DISTINCT feed) as count FROM diamonds WHERE status = 'active'`
-    ),
-    // Last successful run (completed with no failures) - compute from worker_runs
+    // Last successful run — NOT EXISTS short-circuits on first failed worker
     query<{
       run_id: string;
       feed: string;
@@ -139,28 +148,22 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       expected_workers: number;
       completed_workers: number;
       failed_workers: number;
-      failed_count_actual: string;
       watermark_before: Date | null;
       watermark_after: Date | null;
       started_at: Date;
       completed_at: Date | null;
     }>(
-      `SELECT rm.*,
-        COALESCE(
-          (SELECT COUNT(*) FROM worker_runs wr
-           WHERE wr.run_id = rm.run_id AND wr.status = 'failed'),
-          0
-        ) as failed_count_actual
+      `SELECT rm.*
        FROM run_metadata rm
        WHERE rm.completed_at IS NOT NULL
-         AND COALESCE(
-           (SELECT COUNT(*) FROM worker_runs wr
-            WHERE wr.run_id = rm.run_id AND wr.status = 'failed'),
-           0
-         ) = 0
+         AND NOT EXISTS (
+           SELECT 1 FROM worker_runs wr
+           WHERE wr.run_id = rm.run_id AND wr.status = 'failed'
+           LIMIT 1
+         )
        ORDER BY rm.completed_at DESC LIMIT 1`
     ),
-    // Recent runs count (last 7 days) - compute actual failed/completed from worker_runs
+    // Recent runs count (last 7 days)
     query<{ status: string; count: string }>(
       `WITH run_statuses AS (
          SELECT
@@ -187,16 +190,11 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
        FROM run_statuses
        GROUP BY status`
     ),
-    // Diamonds by availability
-    query<{ availability: string; count: string }>(
-      `SELECT availability, COUNT(*) as count
-       FROM diamonds WHERE status = 'active'
-       GROUP BY availability`
-    ),
   ]);
 
-  const totalActiveDiamonds = parseInt(diamondCountsResult.rows[0]?.count ?? '0', 10);
-  const totalFeeds = parseInt(feedCountResult.rows[0]?.count ?? '0', 10);
+  const ds = diamondStatsResult.rows[0];
+  const totalActiveDiamonds = parseInt(ds?.total_diamonds ?? '0', 10);
+  const totalFeeds = parseInt(ds?.feed_count ?? '0', 10);
 
   const lastSuccessfulRunRow = lastSuccessfulRunResult.rows[0];
   const lastSuccessfulRun = lastSuccessfulRunRow
@@ -229,18 +227,11 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   }
 
   const diamondsByAvailability = {
-    available: 0,
-    onHold: 0,
-    sold: 0,
-    unavailable: 0,
+    available: parseInt(ds?.available ?? '0', 10),
+    onHold: parseInt(ds?.on_hold ?? '0', 10),
+    sold: parseInt(ds?.sold ?? '0', 10),
+    unavailable: parseInt(ds?.unavailable ?? '0', 10),
   };
-  for (const row of availabilityResult.rows) {
-    const count = parseInt(row.count, 10);
-    if (row.availability === 'available') diamondsByAvailability.available = count;
-    else if (row.availability === 'on_hold') diamondsByAvailability.onHold = count;
-    else if (row.availability === 'sold') diamondsByAvailability.sold = count;
-    else if (row.availability === 'unavailable') diamondsByAvailability.unavailable = count;
-  }
 
   return {
     totalActiveDiamonds,
@@ -284,20 +275,34 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     values.push(filters.startedBefore);
   }
 
-  // Status filter requires CASE expression
+  // Status filter uses pre-aggregated partition stats via CTE
+  const needsPartitionStats = !!filters.status;
   if (filters.status) {
-    const statusCondition = getStatusCondition(filters.status);
-    conditions.push(statusCondition);
+    conditions.push(getStatusCondition(filters.status));
   }
 
   const whereClause = conditions.join(' AND ');
   const limit = filters.limit ?? 50;
   const offset = filters.offset ?? 0;
 
-  console.log(`SELECT COUNT(*) as count FROM run_metadata WHERE ${whereClause}`)
+  // CTE for partition stats — only materialized when status filter is active
+  const ppStatsCte = `pp_stats AS (
+      SELECT run_id,
+        COUNT(*) FILTER (WHERE completed = TRUE) as completed_pp,
+        COUNT(*) FILTER (WHERE failed = TRUE AND completed = FALSE) as failed_pp
+      FROM partition_progress
+      GROUP BY run_id
+    )`;
+  const ctePrefix = needsPartitionStats ? `WITH ${ppStatsCte}` : '';
+  const ppJoin = needsPartitionStats ? 'LEFT JOIN pp_stats pp ON rm.run_id = pp.run_id' : '';
+
   const [countResult, dataResult] = await Promise.all([
     query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM run_metadata rm WHERE ${whereClause}`,
+      `${ctePrefix}
+       SELECT COUNT(*) as count
+       FROM run_metadata rm
+       ${ppJoin}
+       WHERE ${whereClause}`,
       values
     ),
     query<{
@@ -315,26 +320,24 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       last_worker_completed_at: Date | null;
       last_worker_activity_at: Date | null;
     }>(
-      `SELECT
+      `${ctePrefix}
+       SELECT
         rm.*,
-        COALESCE(
-          (SELECT COUNT(*) FROM worker_runs wr2
-           WHERE wr2.run_id = rm.run_id AND wr2.status = 'completed'),
-          0
-        ) as completed_workers_actual,
-        COALESCE(
-          (SELECT COUNT(*) FROM worker_runs wr2
-           WHERE wr2.run_id = rm.run_id AND wr2.status = 'failed'),
-          0
-        ) as failed_workers_actual,
+        COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_workers_actual,
+        COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
         MAX(wr.completed_at) as last_worker_completed_at,
-        (SELECT MAX(pp.updated_at) FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id) as last_worker_activity_at
+        pp_activity.last_activity as last_worker_activity_at
        FROM run_metadata rm
+       ${ppJoin}
        LEFT JOIN worker_runs wr ON rm.run_id = wr.run_id
+       LEFT JOIN LATERAL (
+         SELECT MAX(updated_at) as last_activity
+         FROM partition_progress
+         WHERE run_id = rm.run_id
+       ) pp_activity ON TRUE
        WHERE ${whereClause}
-       GROUP BY rm.run_id
+       GROUP BY rm.run_id, pp_activity.last_activity
        ORDER BY rm.started_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       [...values, limit, offset]
@@ -372,24 +375,24 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   return { runs, total };
 }
 
+/** Returns a WHERE condition referencing pp_stats CTE columns (pre-aggregated partition stats). */
 function getStatusCondition(status: string): string {
-  // Use subqueries against partition_progress instead of legacy run_metadata columns
-  const completedSub = '(SELECT COUNT(*) FROM partition_progress pp WHERE pp.run_id = run_metadata.run_id AND pp.completed = TRUE)';
-  const failedSub = '(SELECT COUNT(*) FROM partition_progress pp WHERE pp.run_id = run_metadata.run_id AND pp.failed = TRUE AND pp.completed = FALSE)';
+  const completedPp = 'COALESCE(pp.completed_pp, 0)';
+  const failedPp = 'COALESCE(pp.failed_pp, 0)';
 
   switch (status) {
     case 'running':
       // Running includes stalled (stall is computed at application level)
-      return `(completed_at IS NULL AND ${failedSub} = 0 AND ${completedSub} < expected_workers)`;
+      return `(rm.completed_at IS NULL AND ${failedPp} = 0 AND ${completedPp} < rm.expected_workers)`;
     case 'stalled':
       // Same SQL filter as running — stall detection is done in getRunStatus()
-      return `(completed_at IS NULL AND ${failedSub} = 0 AND ${completedSub} < expected_workers)`;
+      return `(rm.completed_at IS NULL AND ${failedPp} = 0 AND ${completedPp} < rm.expected_workers)`;
     case 'completed':
-      return `((completed_at IS NOT NULL AND ${failedSub} = 0) OR (${completedSub} >= expected_workers AND ${failedSub} = 0))`;
+      return `((rm.completed_at IS NOT NULL AND ${failedPp} = 0) OR (${completedPp} >= rm.expected_workers AND ${failedPp} = 0))`;
     case 'failed':
-      return `(${failedSub} > 0 AND ${completedSub} + ${failedSub} >= expected_workers)`;
+      return `(${failedPp} > 0 AND ${completedPp} + ${failedPp} >= rm.expected_workers)`;
     case 'partial':
-      return `(${failedSub} > 0 AND ${completedSub} + ${failedSub} < expected_workers)`;
+      return `(${failedPp} > 0 AND ${completedPp} + ${failedPp} < rm.expected_workers)`;
     default:
       return '1=1';
   }
@@ -731,22 +734,21 @@ export async function getRunsConsolidationStatus(limit = 10, feed: AnalyticsFeed
     failed_count: string;
     oldest_pending: Date | null;
   }>(
-    `SELECT
+    `WITH pp_stats AS (
+      SELECT run_id,
+        COUNT(*) FILTER (WHERE completed = TRUE) as completed_pp,
+        COUNT(*) FILTER (WHERE failed = TRUE) as failed_pp
+      FROM partition_progress
+      GROUP BY run_id
+    )
+    SELECT
       rm.run_id,
       rm.run_type,
       rm.started_at,
       rm.completed_at,
       rm.expected_workers,
-      COALESCE(
-        (SELECT COUNT(*) FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id AND pp.completed = TRUE),
-        0
-      )::text as completed_workers_actual,
-      COALESCE(
-        (SELECT COUNT(*) FROM partition_progress pp
-         WHERE pp.run_id = rm.run_id AND pp.failed = TRUE),
-        0
-      )::text as failed_workers_actual,
+      COALESCE(pp.completed_pp, 0)::text as completed_workers_actual,
+      COALESCE(pp.failed_pp, 0)::text as failed_workers_actual,
       rm.consolidation_started_at,
       rm.consolidation_completed_at,
       COALESCE(rm.consolidation_processed, 0) as consolidation_processed,
@@ -758,6 +760,7 @@ export async function getRunsConsolidationStatus(limit = 10, feed: AnalyticsFeed
       COALESCE(raw_stats.failed_count, 0)::text as failed_count,
       raw_stats.oldest_pending
      FROM run_metadata rm
+     LEFT JOIN pp_stats pp ON rm.run_id = pp.run_id
      LEFT JOIN LATERAL (
        SELECT
          COUNT(*) as total_raw,
