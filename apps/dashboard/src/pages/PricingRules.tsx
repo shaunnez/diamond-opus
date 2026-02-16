@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, DollarSign, Star, RefreshCw, RotateCcw } from 'lucide-react';
 import {
@@ -6,7 +6,6 @@ import {
   createPricingRule,
   updatePricingRule,
   deletePricingRule,
-  triggerReapplyPricing,
   getReapplyJobs,
   getReapplyJob,
   revertReapplyJob,
@@ -84,6 +83,48 @@ function formatDate(dateStr: string | null): string {
   return new Date(dateStr).toLocaleString();
 }
 
+function formatTriggerType(triggerType: string | null): string {
+  if (!triggerType) return 'Manual';
+  if (triggerType === 'rule_create') return 'Rule Created';
+  if (triggerType === 'rule_update') return 'Rule Updated';
+  return 'Manual';
+}
+
+function formatRuleSnapshot(snapshot: ReapplyJob['trigger_rule_snapshot']): string {
+  if (!snapshot) return '';
+  const parts: string[] = [];
+
+  if (snapshot.stone_type) {
+    const stoneLabel = snapshot.stone_type === 'natural' ? 'Natural' :
+                      snapshot.stone_type === 'lab' ? 'Lab' : 'Fancy';
+    parts.push(stoneLabel);
+  }
+
+  if (snapshot.price_min !== undefined || snapshot.price_max !== undefined) {
+    const min = snapshot.price_min !== undefined ? formatPrice(snapshot.price_min) : '$0';
+    const max = snapshot.price_max !== undefined ? formatPrice(snapshot.price_max) : 'No limit';
+    parts.push(`${min} - ${max}`);
+  }
+
+  if (snapshot.feed) {
+    parts.push(`Feed: ${snapshot.feed}`);
+  }
+
+  if (snapshot.margin_modifier !== undefined) {
+    parts.push(`Modifier: ${formatModifier(snapshot.margin_modifier)}`);
+  }
+
+  if (snapshot.rating !== undefined) {
+    parts.push(`Rating: ${snapshot.rating}/10`);
+  }
+
+  if (snapshot.priority !== undefined) {
+    parts.push(`Priority: ${snapshot.priority}`);
+  }
+
+  return parts.join(', ');
+}
+
 export function PricingRules() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -92,7 +133,6 @@ export function PricingRules() {
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [formData, setFormData] = useState<RuleFormData>(emptyFormData);
   const [feedFilter, setFeedFilter] = useState<string>('all');
-  const [showReapplyConfirm, setShowReapplyConfirm] = useState(false);
   const [revertingJobId, setRevertingJobId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
@@ -117,16 +157,21 @@ export function PricingRules() {
   });
 
   // Detect active job from job list and stop polling when done
-  const runningJob = reapplyJobs?.find(
-    (j: ReapplyJob) => j.status === 'pending' || j.status === 'running'
-  );
-  if (runningJob && activeJobId !== runningJob.id) {
-    setActiveJobId(runningJob.id);
-  }
-  if (activeJob && activeJob.status !== 'pending' && activeJob.status !== 'running' && activeJobId) {
-    setActiveJobId(null);
-    queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
-  }
+  useEffect(() => {
+    const runningJob = reapplyJobs?.find(
+      (j: ReapplyJob) => j.status === 'pending' || j.status === 'running'
+    );
+    if (runningJob && activeJobId !== runningJob.id) {
+      setActiveJobId(runningJob.id);
+    }
+  }, [reapplyJobs, activeJobId]);
+
+  useEffect(() => {
+    if (activeJob && activeJob.status !== 'pending' && activeJob.status !== 'running' && activeJobId) {
+      setActiveJobId(null);
+      queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
+    }
+  }, [activeJob, activeJobId, queryClient]);
 
   const createMutation = useMutation({
     mutationFn: createPricingRule,
@@ -176,20 +221,6 @@ export function PricingRules() {
     },
     onError: (error) => {
       addToast({ variant: 'error', title: 'Failed to delete rule', message: error instanceof Error ? error.message : 'An unknown error occurred' });
-    },
-  });
-
-  const reapplyMutation = useMutation({
-    mutationFn: triggerReapplyPricing,
-    onSuccess: (data) => {
-      setActiveJobId(data.id);
-      queryClient.invalidateQueries({ queryKey: ['reapply-jobs'] });
-      setShowReapplyConfirm(false);
-      addToast({ variant: 'success', title: 'Repricing job started', message: `Processing ${data.total_diamonds.toLocaleString()} diamonds` });
-    },
-    onError: (error) => {
-      setShowReapplyConfirm(false);
-      addToast({ variant: 'error', title: 'Failed to start repricing', message: error instanceof Error ? error.message : 'An unknown error occurred' });
     },
   });
 
@@ -257,8 +288,6 @@ export function PricingRules() {
     return rule.feed === feedFilter;
   }) ?? [];
 
-  const isJobActive = !!runningJob || !!activeJobId;
-
   return (
     <>
       <Header />
@@ -272,23 +301,13 @@ export function PricingRules() {
                 Manage pricing rules for diamond margin modifiers by stone type and cost
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setShowReapplyConfirm(true)}
-                disabled={isJobActive || reapplyMutation.isPending}
-                icon={<RefreshCw className={`w-4 h-4 ${isJobActive ? 'animate-spin' : ''}`} />}
-              >
-                {isJobActive ? 'Repricing...' : 'Reapply Pricing'}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleOpenCreate}
-                icon={<Plus className="w-4 h-4" />}
-              >
-                Add Rule
-              </Button>
-            </div>
+            <Button
+              variant="primary"
+              onClick={handleOpenCreate}
+              icon={<Plus className="w-4 h-4" />}
+            >
+              Add Rule
+            </Button>
           </div>
 
           {/* Active Job Progress */}
@@ -489,12 +508,18 @@ export function PricingRules() {
                 title="Repricing History"
                 subtitle="Recent repricing job runs"
               />
+              <Alert variant="info" className="mt-4 mx-4">
+                Each repricing job recalculates diamond prices using the active pricing rules. Jobs triggered by rule creation or updates include a snapshot of the rule properties at the time of trigger.
+              </Alert>
               <div className="mt-4 overflow-x-auto">
                 <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-600">
                   <thead>
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
+                        Trigger
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase">
                         Diamonds
@@ -518,6 +543,18 @@ export function PricingRules() {
                       <tr key={job.id} className="hover:bg-stone-50 dark:hover:bg-stone-700/50">
                         <td className="px-4 py-3">
                           <StatusBadge status={job.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <Badge variant={job.trigger_type === 'manual' ? 'neutral' : 'info'}>
+                              {formatTriggerType(job.trigger_type)}
+                            </Badge>
+                            {job.trigger_rule_snapshot && (
+                              <p className="text-xs text-stone-600 dark:text-stone-400 max-w-xs">
+                                {formatRuleSnapshot(job.trigger_rule_snapshot)}
+                              </p>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-stone-700 dark:text-stone-300">
                           {job.processed_diamonds.toLocaleString()} / {job.total_diamonds.toLocaleString()}
@@ -706,7 +743,7 @@ export function PricingRules() {
                         setFormData((prev) => ({ ...prev, recalculate_pricing: e.target.checked }))
                       }
                       className="mt-1 w-4 h-4 rounded border-stone-300 text-primary-600 focus:ring-primary-500"
-                      disabled={isJobActive || createMutation.isPending || updateMutation.isPending}
+                      disabled={!!activeJobId || createMutation.isPending || updateMutation.isPending}
                     />
                     <div className="flex-1">
                       <span className="text-sm font-medium text-stone-900 dark:text-stone-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
@@ -715,7 +752,7 @@ export function PricingRules() {
                       <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
                         Runs a background repricing job for available diamonds using the latest active rules. The UI will show progress and you will get an email when it completes or fails.
                       </p>
-                      {isJobActive && (
+                      {activeJobId && (
                         <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
                           A repricing job is already running. Please wait for it to complete.
                         </p>
@@ -769,18 +806,6 @@ export function PricingRules() {
           confirmText="Delete"
           variant="danger"
           loading={deleteMutation.isPending}
-        />
-
-        {/* Reapply Confirmation */}
-        <ConfirmModal
-          isOpen={showReapplyConfirm}
-          onClose={() => setShowReapplyConfirm(false)}
-          onConfirm={() => reapplyMutation.mutate()}
-          title="Reapply Pricing Model"
-          message="This will recalculate prices for all available diamonds using the current pricing rules. The operation runs in the background and can be reverted afterwards. Continue?"
-          confirmText="Reapply"
-          variant="danger"
-          loading={reapplyMutation.isPending}
         />
 
         {/* Revert Confirmation */}

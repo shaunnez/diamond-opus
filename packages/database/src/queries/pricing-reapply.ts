@@ -18,6 +18,9 @@ interface ReapplyJobRow {
   retry_count: number;
   last_progress_at: Date | null;
   next_retry_at: Date | null;
+  trigger_type: string | null;
+  triggered_by_rule_id: string | null;
+  trigger_rule_snapshot: any | null;
 }
 
 interface ReapplySnapshotRow {
@@ -62,6 +65,9 @@ export interface ReapplyJob {
   retryCount: number;
   lastProgressAt: Date | null;
   nextRetryAt: Date | null;
+  triggerType: string | null;
+  triggeredByRuleId: string | null;
+  triggerRuleSnapshot: any | null;
 }
 
 export interface ReapplySnapshot {
@@ -107,6 +113,9 @@ function mapJobRow(row: ReapplyJobRow): ReapplyJob {
     retryCount: row.retry_count,
     lastProgressAt: row.last_progress_at,
     nextRetryAt: row.next_retry_at,
+    triggerType: row.trigger_type,
+    triggeredByRuleId: row.triggered_by_rule_id,
+    triggerRuleSnapshot: row.trigger_rule_snapshot,
   };
 }
 
@@ -126,10 +135,27 @@ function mapSnapshotRow(row: ReapplySnapshotRow): ReapplySnapshot {
 
 // --- Job queries ---
 
-export async function createReapplyJob(totalDiamonds: number): Promise<string> {
+export async function createReapplyJob(
+  totalDiamonds: number,
+  triggerInfo?: {
+    triggerType: 'manual' | 'rule_create' | 'rule_update';
+    triggeredByRuleId?: string;
+    triggerRuleSnapshot?: any;
+  }
+): Promise<string> {
   const result = await query<{ id: string }>(
-    `INSERT INTO pricing_reapply_jobs (total_diamonds) VALUES ($1) RETURNING id`,
-    [totalDiamonds]
+    `INSERT INTO pricing_reapply_jobs (
+      total_diamonds,
+      trigger_type,
+      triggered_by_rule_id,
+      trigger_rule_snapshot
+    ) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [
+      totalDiamonds,
+      triggerInfo?.triggerType ?? null,
+      triggerInfo?.triggeredByRuleId ?? null,
+      triggerInfo?.triggerRuleSnapshot ? JSON.stringify(triggerInfo.triggerRuleSnapshot) : null,
+    ]
   );
   return result.rows[0]!.id;
 }

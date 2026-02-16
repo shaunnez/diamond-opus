@@ -82,12 +82,20 @@ export interface ReapplyJob {
   retry_count: number;
   last_progress_at: string | null;
   next_retry_at: string | null;
+  trigger_type: 'manual' | 'rule_create' | 'rule_update' | null;
+  triggered_by_rule_id: string | null;
+  trigger_rule_snapshot: {
+    priority?: number;
+    stone_type?: StoneType;
+    price_min?: number;
+    price_max?: number;
+    feed?: string;
+    margin_modifier?: number;
+    rating?: number;
+  } | null;
 }
 
-export async function triggerReapplyPricing(): Promise<{ id: string; total_diamonds: number }> {
-  const response = await api.post<{ data: { id: string; total_diamonds: number } }>('/pricing-rules/reapply');
-  return response.data.data;
-}
+// Removed triggerReapplyPricing - repricing is now only triggered via rule create/update checkbox
 
 export async function getReapplyJobs(): Promise<ReapplyJob[]> {
   const response = await api.get<{ data: { jobs: ReapplyJob[] } }>('/pricing-rules/reapply/jobs');

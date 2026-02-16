@@ -203,7 +203,19 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 
       const totalDiamonds = await countAvailableDiamonds();
       if (totalDiamonds > 0) {
-        reapplyJobId = await createReapplyJob(totalDiamonds);
+        reapplyJobId = await createReapplyJob(totalDiamonds, {
+          triggerType: 'rule_create',
+          triggeredByRuleId: rule.id,
+          triggerRuleSnapshot: {
+            priority: rule.priority,
+            stone_type: rule.stoneType,
+            price_min: rule.priceMin,
+            price_max: rule.priceMax,
+            feed: rule.feed,
+            margin_modifier: rule.marginModifier,
+            rating: rule.rating,
+          },
+        });
 
         // Fire-and-forget
         executeReapplyJob(reapplyJobId).catch((err) => {
@@ -379,7 +391,19 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
 
       const totalDiamonds = await countAvailableDiamonds();
       if (totalDiamonds > 0) {
-        reapplyJobId = await createReapplyJob(totalDiamonds);
+        reapplyJobId = await createReapplyJob(totalDiamonds, {
+          triggerType: 'rule_update',
+          triggeredByRuleId: id,
+          triggerRuleSnapshot: {
+            priority: updates.priority,
+            stone_type: updates.stoneType,
+            price_min: updates.priceMin,
+            price_max: updates.priceMax,
+            feed: updates.feed,
+            margin_modifier: updates.marginModifier,
+            rating: updates.rating,
+          },
+        });
 
         // Fire-and-forget
         executeReapplyJob(reapplyJobId).catch((err) => {
@@ -479,6 +503,9 @@ function formatReapplyJob(job: {
   retryCount: number;
   lastProgressAt: Date | null;
   nextRetryAt: Date | null;
+  triggerType: string | null;
+  triggeredByRuleId: string | null;
+  triggerRuleSnapshot: any | null;
 }) {
   return {
     id: job.id,
@@ -496,6 +523,9 @@ function formatReapplyJob(job: {
     retry_count: job.retryCount,
     last_progress_at: job.lastProgressAt,
     next_retry_at: job.nextRetryAt,
+    trigger_type: job.triggerType,
+    triggered_by_rule_id: job.triggeredByRuleId,
+    trigger_rule_snapshot: job.triggerRuleSnapshot,
   };
 }
 
@@ -753,61 +783,7 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
   }
 }
 
-/**
- * @openapi
- * /api/v2/pricing-rules/reapply:
- *   post:
- *     summary: Start an async repricing job for all available diamonds
- *     tags:
- *       - Pricing Rules
- *     security:
- *       - ApiKeyAuth: []
- *       - HmacAuth: []
- *     responses:
- *       202:
- *         description: Repricing job accepted
- *       409:
- *         description: A repricing job is already running
- *       401:
- *         description: Unauthorized
- */
-router.post("/reapply", async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const running = await getRunningReapplyJob();
-    if (running) {
-      res.status(409).json({
-        error: "A repricing job is already in progress",
-        data: formatReapplyJob(running),
-      });
-      return;
-    }
-
-    const totalDiamonds = await countAvailableDiamonds();
-    if (totalDiamonds === 0) {
-      throw badRequest("No available diamonds to reprice");
-    }
-
-    const jobId = await createReapplyJob(totalDiamonds);
-
-    // Fire-and-forget
-    executeReapplyJob(jobId).catch((err) => {
-      log.error("Unhandled error in reapply job", {
-        jobId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-
-    res.status(202).json({
-      data: {
-        id: jobId,
-        total_diamonds: totalDiamonds,
-        message: "Repricing job started",
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+// Removed manual /reapply endpoint - repricing is now only triggered via rule create/update checkbox
 
 /**
  * @openapi
