@@ -1,0 +1,62 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Ensure hoisted .bin (tsc, etc.) is on PATH for workspace build scripts
+ENV PATH="/app/node_modules/.bin:$PATH"
+
+# Copy all package.json files for npm workspace resolution
+COPY package*.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/feed-registry/package.json ./packages/feed-registry/
+COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/demo-feed/package.json ./packages/nivoda/
+COPY packages/demo-feed/package.json ./packages/demo-feed/
+COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY packages/api/package.json ./packages/api/
+COPY apps/scheduler/package.json ./apps/scheduler/
+COPY apps/worker/package.json ./apps/worker/
+COPY apps/consolidator/package.json ./apps/consolidator/
+COPY apps/demo-feed-api/package.json ./apps/demo-feed-api/
+COPY apps/demo-feed-seed/package.json ./apps/demo-feed-seed/
+COPY apps/ingestion-proxy/package.json ./apps/ingestion-proxy/
+
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY packages/shared ./packages/shared
+COPY apps/ingestion-proxy ./apps/ingestion-proxy
+
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/ingestion-proxy
+
+FROM node:20-alpine
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Copy all package.json files for npm workspace resolution
+COPY package*.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/feed-registry/package.json ./packages/feed-registry/
+COPY packages/nivoda/package.json ./packages/nivoda/
+COPY packages/demo-feed/package.json ./packages/demo-feed/
+COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY packages/api/package.json ./packages/api/
+COPY apps/scheduler/package.json ./apps/scheduler/
+COPY apps/worker/package.json ./apps/worker/
+COPY apps/consolidator/package.json ./apps/consolidator/
+COPY apps/demo-feed-api/package.json ./apps/demo-feed-api/
+COPY apps/demo-feed-seed/package.json ./apps/demo-feed-seed/
+COPY apps/ingestion-proxy/package.json ./apps/ingestion-proxy/
+
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/apps/ingestion-proxy/dist ./apps/ingestion-proxy/dist
+
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["node", "apps/ingestion-proxy/dist/index.js"]
