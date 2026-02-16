@@ -28,6 +28,12 @@ output "api_identity_principal_id" {
   value       = azurerm_container_app.api.identity[0].principal_id
 }
 
+output "ingestion_proxy_fqdn" {
+  description = "Internal FQDN for ingestion proxy (scheduler/worker routing)"
+  value       = azurerm_container_app.ingestion_proxy.ingress[0].fqdn
+  sensitive   = false
+}
+
 output "worker_name" {
   description = "Name of the worker container app"
   value       = azurerm_container_app.worker.name
