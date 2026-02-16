@@ -204,6 +204,28 @@ resource "azurerm_container_app" "api" {
         name  = "CACHE_VERSION_POLL_INTERVAL_MS"
         value = tostring(var.api_cache_version_poll_interval_ms)
       }
+
+      # Repricing workflow - dashboard URL for email links
+      env {
+        name  = "DASHBOARD_URL"
+        value = "https://${azurerm_container_app.dashboard.ingress[0].fqdn}"
+      }
+
+      # Alerting (for repricing job notifications)
+      env {
+        name        = "RESEND_API_KEY"
+        secret_name = "resend-api-key"
+      }
+
+      env {
+        name  = "ALERT_EMAIL_TO"
+        value = var.alert_email_to
+      }
+
+      env {
+        name  = "ALERT_EMAIL_FROM"
+        value = var.alert_email_from
+      }
     }
   }
 
@@ -292,6 +314,11 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "internal-service-token"
     value = coalesce(var.internal_service_token, "not-configured")
+  }
+
+  secret {
+    name  = "resend-api-key"
+    value = var.resend_api_key
   }
 
   tags = var.tags

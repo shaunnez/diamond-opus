@@ -10,12 +10,6 @@
 - Impact: Email notifications fail silently without logged evidence. Operators don't know if alerts were actually sent during run completion, partial success, or consolidation failures. Makes incident response harder.
 - Fix approach: Implement structured logging for all email send results; add optional retry with exponential backoff for transient failures; track notification delivery status in database as part of run metadata.
 
-**Duplicate `fancy_color` Field in Schema:**
-- Issue: `fancy_color` appears twice in diamonds table (line 89 and 113 of `sql/full_schema.sql`)
-- Files: `sql/full_schema.sql`
-- Impact: Schema inconsistency that could cause confusion and potential data mapping errors. Unclear which column is authoritative.
-- Fix approach: Investigate schema migration history; consolidate to single `fancy_color` column; update all queries and mappers accordingly.
-
 **Raw Body Capture in Auth Middleware:**
 - Issue: `captureRawBody` in `packages/api/src/middleware/auth.ts` buffers entire request body in memory as string
 - Files: `packages/api/src/middleware/auth.ts` (lines 116-129)

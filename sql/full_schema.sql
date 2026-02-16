@@ -110,7 +110,6 @@ CREATE TABLE IF NOT EXISTS "public"."diamonds" (
     "price_per_carat" numeric(12,2) NOT NULL,
     "feed_price" numeric(12,2) NOT NULL,
     "diamond_price" numeric(12,2),
-    "fancy_color" "text",
     "fancy_intensity" "text",
     "fancy_overtone" "text",
     "fluorescence_intensity" "text",

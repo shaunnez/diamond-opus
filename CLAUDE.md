@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 Goal: Help Claude Code make correct changes fast with minimal context.
 
 This repo is a TypeScript npm workspaces monorepo for ingesting diamond inventory from one or more feeds, storing raw payloads, consolidating into a canonical diamonds table, applying pricing rules, and serving via an API plus dashboard.
@@ -14,6 +16,7 @@ npm install
 npm run build
 npm run build:backend
 npm run build:dashboard
+npm run build:storefront
 
 # Run locally
 npm run dev:api
@@ -21,11 +24,13 @@ npm run dev:scheduler
 npm run dev:worker
 npm run dev:consolidator
 npm run dev:dashboard
+npm run dev:storefront
 npm run dev:demo-api
 
 # Checks
 npm run typecheck
-npm run test
+npm run test                          # All workspaces
+npm run test -w @diamond/nivoda       # Specific package
 npm run lint
 
 # Manual ops
@@ -44,11 +49,20 @@ npm run seed:demo-feed
 
 ## Repo map
 
-**Apps**: `apps/scheduler`, `apps/worker`, `apps/consolidator`, `apps/dashboard`, `apps/demo-feed-api`, `apps/demo-feed-seed`
+**Apps**: `apps/scheduler`, `apps/worker`, `apps/consolidator`, `apps/dashboard`, `apps/storefront`, `apps/demo-feed-api`, `apps/demo-feed-seed`
 
 **Packages**: `packages/shared`, `packages/database`, `packages/feed-registry`, `packages/nivoda`, `packages/demo-feed`, `packages/pricing-engine`, `packages/api`
 
 **Schema**: `sql/full_schema.sql`, `sql/migrations`
+
+## Local Development
+
+Docker Compose stack available with emulated Azure services:
+- `npm run local:up` - Start Postgres, Azurite, Service Bus emulator
+- `npm run local:e2e` - Full E2E test suite with Docker
+- Demo feed (`apps/demo-feed-api`) provides synthetic data for local dev
+
+See README.md for detailed local development setup.
 
 ## Pipeline in 8 lines
 
@@ -89,6 +103,11 @@ Feed-specific behaviour belongs in `FeedAdapter` implementations and feed regist
 2. Add its raw table name to `ALLOWED_RAW_TABLES` in `packages/feed-registry/src/types.ts`.
 3. Add schema and indexes for the raw table in `sql/`.
 4. Ensure the adapter supports `getCount`, `buildBaseQuery`, `search`, `extractIdentity`, `mapRawToDiamond`.
+
+**Database initialization**
+- `sql/bootstrap.sql` - Run this in Supabase SQL Editor for initial setup
+- `sql/full_schema.sql` - Complete schema reference
+- `sql/migrations/` - Individual migration files
 
 **Heatmap behaviour**
 `packages/feed-registry/src/heatmap.ts`, `packages/shared/src/constants.ts` for default thresholds.
@@ -284,6 +303,18 @@ DASHBOARD_URL            # Dashboard URL for links in emails (e.g., https://dash
 
 **Database pool tuning**
 `packages/database/src/client.ts`, env vars `PG_POOL_MAX`, `PG_IDLE_TIMEOUT_MS`, `PG_CONN_TIMEOUT_MS`.
+
+## Core Environment Variables
+
+**Required:**
+- `DATABASE_URL` or individual `DATABASE_*` vars (HOST, PORT, NAME, USERNAME, PASSWORD)
+- `NIVODA_ENDPOINT`, `NIVODA_USERNAME`, `NIVODA_PASSWORD`
+- `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_SERVICE_BUS_CONNECTION_STRING`
+- `HMAC_SECRETS` (JSON object of client secrets)
+
+**Optional:**
+- `FEED` - Feed to use (default: `nivoda`)
+- See `.env.example` and README.md for full list
 
 ## When you are unsure
 

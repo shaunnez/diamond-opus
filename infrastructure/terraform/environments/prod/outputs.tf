@@ -42,6 +42,11 @@ output "storefront_url" {
   value       = module.container_apps[0].storefront_url
 }
 
+output "dashboard_url" {
+  description = "URL of the dashboard app"
+  value       = module.container_apps[0].dashboard_url
+}
+
 # Output for .env file generation
 output "env_file_content" {
   description = "Content for .env file (excluding external secrets)"

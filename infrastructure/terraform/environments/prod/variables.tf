@@ -22,11 +22,11 @@ variable "location" {
 variable "image_tag" {
   description = "Docker image tag for worker, API, consolidator, dashboard, and storefront containers (typically commit SHA)"
   type        = string
-  default     = "latest"
+  default     = "prod"
 }
 
 variable "environment_tag" {
-  description = "Stable environment tag for scheduler job Docker image (staging or prod). Used by API for scheduler job triggers."
+  description = "Stable environment tag for scheduler job Docker image (prod). Used by API for scheduler job triggers."
   type        = string
   default     = "prod"
 }
@@ -36,7 +36,7 @@ variable "environment_tag" {
 # ============================================
 
 variable "servicebus_sku" {
-  description = "Service Bus SKU"
+  description = "Service Bus SKU (Basic for Staging, Standard for prod)"
   type        = string
   default     = "Standard"
 
@@ -47,7 +47,7 @@ variable "servicebus_sku" {
 }
 
 variable "storage_replication_type" {
-  description = "Storage replication type (ZRS for cost-optimized zone redundancy)"
+  description = "Storage replication type"
   type        = string
   default     = "ZRS"
 
@@ -64,7 +64,7 @@ variable "storage_enable_versioning" {
 }
 
 variable "acr_sku" {
-  description = "Container Registry SKU (Basic is sufficient for most workloads)"
+  description = "Container Registry SKU"
   type        = string
   default     = "Basic"
 
@@ -81,7 +81,6 @@ variable "acr_sku" {
 variable "database_host" {
   description = "PostgreSQL host (e.g., db.supabase.co)"
   type        = string
-  default     = "aws-1-ap-southeast-1.pooler.supabase.com"
 }
 
 variable "database_port" {
@@ -100,14 +99,12 @@ variable "database_username" {
   description = "PostgreSQL username"
   type        = string
   sensitive   = true
-  default     = "postgres.yazrhmjedaaplwbsaqob"
 }
 
 variable "database_password" {
   description = "PostgreSQL password"
   type        = string
   sensitive   = true
-  default     = "superstrongpassword123!"
 }
 
 # ============================================
@@ -118,21 +115,18 @@ variable "database_password" {
 variable "nivoda_endpoint" {
   description = "Nivoda API endpoint"
   type        = string
-  default     = "https://integrations.nivoda.net/api/diamonds"
 }
 
 variable "nivoda_username" {
   description = "Nivoda API username"
   type        = string
   sensitive   = true
-  default     = "testaccount@sample.com"
 }
 
 variable "nivoda_password" {
   description = "Nivoda API password"
   type        = string
   sensitive   = true
-  default     = "staging-nivoda-22"
 }
 
 
@@ -158,7 +152,6 @@ variable "resend_api_key" {
   description = "Resend API key for alerts"
   type        = string
   sensitive   = true
-  default     = "demo"
 }
 
 variable "alert_email_to" {
@@ -178,7 +171,6 @@ variable "hmac_secrets" {
   description = "JSON object of HMAC secrets"
   type        = string
   sensitive   = true
-  default     = "{}"
 }
 
 # ============================================
@@ -192,9 +184,9 @@ variable "scheduler_cron_expression" {
 }
 
 variable "enable_scheduler" {
-  description = "Whether to create the scheduled cron job for the scheduler"
+  description = "Whether to create the scheduler job resource"
   type        = bool
-  default     = true # Production: scheduled runs enabled
+  default     = true
 }
 
 variable "scheduler_parallelism" {
@@ -227,7 +219,7 @@ variable "api_memory" {
 
 ## Worker Resources
 variable "worker_cpu" {
-  description = "CPU allocation for worker container (higher for Nivoda API workload)"
+  description = "CPU allocation for worker container"
   type        = number
   default     = 0.5
 }
@@ -289,9 +281,9 @@ variable "dashboard_memory" {
 
 ## API Scaling
 variable "api_min_replicas" {
-  description = "Minimum API replicas"
+  description = "Minimum API replicas (2 recommended for production HA)"
   type        = number
-  default     = 1
+  default     = 2
 
   validation {
     condition     = var.api_min_replicas >= 0
@@ -302,7 +294,7 @@ variable "api_min_replicas" {
 variable "api_max_replicas" {
   description = "Maximum API replicas (must be >= api_min_replicas)"
   type        = number
-  default     = 5
+  default     = 3
 
   validation {
     condition     = var.api_max_replicas >= 1
@@ -325,7 +317,7 @@ variable "worker_min_replicas" {
 variable "worker_max_replicas" {
   description = "Maximum worker replicas (must be >= worker_min_replicas)"
   type        = number
-  default     = 10
+  default     = 200
 
   validation {
     condition     = var.worker_max_replicas >= 1
@@ -356,11 +348,11 @@ variable "consolidator_max_replicas" {
   }
 }
 
-## Demo Feed API Scaling
+## Demo Feed API Scaling (unused in production - only for staging/dev)
 variable "demo_feed_api_min_replicas" {
-  description = "Minimum demo feed API replicas (1 recommended — scheduler/worker depend on it)"
+  description = "Minimum demo feed API replicas (unused in production - set to 0)"
   type        = number
-  default     = 1
+  default     = 0
 
   validation {
     condition     = var.demo_feed_api_min_replicas >= 0
@@ -369,13 +361,13 @@ variable "demo_feed_api_min_replicas" {
 }
 
 variable "demo_feed_api_max_replicas" {
-  description = "Maximum demo feed API replicas (must be >= demo_feed_api_min_replicas)"
+  description = "Maximum demo feed API replicas (unused in production - set to 0)"
   type        = number
-  default     = 1
+  default     = 0
 
   validation {
-    condition     = var.demo_feed_api_max_replicas >= 1
-    error_message = "demo_feed_api_max_replicas must be >= 1"
+    condition     = var.demo_feed_api_max_replicas >= 0
+    error_message = "demo_feed_api_max_replicas must be >= 0"
   }
 }
 
@@ -442,7 +434,7 @@ variable "storefront_max_replicas" {
 # ============================================
 
 variable "log_analytics_retention_days" {
-  description = "Log Analytics workspace retention in days"
+  description = "Log Analytics workspace retention in days (30 for prod balances cost and debuggability)"
   type        = number
   default     = 30
 

@@ -98,38 +98,38 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RATE-01 | TBD | Pending |
-| RATE-02 | TBD | Pending |
-| RATE-03 | TBD | Pending |
-| RATE-04 | TBD | Pending |
-| RATE-05 | TBD | Pending |
-| REL-01 | TBD | Pending |
-| REL-02 | TBD | Pending |
-| REL-03 | TBD | Pending |
-| REL-04 | TBD | Pending |
-| REL-05 | TBD | Pending |
-| REL-06 | TBD | Pending |
-| REL-07 | TBD | Pending |
-| REL-08 | TBD | Pending |
-| REL-09 | TBD | Pending |
-| REL-10 | TBD | Pending |
-| STATE-01 | TBD | Pending |
-| STATE-02 | TBD | Pending |
-| STATE-03 | TBD | Pending |
-| STATE-04 | TBD | Pending |
-| STATE-05 | TBD | Pending |
-| STATE-06 | TBD | Pending |
-| STATE-07 | TBD | Pending |
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| AUTH-04 | TBD | Pending |
+| RATE-01 | Phase 1 | Pending |
+| RATE-02 | Phase 1 | Pending |
+| RATE-03 | Phase 1 | Pending |
+| RATE-04 | Phase 1 | Pending |
+| RATE-05 | Phase 1 | Pending |
+| AUTH-01 | Phase 2 | Pending |
+| AUTH-02 | Phase 2 | Pending |
+| AUTH-03 | Phase 2 | Pending |
+| AUTH-04 | Phase 2 | Pending |
+| REL-05 | Phase 3 | Pending |
+| REL-06 | Phase 3 | Pending |
+| REL-07 | Phase 3 | Pending |
+| REL-01 | Phase 4 | Pending |
+| REL-02 | Phase 4 | Pending |
+| REL-10 | Phase 4 | Pending |
+| REL-03 | Phase 5 | Pending |
+| REL-04 | Phase 5 | Pending |
+| REL-08 | Phase 6 | Pending |
+| REL-09 | Phase 6 | Pending |
+| STATE-01 | Phase 7 | Pending |
+| STATE-02 | Phase 7 | Pending |
+| STATE-03 | Phase 7 | Pending |
+| STATE-04 | Phase 7 | Pending |
+| STATE-05 | Phase 7 | Pending |
+| STATE-06 | Phase 8 | Pending |
+| STATE-07 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 26 ⚠️
+- Mapped to phases: 26 (100% coverage)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after initial definition*
+*Last updated: 2026-02-17 after roadmap creation*

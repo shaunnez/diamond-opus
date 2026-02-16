@@ -62,7 +62,7 @@ module "storage" {
   tags = local.tags
 }
 
-# Container Registry
+# Container Registry (shared across environments in prod, separate in prod)
 module "container_registry" {
   source = "../../modules/container-registry"
 
@@ -73,6 +73,7 @@ module "container_registry" {
 
   tags = local.tags
 }
+
 
 # Container Apps (only create if enabled)
 module "container_apps" {
@@ -112,6 +113,7 @@ module "container_apps" {
   nivoda_password  = var.nivoda_password
   nivoda_proxy_base_url = var.nivoda_proxy_base_url
   internal_service_token = var.internal_service_token
+  
   hmac_secrets     = var.hmac_secrets
   resend_api_key   = var.resend_api_key
   alert_email_to   = var.alert_email_to
@@ -132,7 +134,7 @@ module "container_apps" {
   consolidator_min_replicas = var.consolidator_min_replicas
   consolidator_max_replicas = var.consolidator_max_replicas
 
-  # Resource allocation - CPU/memory (production values)
+  # Resource allocation - CPU/memory (optimized for prod)
   api_cpu               = var.api_cpu
   api_memory            = var.api_memory
   worker_cpu            = var.worker_cpu
@@ -159,7 +161,7 @@ module "container_apps" {
   storefront_min_replicas = var.storefront_min_replicas
   storefront_max_replicas = var.storefront_max_replicas
 
-  # Log Analytics
+  # Log Analytics (reduced retention for prod)
   log_analytics_retention_days = var.log_analytics_retention_days
 
   tags = local.tags
