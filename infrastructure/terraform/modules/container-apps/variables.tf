@@ -318,15 +318,15 @@ variable "api_memory" {
 }
 
 variable "api_min_replicas" {
-  description = "Minimum replicas for API"
+  description = "Minimum number of API replicas (high availability for customer-facing API)"
   type        = number
   default     = 2
 }
 
 variable "api_max_replicas" {
-  description = "Maximum replicas for API"
+  description = "Maximum number of API replicas for customer traffic (can scale independently now)"
   type        = number
-  default     = 5
+  default     = 10
 }
 
 ## Worker Resources
