@@ -11,3 +11,5 @@ export * from './error-logs.js';
 export * from './exchange-rates.js';
 export * from './dataset-versions.js';
 export * from './pricing-reapply.js';
+export * from './rating-rules.js';
+export * from './rating-reapply.js';
