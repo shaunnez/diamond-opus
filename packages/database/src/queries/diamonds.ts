@@ -379,7 +379,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       fancy_color, fancy_intensity, fancy_overtone, ratio,
       lab_grown, treated,
       feed_price, diamond_price, price_per_carat, price_model_price,
-      markup_ratio, rating, availability, raw_availability, hold_id,
+      markup_ratio, pricing_rating, rating, availability, raw_availability, hold_id,
       image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
       table_pct, depth_pct, length_mm, width_mm, depth_mm,
       crown_angle, crown_height, pavilion_angle, pavilion_depth,
@@ -389,9 +389,9 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
       $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-      $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
-      $33, $34, $35, $36, $37, $38, $39, $40, $41, $42,
-      $43, $44, $45, $46, $47, $48, $49, $50
+      $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33,
+      $34, $35, $36, $37, $38, $39, $40, $41, $42,
+      $43, $44, $45, $46, $47, $48, $49, $50, $51
     )
     ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
       offer_id = EXCLUDED.offer_id,
@@ -415,6 +415,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       price_per_carat = EXCLUDED.price_per_carat,
       price_model_price = EXCLUDED.price_model_price,
       markup_ratio = EXCLUDED.markup_ratio,
+      pricing_rating = EXCLUDED.pricing_rating,
       rating = EXCLUDED.rating,
       availability = EXCLUDED.availability,
       raw_availability = EXCLUDED.raw_availability,
@@ -469,6 +470,7 @@ export async function upsertDiamond(diamond: Omit<Diamond, 'id' | 'createdAt' | 
       diamond.pricePerCarat,
       diamond.priceModelPrice,
       diamond.markupRatio,
+      diamond.pricingRating,
       diamond.rating,
       diamond.availability,
       diamond.rawAvailability,
@@ -533,6 +535,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const pricePerCarat: number[] = [];
   const priceModelPrice: (number | null)[] = [];
   const markupRatios: (number | null)[] = [];
+  const pricingRatings: (number | null)[] = [];
   const ratings: (number | null)[] = [];
   const availabilities: string[] = [];
   const rawAvailabilities: (string | null)[] = [];
@@ -588,6 +591,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     pricePerCarat.push(d.pricePerCarat);
     priceModelPrice.push(d.priceModelPrice ?? null);
     markupRatios.push(d.markupRatio ?? null);
+    pricingRatings.push(d.pricingRating ?? null);
     ratings.push(d.rating ?? null);
     availabilities.push(d.availability);
     rawAvailabilities.push(d.rawAvailability ?? null);
@@ -629,7 +633,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         fancy_color, fancy_intensity, fancy_overtone, ratio,
         lab_grown, treated,
         feed_price, diamond_price, price_per_carat, price_model_price,
-        markup_ratio, rating, availability, raw_availability, hold_id,
+        markup_ratio, pricing_rating, rating, availability, raw_availability, hold_id,
         image_url, video_url, certificate_lab, certificate_number, certificate_pdf_url,
         table_pct, depth_pct, length_mm, width_mm, depth_mm,
         crown_angle, crown_height, pavilion_angle, pavilion_depth,
@@ -642,14 +646,14 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
         $11::text[], $12::text[], $13::text[], $14::text[], $15::text[],
         $16::numeric[], $17::boolean[], $18::boolean[], $19::numeric[], $20::numeric[],
-        $21::numeric[], $22::numeric[], $23::numeric[], $24::integer[], $25::text[],
+        $21::numeric[], $22::numeric[], $23::numeric[], $24::integer[], $25::integer[],
         $26::text[], $27::text[], $28::text[], $29::text[], $30::text[],
-        $31::text[], $32::text[],
-        $33::numeric[], $34::numeric[], $35::numeric[], $36::numeric[], $37::numeric[],
-        $38::numeric[], $39::numeric[], $40::numeric[], $41::numeric[],
-        $42::text[], $43::text[], $44::boolean[], $45::text[], $46::text[], $47::text[],
-        $48::text[], $49::text[],
-        $50::text[], $51::timestamptz[]
+        $31::text[], $32::text[], $33::text[],
+        $34::numeric[], $35::numeric[], $36::numeric[], $37::numeric[], $38::numeric[],
+        $39::numeric[], $40::numeric[], $41::numeric[], $42::numeric[],
+        $43::text[], $44::text[], $45::boolean[], $46::text[], $47::text[], $48::text[],
+        $49::text[], $50::text[],
+        $51::text[], $52::timestamptz[]
       )
       ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
@@ -673,6 +677,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         price_per_carat = EXCLUDED.price_per_carat,
         price_model_price = EXCLUDED.price_model_price,
         markup_ratio = EXCLUDED.markup_ratio,
+        pricing_rating = EXCLUDED.pricing_rating,
         rating = EXCLUDED.rating,
         availability = EXCLUDED.availability,
         raw_availability = EXCLUDED.raw_availability,
@@ -713,8 +718,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       colors, clarities, cuts, polishes, symmetries,
       fluorescences, fluorescenceIntensities, fancyColors, fancyIntensities, fancyOvertones,
       ratios, labGrowns, treateds, feedPrice, diamondPrices,
-      pricePerCarat, priceModelPrice, markupRatios, ratings, availabilities,
-      rawAvailabilities, holdIds, imageUrls, videoUrls, certificateLabs,
+      pricePerCarat, priceModelPrice, markupRatios, pricingRatings, ratings,
+      availabilities, rawAvailabilities, holdIds, imageUrls, videoUrls, certificateLabs,
       certificateNumbers, certificatePdfUrls,
       tablePcts, depthPcts, lengthMms, widthMms, depthMms,
       crownAngles, crownHeights, pavilionAngles, pavilionDepths,

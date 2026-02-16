@@ -18,6 +18,7 @@
     "@diamond/feed-registry": "*",
     "@diamond/nivoda": "*",
     "@diamond/pricing-engine": "*",
+    "@diamond/rating-engine": "*",
     "@diamond/shared": "*",
     "resend": "^2.1.0"
   },
