@@ -147,7 +147,8 @@ export function RunDetails() {
   // Calculate heatmap estimate (memoized — only changes when workers change)
   const heatmapEstimate = useMemo(
     () => workers.reduce((sum, worker) => {
-      const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
+      const payload = worker.workItemPayload;
+      const estimate = (payload?.estimatedRecords ?? payload?.totalRecords) as number | undefined;
       return sum + (estimate || 0);
     }, 0),
     [workers]
@@ -186,7 +187,8 @@ export function RunDetails() {
     // Completed workers are 100% by definition (they processed all available data)
     if (worker.status === 'completed') return 100;
 
-    const estimate = (worker.workItemPayload?.estimatedRecords ?? worker.workItemPayload?.totalRecords) as number | undefined;
+    const payload = worker.workItemPayload;
+    const estimate = (payload?.estimatedRecords ?? payload?.totalRecords) as number | undefined;
     if (!estimate || estimate === 0) return null;
 
     // Use max(estimate, actual) as denominator to prevent >100%
@@ -242,7 +244,8 @@ export function RunDetails() {
       key: 'recordsProcessed',
       header: 'Records',
       render: (w: WorkerRun) => {
-        const estimate = (w.workItemPayload?.estimatedRecords ?? w.workItemPayload?.totalRecords) as number | undefined;
+        const payload = w.workItemPayload;
+        const estimate = (payload?.estimatedRecords ?? payload?.totalRecords) as number | undefined;
         // Completed workers: show actual count only (estimate is irrelevant)
         if (w.status === 'completed' || !estimate) {
           return formatNumber(w.recordsProcessed);
