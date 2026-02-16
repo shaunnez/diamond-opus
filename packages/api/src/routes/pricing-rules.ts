@@ -612,7 +612,7 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
         id: string;
         priceModelPrice: number;
         markupRatio: number;
-        rating: number | undefined;
+        pricingRating: number | undefined;
       }> = [];
       const snapshots: Array<{
         diamondId: string;
@@ -639,8 +639,8 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
           const newPrice = pricing.priceModelPrice;
           const oldRatio = diamond.markupRatio;
           const newRatio = pricing.markupRatio;
-          const oldRating = diamond.rating;
-          const newRating = pricing.rating ?? null;
+          const oldRating = diamond.pricingRating;
+          const newRating = pricing.pricingRating ?? null;
 
           // Only update if pricing changed
           const priceChanged = !pricingValuesEqual(oldPrice, newPrice, true);
@@ -652,7 +652,7 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
               id: diamond.id,
               priceModelPrice: pricing.priceModelPrice,
               markupRatio: pricing.markupRatio,
-              rating: pricing.rating,
+              pricingRating: pricing.pricingRating,
             });
 
             snapshots.push({

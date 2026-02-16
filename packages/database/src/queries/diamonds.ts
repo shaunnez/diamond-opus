@@ -26,6 +26,7 @@ interface DiamondRow {
   price_per_carat: string;
   price_model_price: string | null;
   markup_ratio: string | null;
+  pricing_rating: number | null;
   rating: number | null;
   availability: string;
   raw_availability: string | null;
@@ -87,6 +88,7 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     pricePerCarat: parseFloat(row.price_per_carat),
     priceModelPrice: row.price_model_price ? parseFloat(row.price_model_price) : undefined,
     markupRatio: row.markup_ratio ? parseFloat(row.markup_ratio) : undefined,
+    pricingRating: row.pricing_rating ?? undefined,
     rating: row.rating ?? undefined,
     availability: row.availability as Diamond['availability'],
     rawAvailability: row.raw_availability ?? undefined,
