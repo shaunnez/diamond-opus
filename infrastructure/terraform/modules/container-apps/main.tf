@@ -324,6 +324,194 @@ resource "azurerm_container_app" "api" {
   tags = var.tags
 }
 
+# Ingestion Proxy Container App (single replica for global rate limit enforcement)
+# Internal ingress only - scheduler and worker route Nivoda calls through this proxy
+resource "azurerm_container_app" "ingestion_proxy" {
+  name                         = "${var.app_name_prefix}-ingestion-proxy"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = var.resource_group_name
+  revision_mode                = "Single"
+
+  template {
+    # CRITICAL: Single replica enforcement for global rate limit
+    min_replicas = 1
+    max_replicas = 1
+
+    container {
+      name   = "ingestion-proxy"
+      image  = "${var.container_registry_login_server}/diamond-ingestion-proxy:${var.image_tag}"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "SERVICE_NAME"
+        value = "ingestion-proxy"
+      }
+
+      env {
+        name  = "PORT"
+        value = "3000"
+      }
+
+      env {
+        name        = "DATABASE_HOST"
+        secret_name = "database-host"
+      }
+
+      env {
+        name        = "DATABASE_PORT"
+        secret_name = "database-port"
+      }
+
+      env {
+        name        = "DATABASE_NAME"
+        secret_name = "database-name"
+      }
+
+      env {
+        name        = "DATABASE_USERNAME"
+        secret_name = "database-username"
+      }
+
+      env {
+        name        = "DATABASE_PASSWORD"
+        secret_name = "database-password"
+      }
+
+      env {
+        name        = "NIVODA_ENDPOINT"
+        secret_name = "nivoda-endpoint"
+      }
+
+      env {
+        name        = "NIVODA_USERNAME"
+        secret_name = "nivoda-username"
+      }
+
+      env {
+        name        = "NIVODA_PASSWORD"
+        secret_name = "nivoda-password"
+      }
+
+      env {
+        name        = "INTERNAL_SERVICE_TOKEN"
+        secret_name = "internal-service-token"
+      }
+
+      env {
+        name  = "NIVODA_PROXY_RATE_LIMIT"
+        value = tostring(var.nivoda_proxy_rate_limit)
+      }
+
+      env {
+        name  = "NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS"
+        value = tostring(var.nivoda_proxy_rate_limit_max_wait_ms)
+      }
+
+      env {
+        name  = "NIVODA_PROXY_TIMEOUT_MS"
+        value = tostring(var.nivoda_proxy_timeout_ms)
+      }
+
+      # TCP health probes (per RESEARCH.md Pattern 4)
+      startup_probe {
+        transport        = "TCP"
+        port             = 3000
+        initial_delay    = 1
+        period_seconds   = 1
+        timeout          = 3
+        failure_threshold = 30
+      }
+
+      liveness_probe {
+        transport        = "TCP"
+        port             = 3000
+        period_seconds   = 10
+        timeout          = 1
+        failure_threshold = 10
+      }
+
+      readiness_probe {
+        transport        = "TCP"
+        port             = 3000
+        period_seconds   = 5
+        timeout          = 5
+        failure_threshold = 3
+      }
+    }
+  }
+
+  # Internal ingress only (not publicly accessible)
+  ingress {
+    external_enabled = false
+    target_port      = 3000
+    transport        = "http"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = var.container_registry_login_server
+    username             = var.container_registry_username
+    password_secret_name = "registry-password"
+  }
+
+  secret {
+    name  = "database-host"
+    value = var.database_host
+  }
+
+  secret {
+    name  = "database-port"
+    value = var.database_port
+  }
+
+  secret {
+    name  = "database-name"
+    value = var.database_name
+  }
+
+  secret {
+    name  = "database-username"
+    value = var.database_username
+  }
+
+  secret {
+    name  = "database-password"
+    value = var.database_password
+  }
+
+  secret {
+    name  = "nivoda-endpoint"
+    value = var.nivoda_endpoint
+  }
+
+  secret {
+    name  = "nivoda-username"
+    value = var.nivoda_username
+  }
+
+  secret {
+    name  = "nivoda-password"
+    value = var.nivoda_password
+  }
+
+  secret {
+    name  = "internal-service-token"
+    value = coalesce(var.internal_service_token, "not-configured")
+  }
+
+  secret {
+    name  = "registry-password"
+    value = var.container_registry_password
+  }
+
+  tags = var.tags
+}
+
 # Worker Container App (Service Bus consumer, long-running)
 resource "azurerm_container_app" "worker" {
   name                         = "${var.app_name_prefix}-worker"
