@@ -16,9 +16,16 @@ import {
   insertReapplySnapshots,
   revertDiamondPricingFromSnapshots,
   incrementDatasetVersion,
+  resetJobForRetry,
 } from "@diamond/database";
 import type { StoneType } from "@diamond/shared";
 import { createServiceLogger } from "@diamond/shared";
+import {
+  REAPPLY_BATCH_SIZE,
+  REAPPLY_MAX_RETRIES,
+  REAPPLY_RETRY_BASE_DELAY_MINUTES,
+  REAPPLY_RETRY_MAX_DELAY_MINUTES,
+} from "@diamond/shared";
 import { PricingEngine } from "@diamond/pricing-engine";
 import { badRequest } from "../middleware/index.js";
 
@@ -26,7 +33,6 @@ const router = Router();
 const log = createServiceLogger("pricing-reapply");
 
 const VALID_STONE_TYPES: StoneType[] = ['natural', 'lab', 'fancy'];
-const REAPPLY_BATCH_SIZE = 500;
 
 /**
  * @openapi
@@ -373,6 +379,9 @@ function formatReapplyJob(job: {
   completedAt: Date | null;
   revertedAt: Date | null;
   createdAt: Date;
+  retryCount: number;
+  lastProgressAt: Date | null;
+  nextRetryAt: Date | null;
 }) {
   return {
     id: job.id,
@@ -386,18 +395,49 @@ function formatReapplyJob(job: {
     completed_at: job.completedAt,
     reverted_at: job.revertedAt,
     created_at: job.createdAt,
+    retry_count: job.retryCount,
+    last_progress_at: job.lastProgressAt,
+    next_retry_at: job.nextRetryAt,
   };
+}
+
+/**
+ * Calculate next retry time using exponential backoff.
+ * Formula: base_delay * 3^retryCount, capped at max_delay.
+ * @param retryCount - Current retry attempt (1-indexed)
+ * @returns Date for next retry, or null if max retries exceeded
+ */
+function calculateNextRetryTime(retryCount: number): Date | null {
+  if (retryCount >= REAPPLY_MAX_RETRIES) {
+    return null;
+  }
+
+  // Exponential backoff: 5min * 3^retryCount, capped at 30min
+  const delayMinutes = Math.min(
+    REAPPLY_RETRY_BASE_DELAY_MINUTES * Math.pow(3, retryCount),
+    REAPPLY_RETRY_MAX_DELAY_MINUTES
+  );
+
+  const nextRetry = new Date();
+  nextRetry.setMinutes(nextRetry.getMinutes() + delayMinutes);
+  return nextRetry;
 }
 
 /**
  * Background job that reprices all available diamonds using current pricing rules.
  * Updates progress in the job row as it processes batches.
+ * @param jobId - Reapply job ID
+ * @param currentRetryCount - Current retry attempt (0 for first attempt)
  */
-async function executeReapplyJob(jobId: string): Promise<void> {
+async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): Promise<void> {
   const startedAt = new Date();
   try {
-    await updateReapplyJobStatus(jobId, "running", { startedAt });
-    log.info("Reapply job started", { jobId });
+    await updateReapplyJobStatus(jobId, "running", {
+      startedAt,
+      lastProgressAt: startedAt,
+      retryCount: currentRetryCount,
+    });
+    log.info("Reapply job started", { jobId, retryCount: currentRetryCount });
 
     const engine = new PricingEngine();
     await engine.loadRules();
@@ -479,6 +519,7 @@ async function executeReapplyJob(jobId: string): Promise<void> {
       await updateReapplyJobStatus(jobId, "running", {
         processedDiamonds,
         failedDiamonds,
+        lastProgressAt: new Date(),
       });
 
       log.info("Reapply batch processed", {
@@ -512,10 +553,20 @@ async function executeReapplyJob(jobId: string): Promise<void> {
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    log.error("Reapply job failed", { jobId, error: errorMsg });
+    const nextRetryAt = calculateNextRetryTime(currentRetryCount + 1);
+
+    log.error("Reapply job failed", {
+      jobId,
+      error: errorMsg,
+      retryCount: currentRetryCount,
+      nextRetryAt,
+      willRetry: nextRetryAt !== null,
+    });
+
     await updateReapplyJobStatus(jobId, "failed", {
       error: errorMsg,
       completedAt: new Date(),
+      nextRetryAt,
     });
   }
 }
@@ -710,5 +761,86 @@ router.post("/reapply/jobs/:id/revert", async (req: Request, res: Response, next
     next(error);
   }
 });
+
+/**
+ * @openapi
+ * /api/v2/pricing-rules/reapply/jobs/{id}/resume:
+ *   post:
+ *     summary: Manually resume a failed reapply job
+ *     tags:
+ *       - Pricing Rules
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       202:
+ *         description: Job resume accepted
+ *       400:
+ *         description: Job cannot be resumed (not failed, max retries reached, or race condition)
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post("/reapply/jobs/:id/resume", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const job = await getReapplyJob(req.params.id!);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    if (job.status !== "failed") {
+      throw badRequest(
+        `Cannot resume job with status '${job.status}'. Only failed jobs can be resumed.`
+      );
+    }
+
+    if (job.retryCount >= REAPPLY_MAX_RETRIES) {
+      throw badRequest(
+        `Job has reached maximum retry limit (${REAPPLY_MAX_RETRIES}). Cannot retry further.`
+      );
+    }
+
+    // Atomic state transition: failed → pending, increment retry_count
+    const resetSuccess = await resetJobForRetry(job.id);
+    if (!resetSuccess) {
+      throw badRequest(
+        "Job has already been picked up by another process. Retry later if needed."
+      );
+    }
+
+    log.info("Manually resuming failed reapply job", {
+      jobId: job.id,
+      previousRetryCount: job.retryCount,
+      newRetryCount: job.retryCount + 1,
+    });
+
+    // Fire-and-forget execution with incremented retry count
+    executeReapplyJob(job.id, job.retryCount + 1).catch((err) => {
+      log.error("Manual resume execution failed", { err, jobId: job.id });
+    });
+
+    res.status(202).json({
+      data: {
+        message: "Job resume accepted",
+        id: job.id,
+        retry_count: job.retryCount + 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export for monitoring service (avoid circular dependency with dynamic import)
+export { executeReapplyJob };
 
 export default router;

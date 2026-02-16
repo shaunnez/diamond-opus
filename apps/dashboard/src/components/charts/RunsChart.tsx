@@ -12,7 +12,9 @@ interface DayData {
   date: string;
   dateLabel: string;
   feeds: Record<string, number>;
+  feedRecords: Record<string, number>;
   total: number;
+  totalRecords: number;
 }
 
 // Feed color mapping
@@ -47,7 +49,9 @@ export function RunsChart({ runs }: RunsChartProps) {
         date: dateKey,
         dateLabel: formatDateShort(date.toISOString()),
         feeds: {},
+        feedRecords: {},
         total: 0,
+        totalRecords: 0,
       });
     }
 
@@ -59,17 +63,25 @@ export function RunsChart({ runs }: RunsChartProps) {
 
       if (dayData) {
         dayData.feeds[run.feed] = (dayData.feeds[run.feed] || 0) + 1;
+        dayData.feedRecords[run.feed] = (dayData.feedRecords[run.feed] || 0) + run.totalRecordsProcessed;
         dayData.total += 1;
+        dayData.totalRecords += run.totalRecordsProcessed;
       }
     });
 
     return Array.from(dayMap.values());
   }, [runs]);
 
-  const maxTotal = Math.max(...chartData.map((d) => d.total), 1);
+  const maxTotalRecords = Math.max(...chartData.map((d) => d.totalRecords), 1);
   const allFeeds = Array.from(new Set(runs.map((r) => r.feed)));
 
-  if (chartData.every((d) => d.total === 0)) {
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  if (chartData.every((d) => d.totalRecords === 0)) {
     return null;
   }
 
@@ -82,7 +94,7 @@ export function RunsChart({ runs }: RunsChartProps) {
             Pipeline Activity (Last 7 Days)
           </span>
         }
-        subtitle={`${runs.length} total runs`}
+        subtitle={`${runs.length} total runs · ${formatNumber(runs.reduce((sum, r) => sum + r.totalRecordsProcessed, 0))} records processed`}
       />
       <div className="mt-4">
         {/* Bar chart visualization */}
@@ -93,12 +105,13 @@ export function RunsChart({ runs }: RunsChartProps) {
                 {day.dateLabel}
               </div>
               <div className="flex-1 h-10 bg-stone-100 dark:bg-stone-800 rounded-lg overflow-hidden relative">
-                {day.total > 0 ? (
+                {day.totalRecords > 0 ? (
                   <div className="h-full flex">
                     {allFeeds.map((feed) => {
-                      const count = day.feeds[feed] || 0;
-                      const percentage = (count / maxTotal) * 100;
-                      if (count === 0) return null;
+                      const records = day.feedRecords[feed] || 0;
+                      const percentage = (records / maxTotalRecords) * 100;
+                      if (records === 0) return null;
+                      const runCount = day.feeds[feed] || 0;
                       return (
                         <div
                           key={feed}
@@ -106,22 +119,22 @@ export function RunsChart({ runs }: RunsChartProps) {
                           style={{
                             width: `${percentage}%`,
                           }}
-                          title={`${feed}: ${count} runs`}
+                          title={`${feed}: ${formatNumber(records)} records (${runCount} ${runCount === 1 ? 'run' : 'runs'})`}
                         />
                       );
                     })}
                   </div>
                 ) : null}
                 <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
-                  {day.total > 0 && (
+                  {day.totalRecords > 0 && (
                     <span className="text-xs font-medium text-white drop-shadow">
-                      {day.total} {day.total === 1 ? 'run' : 'runs'}
+                      {formatNumber(day.totalRecords)} records · {day.total} {day.total === 1 ? 'run' : 'runs'}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="w-12 text-sm text-stone-500">
-                {day.total > 0 ? day.total : ''}
+              <div className="w-16 text-right text-sm text-stone-500 font-mono">
+                {day.totalRecords > 0 ? formatNumber(day.totalRecords) : ''}
               </div>
             </div>
           ))}

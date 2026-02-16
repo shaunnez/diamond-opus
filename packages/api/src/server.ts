@@ -7,6 +7,7 @@ import { errorHandler } from "./middleware/index.js";
 import { spec } from "./swagger/generator.js";
 import { initCurrencyService } from "./services/currency.js";
 import { initCacheService } from "./services/cache.js";
+import { initReapplyMonitor } from "./services/reapply-monitor.js";
 
 const logger = createServiceLogger('api');
 
@@ -77,6 +78,7 @@ export async function startServer(): Promise<void> {
 
   await initCurrencyService();
   await initCacheService();
+  await initReapplyMonitor();
 
   app.listen(port, "0.0.0.0", () => {
     logger.info("Server started", { port });
