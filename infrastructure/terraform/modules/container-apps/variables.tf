@@ -256,9 +256,9 @@ variable "internal_service_token" {
 }
 
 variable "nivoda_proxy_rate_limit" {
-  description = "Max Nivoda proxy requests per second per API replica (default: 50)"
+  description = "Max Nivoda proxy requests per second (default: 25 for ingestion proxy global limit, 50 for API replica limit)"
   type        = number
-  default     = 50
+  default     = 25
 }
 
 variable "nivoda_proxy_rate_limit_max_wait_ms" {
