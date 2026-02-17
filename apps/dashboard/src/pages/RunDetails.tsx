@@ -108,19 +108,8 @@ export function RunDetails() {
     },
   });
 
-  
-
-  const { run, workers } = data;
-  const hasFailedWorkers = run.failedWorkers > 0;
-  // Can consolidate if the run hasn't been fully consolidated yet (watermark not advanced)
-  // and has at least some completed workers
-  const canConsolidate = !run.watermarkAfter && run.completedWorkers > 0;
-  const canRetry = hasFailedWorkers;
-  const isStalled = run.status === 'stalled';
-  const canCancel = run.status === 'running' || isStalled;
-  const canDelete = run.status === 'failed';
-
-  // Sort workers numerically by partition ID (memoized to avoid re-sorting on every render)
+  const workers = data?.workers ?? [];
+   // Sort workers numerically by partition ID (memoized to avoid re-sorting on every render)
   const sortedWorkers = useMemo(
     () => [...workers].sort((a, b) => parseInt(a.partitionId, 10) - parseInt(b.partitionId, 10)),
     [workers]
@@ -134,6 +123,38 @@ export function RunDetails() {
     }, 0),
     [workers]
   );
+
+  if (isLoading) {
+    return <PageLoader />;
+  }
+
+  if (error || !data?.run) {
+    return (
+      <>
+        <Header />
+        <PageContainer>
+          <Alert variant="error" title="Run not found">
+            The requested run could not be found.
+          </Alert>
+          <Button variant="secondary" className="mt-4" onClick={() => navigate('/runs')}>
+            Back to Runs
+          </Button>
+        </PageContainer>
+      </>
+    );
+  }
+
+  const { run } = data;
+  const hasFailedWorkers = run.failedWorkers > 0;
+  // Can consolidate if the run hasn't been fully consolidated yet (watermark not advanced)
+  // and has at least some completed workers
+  const canConsolidate = !run.watermarkAfter && run.completedWorkers > 0;
+  const canRetry = hasFailedWorkers;
+  const isStalled = run.status === 'stalled';
+  const canCancel = run.status === 'running' || isStalled;
+  const canDelete = run.status === 'failed';
+
+ 
   const isRunFinished = run.status === 'completed' || run.status === 'failed' ; //|| run.status === 'partial';
 
   // Calculate live duration for running jobs
@@ -262,25 +283,7 @@ export function RunDetails() {
     },
   ];
 
-  if (isLoading) {
-    return <PageLoader />;
-  }
 
-  if (error || !data?.run) {
-    return (
-      <>
-        <Header />
-        <PageContainer>
-          <Alert variant="error" title="Run not found">
-            The requested run could not be found.
-          </Alert>
-          <Button variant="secondary" className="mt-4" onClick={() => navigate('/runs')}>
-            Back to Runs
-          </Button>
-        </PageContainer>
-      </>
-    );
-  }
 
   return (
     <>
