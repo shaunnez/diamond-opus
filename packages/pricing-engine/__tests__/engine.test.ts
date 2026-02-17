@@ -260,7 +260,7 @@ describe('PricingEngine', () => {
       const diamond = createMockDiamond({ feedPrice: 1000 });
       const pricing = engine.calculatePricing(diamond);
 
-      expect(pricing.rating).toBe(8);
+      expect(pricing.pricingRating).toBe(8);
     });
 
     it('should include matched rule ID', () => {
@@ -312,14 +312,14 @@ describe('PricingEngine', () => {
       engine.setRules([createMockRule({ marginModifier: 5, rating: 7 })]);
 
       const diamond = createMockDiamond({ feedPrice: 1000, carats: 1.0, labGrown: false });
-      const { id, createdAt, updatedAt, priceModelPrice, markupRatio, rating, ...baseDiamond } = diamond;
+      const { id, createdAt, updatedAt, priceModelPrice, markupRatio, pricingRating, ...baseDiamond } = diamond;
 
       const result = engine.applyPricing(baseDiamond);
 
       // Natural base = 40%, modifier = +5%, effective = 45%, ratio = 1.45
       expect(result.priceModelPrice).toBe(1450);
       expect(result.markupRatio).toBe(1.45);
-      expect(result.rating).toBe(7);
+      expect(result.pricingRating).toBe(7);
       expect(result.pricePerCarat).toBe(1000); // 1000 / 1.0
       expect(result.feed).toBe('nivoda');
       expect(result.shape).toBe('ROUND');

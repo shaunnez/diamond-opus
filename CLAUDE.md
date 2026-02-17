@@ -26,6 +26,7 @@ npm run dev:consolidator
 npm run dev:dashboard
 npm run dev:storefront
 npm run dev:demo-api
+npm run dev:ingestion-proxy
 
 # Checks
 npm run typecheck
@@ -49,7 +50,7 @@ npm run seed:demo-feed
 
 ## Repo map
 
-**Apps**: `apps/scheduler`, `apps/worker`, `apps/consolidator`, `apps/dashboard`, `apps/storefront`, `apps/demo-feed-api`, `apps/demo-feed-seed`
+**Apps**: `apps/scheduler`, `apps/worker`, `apps/consolidator`, `apps/dashboard`, `apps/storefront`, `apps/demo-feed-api`, `apps/demo-feed-seed`, `apps/ingestion-proxy`
 
 **Packages**: `packages/shared`, `packages/database`, `packages/feed-registry`, `packages/nivoda`, `packages/demo-feed`, `packages/pricing-engine`, `packages/api`
 
