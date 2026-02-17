@@ -33,13 +33,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Customer API can scale to 10 replicas without exceeding 25 req/s to Nivoda (verified under load test)
   4. Health checks configured and passing for ingestion proxy
   5. API search/export endpoints respond successfully with 10 API replicas running
-**Plans**: 4 plans in 3 waves
+**Plans**: 5 plans in 4 waves
 
 Plans:
 - [ ] 01-01-PLAN.md — Create ingestion-proxy service (extract proxy route, Docker build)
 - [ ] 01-02-PLAN.md — Add Terraform infrastructure (Container App, health probes)
 - [ ] 01-03-PLAN.md — Wire scheduler/worker to proxy (env vars, routing)
 - [ ] 01-04-PLAN.md — Verify separation and scaling (cleanup API, smoke test)
+- [ ] 01-05-PLAN.md — Wire customer API to proxy (gap closure: hold/order routing)
 
 ### Phase 2: Authentication Simplification
 **Goal**: Authentication middleware simplified to API key-only, HMAC code removed
