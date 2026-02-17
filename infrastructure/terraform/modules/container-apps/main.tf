@@ -408,30 +408,16 @@ resource "azurerm_container_app" "ingestion_proxy" {
         value = tostring(var.nivoda_proxy_timeout_ms)
       }
 
-      # TCP health probes (per RESEARCH.md Pattern 4)
-      startup_probe {
-        transport               = "TCP"
-        port                    = 3000
-        initial_delay           = 1
-        interval_seconds        = 1
-        timeout                 = 3
-        failure_count_threshold = 30
-      }
-
+      # TCP health probes - minimal configuration
+      # Note: Azure Container Apps provider v3.x has limited probe attributes
       liveness_probe {
-        transport               = "TCP"
-        port                    = 3000
-        interval_seconds        = 10
-        timeout                 = 1
-        failure_count_threshold = 10
+        transport = "TCP"
+        port      = 3000
       }
 
       readiness_probe {
-        transport               = "TCP"
-        port                    = 3000
-        interval_seconds        = 5
-        timeout                 = 5
-        failure_count_threshold = 3
+        transport = "TCP"
+        port      = 3000
       }
     }
   }
