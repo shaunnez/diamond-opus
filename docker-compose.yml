@@ -100,6 +100,28 @@ services:
       timeout: 3s
       retries: 10
 
+  ingestion-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ingestion-proxy
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      NIVODA_ENDPOINT: "${NIVODA_ENDPOINT:-}"
+      NIVODA_USERNAME: "${NIVODA_USERNAME:-}"
+      NIVODA_PASSWORD: "${NIVODA_PASSWORD:-}"
+      INTERNAL_SERVICE_TOKEN: "local-internal-token"
+      NIVODA_PROXY_RATE_LIMIT: "25"
+      NIVODA_PROXY_RATE_LIMIT_MAX_WAIT_MS: "60000"
+      NIVODA_PROXY_TIMEOUT_MS: "60000"
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: .
@@ -141,6 +163,8 @@ services:
         condition: service_healthy
       demo-feed-api:
         condition: service_healthy
+      ingestion-proxy:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       FEED: demo
@@ -149,6 +173,8 @@ services:
       AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1"
       AZURE_SERVICE_BUS_CONNECTION_STRING: "Endpoint=sb://servicebus;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
       DEMO_FEED_API_URL: "http://demo-feed-api:4000"
+      NIVODA_PROXY_BASE_URL: "http://ingestion-proxy:3001"
+      INTERNAL_SERVICE_TOKEN: "local-internal-token"
       PG_POOL_MAX: "2"
       MAX_SCHEDULER_RECORDS: "500"
     profiles:
@@ -165,11 +191,15 @@ services:
         condition: service_healthy
       demo-feed-api:
         condition: service_healthy
+      ingestion-proxy:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/diamond
       AZURE_SERVICE_BUS_CONNECTION_STRING: "Endpoint=sb://servicebus;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
       DEMO_FEED_API_URL: "http://demo-feed-api:4000"
+      NIVODA_PROXY_BASE_URL: "http://ingestion-proxy:3001"
+      INTERNAL_SERVICE_TOKEN: "local-internal-token"
       PG_POOL_MAX: "1"
       PG_IDLE_TIMEOUT_MS: "2000"
     profiles:

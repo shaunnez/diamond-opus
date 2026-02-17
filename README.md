@@ -47,6 +47,8 @@ The system is designed for reliability with watermark-based incremental sync, fa
 - **Failure-tolerant**: Worker failures prevent consolidation and watermark advancement
 - **Incremental sync**: Watermark tracks last successful sync for efficient updates
 - **Rule-based pricing**: Database-driven pricing rules with priority-based matching
+- **Rule-based rating**: Configurable quality scoring (1-10) via `@diamond/rating-engine`
+- **Centralized rate limiting**: Ingestion proxy with token bucket algorithm protects Nivoda API
 - **Dual authentication**: API Key and HMAC signature support
 - **Azure-native**: Service Bus queues, Blob Storage, Container Apps
 
@@ -198,6 +200,7 @@ This script:
 | `postgres`    | 5432  | PostgreSQL 16 with schema auto-init  |
 | `azurite`     | 10000 | Azure Blob Storage emulator          |
 | `servicebus`  | 5672  | Azure Service Bus emulator (AMQP)    |
+| `ingestion-proxy` | 3001 | Nivoda API proxy with rate limiting |
 | `api`         | 3000  | REST API                             |
 | `demo-feed-api` | 4000 | Demo diamond feed provider          |
 | `scheduler`   | —     | Job partitioner (profile: pipeline)  |
@@ -235,12 +238,15 @@ diamond-opus/
 │   ├── database/               # PostgreSQL client and queries
 │   ├── nivoda/                 # Nivoda GraphQL adapter and mapper
 │   ├── pricing-engine/         # Rule-based pricing logic
+│   ├── rating-engine/          # Rule-based rating logic
 │   └── api/                    # Express REST API
 ├── apps/                        # Runnable applications
 │   ├── scheduler/              # Job partitioning (cron)
 │   ├── worker/                 # Diamond ingestion (queue consumer)
 │   ├── consolidator/           # Data transformation (queue consumer)
-│   └── dashboard/              # React admin dashboard (Vite + Tailwind)
+│   ├── ingestion-proxy/        # Nivoda API proxy with rate limiting
+│   ├── dashboard/              # React admin dashboard (Vite + Tailwind)
+│   └── storefront/             # Customer-facing storefront
 ├── infrastructure/              # Azure Terraform IaC
 │   ├── terraform/modules/      # Reusable modules
 │   └── scripts/                # Deployment scripts
@@ -311,9 +317,10 @@ npm run test -w @diamond/pricing-engine
 2. Validates all workers completed successfully
 3. Claims raw diamonds using `FOR UPDATE SKIP LOCKED` (multi-replica safe)
 4. Maps raw Nivoda data to canonical diamond schema
-5. Applies pricing rules (markup, rating)
-6. Batch upserts to `diamonds` table (100 per INSERT using UNNEST)
-7. Advances watermark **only on success**
+5. Applies pricing rules (markup calculation) via `@diamond/pricing-engine`
+6. Applies rating rules (quality scoring) via `@diamond/rating-engine`
+7. Batch upserts to `diamonds` table (100 per INSERT using UNNEST)
+8. Advances watermark **only on success**
 
 ### Failure Handling & Auto-Consolidation
 
@@ -391,21 +398,39 @@ npm run build:dashboard
 
 The dashboard runs on `http://localhost:5173` and requires the API server to be running.
 
-## Pricing Rules
+## Pricing and Rating Rules
 
-Pricing is controlled by rules in the `pricing_rules` table:
+### Pricing Rules
+
+Pricing markup is controlled by rules in the `pricing_rules` table:
 
 ```sql
 -- Example: Higher markup for large lab-grown diamonds
-INSERT INTO pricing_rules (priority, carat_min, lab_grown, markup_ratio, rating)
-VALUES (10, 3.0, true, 1.25, 7);
+INSERT INTO pricing_rules (priority, carat_min, lab_grown, markup_ratio)
+VALUES (10, 3.0, true, 1.25);
 
 -- Default rule (lowest priority)
-INSERT INTO pricing_rules (priority, markup_ratio, rating)
-VALUES (1000, 1.15, 5);
+INSERT INTO pricing_rules (priority, markup_ratio)
+VALUES (1000, 1.15);
 ```
 
-Rules are matched by priority (lower = higher precedence). First matching rule wins.
+### Rating Rules
+
+Quality ratings (1-10) are assigned via the `rating_rules` table:
+
+```sql
+-- Example: High-end natural diamonds get rating 9
+INSERT INTO rating_rules (priority, price_min, shapes, colors, clarities, cuts, rating)
+VALUES (10, 5000, ARRAY['ROUND'], ARRAY['D','E','F'], ARRAY['IF','VVS1'], ARRAY['IDEAL','EXCELLENT'], 9);
+
+-- Default rating
+INSERT INTO rating_rules (priority, rating)
+VALUES (1000, 5);
+```
+
+Both rule systems are **priority-based** (lower = higher precedence). First matching rule wins.
+
+See [packages/pricing-engine/README.md](packages/pricing-engine/README.md) and [packages/rating-engine/README.md](packages/rating-engine/README.md) for details.
 
 ## Docker
 
@@ -492,10 +517,12 @@ Each package has its own README with detailed documentation:
 - [packages/database/README.md](packages/database/README.md) - Database client and queries
 - [packages/nivoda/README.md](packages/nivoda/README.md) - Nivoda GraphQL integration
 - [packages/pricing-engine/README.md](packages/pricing-engine/README.md) - Pricing logic
+- [packages/rating-engine/README.md](packages/rating-engine/README.md) - Rating logic
 - [packages/api/README.md](packages/api/README.md) - REST API
 - [apps/scheduler/README.md](apps/scheduler/README.md) - Job partitioning
 - [apps/worker/README.md](apps/worker/README.md) - Data ingestion
 - [apps/consolidator/README.md](apps/consolidator/README.md) - Transformation
+- [apps/ingestion-proxy/README.md](apps/ingestion-proxy/README.md) - Nivoda API proxy
 - [docs/DIAMOND_OPUS.md](docs/DIAMOND_OPUS.md) - Consolidated technical documentation
 
 ## License
