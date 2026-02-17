@@ -410,28 +410,28 @@ resource "azurerm_container_app" "ingestion_proxy" {
 
       # TCP health probes (per RESEARCH.md Pattern 4)
       startup_probe {
-        transport         = "TCP"
-        port              = 3000
-        initial_delay     = 1
-        period_seconds    = 1
-        timeout           = 3
-        failure_threshold = 30
+        transport               = "TCP"
+        port                    = 3000
+        initial_delay           = 1
+        interval_seconds        = 1
+        timeout                 = 3
+        failure_count_threshold = 30
       }
 
       liveness_probe {
-        transport         = "TCP"
-        port              = 3000
-        period_seconds    = 10
-        timeout           = 1
-        failure_threshold = 10
+        transport               = "TCP"
+        port                    = 3000
+        interval_seconds        = 10
+        timeout                 = 1
+        failure_count_threshold = 10
       }
 
       readiness_probe {
-        transport         = "TCP"
-        port              = 3000
-        period_seconds    = 5
-        timeout           = 5
-        failure_threshold = 3
+        transport               = "TCP"
+        port                    = 3000
+        interval_seconds        = 5
+        timeout                 = 5
+        failure_count_threshold = 3
       }
     }
   }
