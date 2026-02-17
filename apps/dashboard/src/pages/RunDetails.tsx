@@ -108,25 +108,7 @@ export function RunDetails() {
     },
   });
 
-  if (isLoading) {
-    return <PageLoader />;
-  }
-
-  if (error || !data?.run) {
-    return (
-      <>
-        <Header />
-        <PageContainer>
-          <Alert variant="error" title="Run not found">
-            The requested run could not be found.
-          </Alert>
-          <Button variant="secondary" className="mt-4" onClick={() => navigate('/runs')}>
-            Back to Runs
-          </Button>
-        </PageContainer>
-      </>
-    );
-  }
+  
 
   const { run, workers } = data;
   const hasFailedWorkers = run.failedWorkers > 0;
@@ -279,6 +261,26 @@ export function RunDetails() {
       className: 'max-w-xs',
     },
   ];
+
+  if (isLoading) {
+    return <PageLoader />;
+  }
+
+  if (error || !data?.run) {
+    return (
+      <>
+        <Header />
+        <PageContainer>
+          <Alert variant="error" title="Run not found">
+            The requested run could not be found.
+          </Alert>
+          <Button variant="secondary" className="mt-4" onClick={() => navigate('/runs')}>
+            Back to Runs
+          </Button>
+        </PageContainer>
+      </>
+    );
+  }
 
   return (
     <>
