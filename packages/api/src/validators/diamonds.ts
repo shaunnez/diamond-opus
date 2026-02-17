@@ -45,6 +45,8 @@ export const diamondSearchSchema = z.object({
   width_max: z.coerce.number().positive().optional(),
   depth_mm_min: z.coerce.number().positive().optional(),
   depth_mm_max: z.coerce.number().positive().optional(),
+  rating_min: z.coerce.number().int().min(1).max(10).optional(),
+  rating_max: z.coerce.number().int().min(1).max(10).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(50),
   sort_by: z.enum(['created_at', 'feed_price', 'carats', 'color', 'clarity', 'ratio', 'fancy_color', 'fluorescence_intensity', 'certificate_lab']).default('created_at'),

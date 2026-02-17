@@ -50,6 +50,7 @@ export interface Diamond {
   priceModelPrice?: number;
   priceNzd?: number;
   markupRatio?: number;
+  pricingRating?: number;
   rating?: number;
   availability: DiamondAvailability;
   rawAvailability?: string;
@@ -121,6 +122,8 @@ export interface DiamondSearchParams {
   widthMax?: number;
   depthMeasurementMin?: number;
   depthMeasurementMax?: number;
+  ratingMin?: number;
+  ratingMax?: number;
   page?: number;
   limit?: number;
   sortBy?: string;
