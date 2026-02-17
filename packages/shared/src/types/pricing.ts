@@ -19,7 +19,7 @@ export interface PricingResult {
   priceModelPrice: number;
   pricePerCarat: number;
   markupRatio: number;
-  rating?: number;
+  pricingRating?: number;
   matchedRuleId?: string;
   stoneType: StoneType;
   baseMargin: number;

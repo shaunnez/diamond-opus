@@ -16,6 +16,7 @@ const Query = lazy(() => import('./pages/Query').then(m => ({ default: m.Query }
 const Triggers = lazy(() => import('./pages/Triggers').then(m => ({ default: m.Triggers })));
 const Heatmap = lazy(() => import('./pages/Heatmap').then(m => ({ default: m.Heatmap })));
 const PricingRules = lazy(() => import('./pages/PricingRules').then(m => ({ default: m.PricingRules })));
+const RatingRules = lazy(() => import('./pages/RatingRules').then(m => ({ default: m.RatingRules })));
 const ErrorLogs = lazy(() => import('./pages/ErrorLogs').then(m => ({ default: m.ErrorLogs })));
 const ApiDocs = lazy(() => import('./pages/ApiDocs').then(m => ({ default: m.ApiDocs })));
 const Holds = lazy(() => import('./pages/Holds').then(m => ({ default: m.Holds })));
@@ -61,6 +62,7 @@ function ProtectedRoutes() {
           <Route path="/triggers" element={<Triggers />} />
           <Route path="/heatmap" element={<Heatmap />} />
           <Route path="/pricing-rules" element={<PricingRules />} />
+          <Route path="/rating-rules" element={<RatingRules />} />
           <Route path="/holds" element={<Holds />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/error-logs" element={<ErrorLogs />} />

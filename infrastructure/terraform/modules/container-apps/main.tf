@@ -203,7 +203,7 @@ resource "azurerm_container_app" "api" {
       # Repricing workflow - dashboard URL for email links
       env {
         name  = "DASHBOARD_URL"
-        value = "https://${azurerm_container_app.dashboard.ingress[0].fqdn}"
+        value = var.dashboard_url
       }
 
       # Alerting (for repricing job notifications)

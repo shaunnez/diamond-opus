@@ -192,6 +192,8 @@ router.get(
         widthMax: query.width_max,
         depthMeasurementMin: query.depth_mm_min,
         depthMeasurementMax: query.depth_mm_max,
+        ratingMin: query.rating_min,
+        ratingMax: query.rating_max,
         page: query.page,
         limit: query.limit,
         sortBy: query.sort_by,

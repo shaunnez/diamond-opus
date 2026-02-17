@@ -192,3 +192,13 @@ export const REAPPLY_MONITOR_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 export const REAPPLY_RETRY_BASE_DELAY_MINUTES = 5;
 /** Maximum retry delay cap (minutes) */
 export const REAPPLY_RETRY_MAX_DELAY_MINUTES = 30;
+
+// Rating reapply job monitoring (mirrors pricing reapply constants)
+/** Number of diamonds to reapply rating per batch */
+export const RATING_REAPPLY_BATCH_SIZE = 1000;
+/** Maximum retry attempts for failed rating reapply jobs */
+export const RATING_REAPPLY_MAX_RETRIES = 3;
+/** Base delay for first retry (minutes) */
+export const RATING_REAPPLY_RETRY_BASE_DELAY_MINUTES = 5;
+/** Maximum retry delay cap (minutes) */
+export const RATING_REAPPLY_RETRY_MAX_DELAY_MINUTES = 30;

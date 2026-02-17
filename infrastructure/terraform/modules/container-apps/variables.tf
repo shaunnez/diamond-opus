@@ -224,6 +224,12 @@ variable "alert_email_from" {
   default     = ""
 }
 
+variable "dashboard_url" {
+  description = "Dashboard URL for repricing workflow email links (e.g., https://diamond-staging-dashboard.azurecontainerapps.io)"
+  type        = string
+  default     = ""
+}
+
 ## API Authentication
 variable "hmac_secrets" {
   description = "JSON object of HMAC secrets for API authentication"

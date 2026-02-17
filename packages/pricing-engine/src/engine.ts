@@ -97,7 +97,7 @@ export class PricingEngine {
     const marginModifier = matchedRule?.marginModifier ?? DEFAULT_MARGIN_MODIFIER;
     const effectiveMargin = baseMargin + marginModifier;
     const markupRatio = 1 + effectiveMargin / 100;
-    const rating = matchedRule?.rating;
+    const pricingRating = matchedRule?.rating;
 
     const priceModelPrice = Math.round(diamond.feedPrice * markupRatio * 100) / 100;
     const pricePerCarat = diamond.carats ? Math.round((diamond.feedPrice / diamond.carats) * 100) / 100 : 0;
@@ -107,7 +107,7 @@ export class PricingEngine {
       priceModelPrice,
       pricePerCarat,
       markupRatio,
-      rating,
+      pricingRating,
       matchedRuleId: matchedRule?.id,
       stoneType,
       baseMargin,
@@ -117,7 +117,7 @@ export class PricingEngine {
   }
 
   applyPricing(
-    diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'rating'>
+    diamond: Omit<Diamond, 'id' | 'createdAt' | 'updatedAt' | 'priceModelPrice' | 'markupRatio' | 'pricingRating'>
   ): Omit<Diamond, 'id' | 'createdAt' | 'updatedAt'> {
     const pricing = this.calculatePricing(diamond);
 
@@ -125,7 +125,7 @@ export class PricingEngine {
       ...diamond,
       priceModelPrice: pricing.priceModelPrice,
       markupRatio: pricing.markupRatio,
-      rating: pricing.rating,
+      pricingRating: pricing.pricingRating,
       pricePerCarat: pricing.pricePerCarat,
     };
   }

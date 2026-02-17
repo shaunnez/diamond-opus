@@ -42,6 +42,7 @@ import {
 } from '@diamond/database';
 import type { FeedAdapter } from '@diamond/feed-registry';
 import { PricingEngine } from '@diamond/pricing-engine';
+import { RatingEngine } from '@diamond/rating-engine';
 import { receiveConsolidateMessage, closeConnections } from './service-bus.js';
 import { saveWatermark } from './watermark.js';
 import { sendAlert } from './alerts.js';
@@ -103,6 +104,7 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 async function processBatch(
   rawDiamonds: ClaimedRawDiamond[],
   pricingEngine: PricingEngine,
+  ratingEngine: RatingEngine,
   adapter: FeedAdapter,
   log: Logger
 ): Promise<BatchResult> {
@@ -111,12 +113,13 @@ async function processBatch(
   const diamonds: DiamondInput[] = [];
   let errorCount = 0;
 
-  // Phase 1: Map and price all diamonds (CPU-bound, fast)
+  // Phase 1: Map, price, and rate all diamonds (CPU-bound, fast)
   for (const rawDiamond of rawDiamonds) {
     try {
       const baseDiamond = adapter.mapRawToDiamond(rawDiamond.payload);
       const pricedDiamond = pricingEngine.applyPricing(baseDiamond);
-      diamonds.push(pricedDiamond);
+      const rating = ratingEngine.calculateRating(pricedDiamond);
+      diamonds.push({ ...pricedDiamond, rating });
       processedIds.push(rawDiamond.id);
     } catch (error) {
       log.error('Error mapping raw diamond', error, {
@@ -173,6 +176,10 @@ async function processConsolidation(
   await pricingEngine.loadRules();
   log.info('Pricing rules loaded');
 
+  const ratingEngine = new RatingEngine();
+  await ratingEngine.loadRules();
+  log.info('Rating rules loaded');
+
   let totalProcessed = 0;
   let totalErrors = 0;
   let totalClaimed = 0;
@@ -198,7 +205,7 @@ async function processConsolidation(
     // Process chunks concurrently (respects connection pool limits)
     const results = await processWithConcurrency(
       chunks,
-      (chunk) => processBatch(chunk, pricingEngine, adapter, log),
+      (chunk) => processBatch(chunk, pricingEngine, ratingEngine, adapter, log),
       CONSOLIDATOR_CONCURRENCY
     );
 

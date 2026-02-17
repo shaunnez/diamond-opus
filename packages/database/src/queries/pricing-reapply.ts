@@ -41,7 +41,7 @@ interface AvailableDiamondPricingRow {
   feed_price: string;
   price_model_price: string | null;
   markup_ratio: string | null;
-  rating: number | null;
+  pricing_rating: number | null;
   carats: string | null;
   lab_grown: boolean;
   fancy_color: string | null;
@@ -88,7 +88,7 @@ export interface AvailableDiamondPricing {
   feedPrice: number;
   priceModelPrice: number | null;
   markupRatio: number | null;
-  rating: number | null;
+  pricingRating: number | null;
   carats: number | null;
   labGrown: boolean;
   fancyColor: string | null;
@@ -280,7 +280,7 @@ export async function getAvailableDiamondsBatch(
   values.push(limit);
 
   const result = await query<AvailableDiamondPricingRow>(
-    `SELECT id, feed, feed_price, price_model_price, markup_ratio, rating, carats, lab_grown, fancy_color
+    `SELECT id, feed, feed_price, price_model_price, markup_ratio, pricing_rating, carats, lab_grown, fancy_color
      FROM diamonds
      WHERE ${conditions.join(' AND ')}
      ORDER BY id ASC
@@ -294,7 +294,7 @@ export async function getAvailableDiamondsBatch(
     feedPrice: parseFloat(row.feed_price),
     priceModelPrice: row.price_model_price ? parseFloat(row.price_model_price) : null,
     markupRatio: row.markup_ratio ? parseFloat(row.markup_ratio) : null,
-    rating: row.rating,
+    pricingRating: row.pricing_rating,
     carats: row.carats ? parseFloat(row.carats) : null,
     labGrown: row.lab_grown,
     fancyColor: row.fancy_color,
@@ -308,7 +308,7 @@ export async function batchUpdateDiamondPricing(
     id: string;
     priceModelPrice: number;
     markupRatio: number;
-    rating: number | undefined;
+    pricingRating: number | undefined;
   }>
 ): Promise<number> {
   if (updates.length === 0) return 0;
@@ -316,13 +316,13 @@ export async function batchUpdateDiamondPricing(
   const ids: string[] = [];
   const prices: number[] = [];
   const ratios: number[] = [];
-  const ratings: (number | null)[] = [];
+  const pricingRatings: (number | null)[] = [];
 
   for (const u of updates) {
     ids.push(u.id);
     prices.push(u.priceModelPrice);
     ratios.push(u.markupRatio);
-    ratings.push(u.rating ?? null);
+    pricingRatings.push(u.pricingRating ?? null);
   }
 
   const result = await query<{ count: string }>(
@@ -330,18 +330,18 @@ export async function batchUpdateDiamondPricing(
       UPDATE diamonds d SET
         price_model_price = v.price_model_price,
         markup_ratio = v.markup_ratio,
-        rating = v.rating,
+        pricing_rating = v.pricing_rating,
         updated_at = NOW()
       FROM (
         SELECT * FROM UNNEST(
           $1::uuid[], $2::numeric[], $3::numeric[], $4::integer[]
-        ) AS t(id, price_model_price, markup_ratio, rating)
+        ) AS t(id, price_model_price, markup_ratio, pricing_rating)
       ) v
       WHERE d.id = v.id
       RETURNING 1
     )
     SELECT COUNT(*)::text as count FROM updated`,
-    [ids, prices, ratios, ratings]
+    [ids, prices, ratios, pricingRatings]
   );
 
   return parseInt(result.rows[0]?.count ?? '0', 10);
@@ -440,13 +440,13 @@ export async function revertDiamondPricingFromSnapshots(
     const ids: string[] = [];
     const prices: number[] = [];
     const ratios: (number | null)[] = [];
-    const ratings: (number | null)[] = [];
+    const pricingRatings: (number | null)[] = [];
 
     for (const s of snapshots) {
       ids.push(s.diamondId);
       prices.push(s.oldPriceModelPrice);
       ratios.push(s.oldMarkupRatio);
-      ratings.push(s.oldRating);
+      pricingRatings.push(s.oldRating);
     }
 
     const result = await query<{ count: string }>(
@@ -454,18 +454,18 @@ export async function revertDiamondPricingFromSnapshots(
         UPDATE diamonds d SET
           price_model_price = v.price_model_price,
           markup_ratio = v.markup_ratio,
-          rating = v.rating,
+          pricing_rating = v.pricing_rating,
           updated_at = NOW()
         FROM (
           SELECT * FROM UNNEST(
             $1::uuid[], $2::numeric[], $3::numeric[], $4::integer[]
-          ) AS t(id, price_model_price, markup_ratio, rating)
+          ) AS t(id, price_model_price, markup_ratio, pricing_rating)
         ) v
         WHERE d.id = v.id
         RETURNING 1
       )
       SELECT COUNT(*)::text as count FROM updated`,
-      [ids, prices, ratios, ratings]
+      [ids, prices, ratios, pricingRatings]
     );
 
     totalReverted += parseInt(result.rows[0]?.count ?? '0', 10);

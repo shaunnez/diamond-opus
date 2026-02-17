@@ -21,6 +21,8 @@
       "@diamond/nivoda": ["packages/nivoda/src/index.ts"],
       "@diamond/demo-feed": ["packages/demo-feed/src/index.ts"],
       "@diamond/pricing-engine": ["packages/pricing-engine/src/index.ts"],
+      "@diamond/rating-engine": ["packages/rating-engine/src/index.ts"],
+      "@diamond/ingestion-proxy": ["packages/ingestion-proxy/src/index.ts"],
       "@diamond/api": ["packages/api/src/index.ts"]
     }
   },

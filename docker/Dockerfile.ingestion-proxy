@@ -14,6 +14,7 @@ COPY packages/nivoda/package.json ./packages/nivoda/
 COPY packages/demo-feed/package.json ./packages/nivoda/
 COPY packages/demo-feed/package.json ./packages/demo-feed/
 COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY packages/rating-engine/package.json ./packages/rating-engine/
 COPY packages/api/package.json ./packages/api/
 COPY apps/scheduler/package.json ./apps/scheduler/
 COPY apps/worker/package.json ./apps/worker/
@@ -43,6 +44,7 @@ COPY packages/feed-registry/package.json ./packages/feed-registry/
 COPY packages/nivoda/package.json ./packages/nivoda/
 COPY packages/demo-feed/package.json ./packages/demo-feed/
 COPY packages/pricing-engine/package.json ./packages/pricing-engine/
+COPY packages/rating-engine/package.json ./packages/pricing-engine/
 COPY packages/api/package.json ./packages/api/
 COPY apps/scheduler/package.json ./apps/scheduler/
 COPY apps/worker/package.json ./apps/worker/
