@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, scheduler, worker, consolidator, demo-feed-api, dashboard, storefront]
+        app: [api, scheduler, worker, consolidator, demo-feed-api, dashboard, storefront, ingestion-proxy]
 
     steps:
       - name: Checkout
@@ -320,6 +320,7 @@ jobs:
           }
 
           deploy_app "diamond-staging-api" "api" "$ACR_SERVER/diamond-api:$IMAGE_TAG"
+          deploy_app "diamond-staging-ingestion-proxy" "ingestion-proxy" "$ACR_SERVER/diamond-ingestion-proxy:$IMAGE_TAG"
           deploy_app "diamond-staging-worker" "worker" "$ACR_SERVER/diamond-worker:$IMAGE_TAG"
           deploy_app "diamond-staging-consolidator" "consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG"
           deploy_app "diamond-staging-demo-feed-api" "demo-feed-api" "$ACR_SERVER/diamond-demo-feed-api:$IMAGE_TAG"
