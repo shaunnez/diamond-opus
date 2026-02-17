@@ -165,12 +165,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "NIVODA_PROXY_BASE_URL"
-        value = var.nivoda_proxy_base_url
-      }
-
-      env {
-        name        = "INTERNAL_SERVICE_TOKEN"
-        secret_name = "internal-service-token"
+        value = "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
       }
 
       # Database pooling configuration
