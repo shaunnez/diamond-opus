@@ -12,8 +12,9 @@ COPY tsconfig.json ./
 COPY apps/storefront/package.json ./apps/storefront/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (npm install instead of npm ci to resolve correct
+# platform-specific optional deps on Alpine/musl — npm ci bug #4828)
+RUN npm install
 
 # Copy source files
 COPY packages/shared ./packages/shared
