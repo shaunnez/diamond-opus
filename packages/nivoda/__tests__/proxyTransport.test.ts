@@ -31,7 +31,7 @@ describe('ProxyGraphqlTransport', () => {
     t.request('query { test }', {});
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/api/v2/internal/nivoda/graphql',
+      'https://api.example.com/graphql',
       expect.anything(),
     );
   });
@@ -48,7 +48,7 @@ describe('ProxyGraphqlTransport', () => {
 
     expect(result).toEqual(mockResponse.data);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api-test.example.com/api/v2/internal/nivoda/graphql',
+      'https://api-test.example.com/graphql',
       expect.objectContaining({
         method: 'POST',
         headers: {
