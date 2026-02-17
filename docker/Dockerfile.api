@@ -33,7 +33,7 @@ COPY packages/pricing-engine ./packages/pricing-engine
 COPY packages/rating-engine ./packages/rating-engine
 COPY packages/api ./packages/api
 
-RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && npm run build -w @diamond/feed-registry && npm run build -w @diamond/nivoda && npm run build -w @diamond/demo-feed && npm run build -w @diamond/pricing-engine && npm run build -w @diamond/api
+RUN npm run build -w @diamond/shared && npm run build -w @diamond/database && npm run build -w @diamond/feed-registry && npm run build -w @diamond/nivoda && npm run build -w @diamond/demo-feed && npm run build -w @diamond/pricing-engine && npm run build -w @diamond/rating-engine && npm run build -w @diamond/api
 
 FROM node:20-alpine
 
