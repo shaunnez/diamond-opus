@@ -224,10 +224,10 @@ jobs:
             "${P}/providers/Microsoft.App/containerApps/diamond-staging-demo-feed-api" || true
           terraform import 'module.container_apps[0].azurerm_container_app.dashboard' \
             "${P}/providers/Microsoft.App/containerApps/diamond-staging-dashboard" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.ingestion_proxy' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-staging-ingestion-proxy" || true
           terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler[0]' \
             "${P}/providers/Microsoft.App/jobs/diamond-staging-scheduler" || true
-          terraform import 'module.container_apps[0].azurerm_container_app_job.ingestion_proxy[0]' \
-            "${P}/providers/Microsoft.App/jobs/diamond-staging-ingestion-proxy" || true
 
           echo "=== Import step complete ==="
 
