@@ -974,7 +974,8 @@ resource "azurerm_container_app_job" "scheduler" {
         secret_name = "nivoda-password"
       }
 
-      # Route Nivoda calls through ingestion proxy for global rate limit enforcement
+
+      # Optional: route Nivoda calls via API proxy to satisfy domain allowlisting
       env {
         name  = "NIVODA_PROXY_BASE_URL"
         value = "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
