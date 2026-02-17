@@ -83,5 +83,9 @@ echo "Importing scheduler job..."
 terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler' \
   "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.App/jobs/diamond-staging-scheduler" || true
 
+echo "Importing proxy..."
+terraform import 'module.container_apps[0].azurerm_container_app_job.ingestion-proxy' \
+  "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.App/jobs/diamond-staging-ingestion-proxy" || true
+
 echo ""
 echo "Import complete. Run 'terraform plan' to verify state."
