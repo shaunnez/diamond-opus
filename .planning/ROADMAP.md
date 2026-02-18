@@ -51,10 +51,11 @@ Plans:
   2. All API endpoints reject requests without valid API key with 401 Unauthorized
   3. HMAC authentication code, middleware, and dependencies removed from codebase
   4. API documentation updated to reflect API key-only authentication
-**Plans**: TBD
+**Plans**: 2 plans in 1 wave
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — Remove HMAC from auth middleware, hash utils, constants, and tests
+- [ ] 02-02-PLAN.md — Remove HMAC from swagger, e2e helpers, docs, and .env.example
 
 ### Phase 3: Input Validation
 **Goal**: All API endpoints and services validate inputs at boundaries using Zod schemas
