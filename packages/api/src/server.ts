@@ -11,8 +11,6 @@ import { initReapplyMonitor } from "./services/reapply-monitor.js";
 
 const logger = createServiceLogger('api');
 
-import swaggerJson from '../../../swagger-backup.json' with { type: 'json'}
-
 // Extend Express Request to include logger and requestId
 declare global {
   namespace Express {
@@ -66,8 +64,8 @@ export function createApp(): express.Application {
   });
 
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(spec));
-  app.use("/swagger", (req,res) => {
-    res.send(swaggerJson);
+  app.use("/swagger", (_req, res) => {
+    res.json(spec);
   });
 
   app.use(routes);
