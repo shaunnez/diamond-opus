@@ -24,6 +24,7 @@ export async function searchDiamonds(params: DiamondSearchParams): Promise<Diamo
   if (params.price_max !== undefined) query.price_max = String(params.price_max);
   // if (params.fancy_color?.length) query.fancy_color = params.fancy_color.join(',');
   if (params.fancy_intensity?.length) query.fancy_intensity = params.fancy_intensity.join(',');
+  if (params.fancy_colors?.length) query.fancy_colors = params.fancy_colors.join(',');
   if (params.fluorescence_intensity?.length) query.fluorescence_intensity = params.fluorescence_intensity.join(',');
   if (params.polish?.length) query.polish = params.polish.join(',');
   if (params.symmetry?.length) query.symmetry = params.symmetry.join(',');

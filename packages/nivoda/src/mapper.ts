@@ -21,14 +21,6 @@ function mapFluorescence(floInt?: string, floCol?: string): string | undefined {
   return floCol ? `${floInt} ${floCol}` : floInt;
 }
 
-function mapFancyColor(certificate: NivodaItem["diamond"]["certificate"]): string | undefined {
-  const parts: string[] = [];
-  if (certificate.f_intensity) parts.push(certificate.f_intensity);
-  if (certificate.f_color) parts.push(certificate.f_color);
-  if (certificate.f_overtone) parts.push(certificate.f_overtone);
-  return parts.length > 0 ? parts.join(" ") : undefined;
-}
-
 function parseFluorescenceIntensity(floInt?: string): string | undefined {
   if (!floInt) return undefined;
   const normalized = floInt.toUpperCase().replace(/[\s-]+/g, "_");
@@ -50,6 +42,77 @@ function parseFluorescenceIntensity(floInt?: string): string | undefined {
 function computeRatio(length?: number, width?: number): number | undefined {
   if (!length || !width || width === 0) return undefined;
   return Math.round((length / width) * 1000) / 1000;
+}
+
+function normalizeFancyColor(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  const upper = trimmed.toUpperCase();
+  // Invalid / noise values from Nivoda
+  if (upper === 'EVEN' || upper === 'U-V') return undefined;
+
+  // Synonyms
+  if (upper === 'GREY') return 'Gray';
+
+  // Compound colors with space → hyphenated Title Case
+  const compoundMap: Record<string, string> = {
+    'GREEN YELLOW': 'Green-Yellow',
+    'ORANGE YELLOW': 'Orange-Yellow',
+    'YELLOW GREEN': 'Yellow-Green',
+    'YELLOW ORANGE': 'Yellow-Orange',
+    'BROWN ORANGE': 'Brown-Orange',
+    'BROWN PINK': 'Brown-Pink',
+    'BROWN YELLOW': 'Brown-Yellow',
+    'GRAY BLUE': 'Gray-Blue',
+    'ORANGE BROWN': 'Orange-Brown',
+    'PINK BROWN': 'Pink-Brown',
+    'PINK PURPLE': 'Pink-Purple',
+    'PURPLE PINK': 'Purple-Pink',
+    'YELLOW BROWN': 'Yellow-Brown',
+  };
+  if (compoundMap[upper]) return compoundMap[upper];
+
+  // Adjective forms (keep space, Title Case)
+  const adjectiveMap: Record<string, string> = {
+    'ORANGY BROWN': 'Orangy Brown',
+    'ORANGY YELLOW': 'Orangy Yellow',
+  };
+  if (adjectiveMap[upper]) return adjectiveMap[upper];
+
+  // General Title Case (handles hyphenated already e.g. "BROWN-PINK" → "Brown-Pink")
+  return trimmed
+    .split(/([- ])/)
+    .map((part) => (part === '-' || part === ' ' ? part : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()))
+    .join('');
+}
+
+function normalizeFancyIntensity(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  const intensityMap: Record<string, string> = {
+    'FAINT': 'Faint',
+    'VERY LIGHT': 'Very Light',
+    'VERY_LIGHT': 'Very Light',
+    'LIGHT': 'Light',
+    'FANCY LIGHT': 'Fancy Light',
+    'FANCY_LIGHT': 'Fancy Light',
+    'FANCY': 'Fancy',
+    'FANCY INTENSE': 'Fancy Intense',
+    'FANCY_INTENSE': 'Fancy Intense',
+    'FANCY VIVID': 'Fancy Vivid',
+    'FANCY_VIVID': 'Fancy Vivid',
+    'FANCY DEEP': 'Fancy Deep',
+    'FANCY_DEEP': 'Fancy Deep',
+    'FANCY DARK': 'Fancy Dark',
+    'FANCY_DARK': 'Fancy Dark',
+  };
+
+  const upper = trimmed.toUpperCase();
+  return intensityMap[upper] ?? (trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase());
 }
 
 function parseEyeClean(value: unknown): boolean | null | undefined | null {
@@ -96,9 +159,9 @@ export function mapNivodaItemToDiamond(
     symmetry: certificate.symmetry ?? undefined,
     fluorescence: mapFluorescence(certificate.floInt, certificate.floCol),
     fluorescenceIntensity: parseFluorescenceIntensity(certificate.floInt),
-    fancyColor: certificate.f_color ?? undefined,
-    fancyIntensity: certificate.f_intensity ?? undefined,
-    fancyOvertone: certificate.f_overtone ?? undefined,
+    fancyColor: normalizeFancyColor(certificate.f_color ?? undefined),
+    fancyIntensity: normalizeFancyIntensity(certificate.f_intensity ?? undefined),
+    fancyOvertone: normalizeFancyColor(certificate.f_overtone ?? undefined),
     ratio: computeRatio(certificate.length, certificate.width),
     labGrown: certificate.labgrown ?? Boolean(certificate.labgrown_type),
     treated: certificate.treated ?? false,

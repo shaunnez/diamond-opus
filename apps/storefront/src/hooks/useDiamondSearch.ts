@@ -14,6 +14,7 @@ const ARRAY_PARAMS = [
   'fluorescence_intensity',
   'lab',
   'fancy_intensity',
+  'fancy_colors',
 ] as const;
 
 const NUMBER_PARAMS = [
@@ -91,7 +92,7 @@ function filtersToURLParams(filters: DiamondSearchParams): Record<string, string
 
 function getStoneTypeFromURL(params: URLSearchParams): StoneType {
   const val = params.get('stone_type');
-  if (val === 'natural' || val === 'lab' || val === 'fancy') return val;
+  if (val === 'natural' || val === 'lab' || val === 'natural_fancy' || val === 'lab_fancy') return val;
   return 'all';
 }
 
@@ -115,20 +116,22 @@ export function useDiamondSearch() {
     // Apply stone type filter
     if (stoneType === 'natural') {
       params.lab_grown = false;
-      // Clear fancy filters when filtering natural
       delete params.fancy_color;
       delete params.fancy_intensity;
+      delete params.fancy_colors;
+    } else if (stoneType === 'natural_fancy') {
+      params.lab_grown = false;
+      params.fancy_color = true;
+      delete params.color;
     } else if (stoneType === 'lab') {
       params.lab_grown = true;
       delete params.fancy_color;
       delete params.fancy_intensity;
-    } else if (stoneType === 'fancy') {
+      delete params.fancy_colors;
+    } else if (stoneType === 'lab_fancy') {
+      params.lab_grown = true;
       params.fancy_color = true;
-      delete params.lab_grown
-      // Fancy colored: we don't set lab_grown, but we want diamonds that have fancy_color set
-      // The API will return fancy colored diamonds when fancy_color filter is used
-      // If no specific fancy colors are selected, we need a different approach
-      // For now, we won't pre-filter fancy_color - just show the fancy_color chips
+      delete params.color;
     } else {
       // 'all' - don't restrict
       delete params.lab_grown;
@@ -164,7 +167,15 @@ export function useDiamondSearch() {
 
   const setStoneType = useCallback(
     (type: StoneType) => {
-      const urlParams = filtersToURLParams(filters);
+      const newFilters = { ...filters };
+      const isFancy = type === 'natural_fancy' || type === 'lab_fancy';
+      if (isFancy) {
+        delete newFilters.color;
+      } else {
+        delete newFilters.fancy_colors;
+        delete newFilters.fancy_intensity;
+      }
+      const urlParams = filtersToURLParams(newFilters);
       if (type !== 'all') urlParams.stone_type = type;
       setSearchParams(urlParams, { replace: true });
     },

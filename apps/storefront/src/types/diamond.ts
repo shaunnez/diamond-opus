@@ -88,6 +88,7 @@ export interface DiamondSearchParams {
   price_max?: number;
   fancy_color?: boolean;
   fancy_intensity?: string[];
+  fancy_colors?: string[];
   fluorescence_intensity?: string[];
   polish?: string[];
   symmetry?: string[];
@@ -110,7 +111,7 @@ export interface DiamondSearchParams {
   fields?: 'full' | 'slim';
 }
 
-export type StoneType = 'all' | 'natural' | 'lab' | 'fancy';
+export type StoneType = 'all' | 'natural' | 'natural_fancy' | 'lab' | 'lab_fancy';
 
 export interface HoldResponse {
   id: string;

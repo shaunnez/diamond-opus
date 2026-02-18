@@ -395,6 +395,7 @@ router.get(
         priceMax: query.price_max,
         fancyColor: query.fancy_color,
         fancyIntensities: toArray(query.fancy_intensity),
+        fancyColors: toStringArray(query.fancy_colors),
         fluorescenceIntensities: toArray(query.fluorescence_intensity),
         polishes: toArray(query.polish),
         symmetries: toArray(query.symmetry),
