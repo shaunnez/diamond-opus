@@ -10,7 +10,7 @@ import {
   createMockWorkDoneMessage,
   createMockConsolidateMessage,
   createMockServiceBus,
-  createMockEmailClient,
+  createMockNotifyClient,
 } from '../src/testing/index.js';
 import { generateTraceId } from '../src/utils/logger.js';
 import {
@@ -295,7 +295,7 @@ describe('Pipeline Message Flow', () => {
 
     it('should auto-start consolidation with force when >=70% workers succeed', async () => {
       const bus = createMockServiceBus();
-      const emailClient = createMockEmailClient();
+      const notifyClient = createMockNotifyClient();
       const traceId = generateTraceId();
       const runId = 'run-789';
       const expectedWorkers = 10;
@@ -311,12 +311,12 @@ describe('Pipeline Message Flow', () => {
           await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId });
         } else if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
           await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId, force: true });
-          await emailClient.sendAlert(
-            'Run Completed (Partial Success)',
-            `Run ${runId} finished with partial success.\n` +
-              `Workers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\n` +
-              `Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
-          );
+          await notifyClient.notify({
+            category: 'run_partial_success',
+            title: 'Run Completed (Partial Success)',
+            message: `Run finished with partial success. ${Math.round(successRate * 100)}% workers succeeded.`,
+            context: { runId, successRate: `${Math.round(successRate * 100)}%` },
+          });
         }
       }
 
@@ -324,13 +324,13 @@ describe('Pipeline Message Flow', () => {
       const msg = bus.consolidate[0].body as ConsolidateMessage;
       expect(msg.force).toBe(true);
       expect(msg.runId).toBe(runId);
-      expect(emailClient.hasEmail('Partial Success')).toBe(true);
-      expect(emailClient.sentEmails[0].body).toContain('80%');
+      expect(notifyClient.hasNotification('Partial Success')).toBe(true);
+      expect(notifyClient.sent[0].message).toContain('80%');
     });
 
     it('should NOT trigger consolidation when <70% workers succeed', async () => {
       const bus = createMockServiceBus();
-      const emailClient = createMockEmailClient();
+      const notifyClient = createMockNotifyClient();
       const traceId = generateTraceId();
       const runId = 'run-low-success';
       const expectedWorkers = 10;
@@ -346,15 +346,17 @@ describe('Pipeline Message Flow', () => {
         } else if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
           await bus.sendConsolidate({ type: 'CONSOLIDATE', runId, traceId, force: true });
         } else {
-          await emailClient.sendAlert(
-            'Run Failed',
-            `Run ${runId} failed - success rate below threshold.`
-          );
+          await notifyClient.notify({
+            category: 'run_failed',
+            title: 'Run Failed',
+            message: `Run ${runId} failed - success rate below threshold.`,
+            context: { runId },
+          });
         }
       }
 
       expect(bus.consolidate).toHaveLength(0);
-      expect(emailClient.hasEmail('Run Failed')).toBe(true);
+      expect(notifyClient.hasNotification('Run Failed')).toBe(true);
     });
 
     it('should trigger immediate consolidation at exactly 70% threshold', async () => {
@@ -382,73 +384,84 @@ describe('Pipeline Message Flow', () => {
     });
   });
 
-  describe('Mock Email Client', () => {
-    it('should capture sent alert emails', async () => {
-      const emailClient = createMockEmailClient();
+  describe('Mock Notify Client', () => {
+    it('should capture sent notifications', async () => {
+      const notifyClient = createMockNotifyClient();
 
-      await emailClient.sendAlert('Run Completed', 'All workers done.');
-      await emailClient.sendAlert('Consolidation Failed', 'DB error.');
+      await notifyClient.notify({ category: 'run_completed', title: 'Run Completed', message: 'All workers done.' });
+      await notifyClient.notify({ category: 'consolidation_failed', title: 'Consolidation Failed', message: 'DB error.' });
 
-      expect(emailClient.sentEmails).toHaveLength(2);
-      expect(emailClient.sentEmails[0].subject).toBe('Run Completed');
-      expect(emailClient.sentEmails[1].body).toContain('DB error');
+      expect(notifyClient.sent).toHaveLength(2);
+      expect(notifyClient.sent[0].title).toBe('Run Completed');
+      expect(notifyClient.sent[1].message).toContain('DB error');
     });
 
-    it('should filter emails by subject pattern (string)', async () => {
-      const emailClient = createMockEmailClient();
+    it('should filter notifications by title pattern (string)', async () => {
+      const notifyClient = createMockNotifyClient();
 
-      await emailClient.sendAlert('Run Completed', 'body1');
-      await emailClient.sendAlert('Run Failed', 'body2');
-      await emailClient.sendAlert('Consolidation Completed', 'body3');
+      await notifyClient.notify({ category: 'run_completed', title: 'Run Completed', message: 'body1' });
+      await notifyClient.notify({ category: 'run_failed', title: 'Run Failed', message: 'body2' });
+      await notifyClient.notify({ category: 'consolidation_completed', title: 'Consolidation Completed', message: 'body3' });
 
-      const runEmails = emailClient.getEmailsBySubject('Run');
-      expect(runEmails).toHaveLength(2);
+      const runNotifs = notifyClient.getByTitle('Run');
+      expect(runNotifs).toHaveLength(2);
 
-      const failedEmails = emailClient.getEmailsBySubject('Failed');
-      expect(failedEmails).toHaveLength(1);
+      const failedNotifs = notifyClient.getByTitle('Failed');
+      expect(failedNotifs).toHaveLength(1);
     });
 
-    it('should filter emails by subject pattern (regex)', async () => {
-      const emailClient = createMockEmailClient();
+    it('should filter notifications by title pattern (regex)', async () => {
+      const notifyClient = createMockNotifyClient();
 
-      await emailClient.sendAlert('Run Completed (Partial Success)', 'body');
-      await emailClient.sendAlert('Run Completed', 'body');
+      await notifyClient.notify({ category: 'run_partial_success', title: 'Run Completed (Partial Success)', message: 'body' });
+      await notifyClient.notify({ category: 'run_completed', title: 'Run Completed', message: 'body' });
 
-      const partialEmails = emailClient.getEmailsBySubject(/Partial/);
-      expect(partialEmails).toHaveLength(1);
+      const partialNotifs = notifyClient.getByTitle(/Partial/);
+      expect(partialNotifs).toHaveLength(1);
     });
 
-    it('should check email existence with hasEmail', async () => {
-      const emailClient = createMockEmailClient();
+    it('should check notification existence with hasNotification', async () => {
+      const notifyClient = createMockNotifyClient();
 
-      expect(emailClient.hasEmail('Run Completed')).toBe(false);
+      expect(notifyClient.hasNotification('Run Completed')).toBe(false);
 
-      await emailClient.sendAlert('Run Completed', 'body');
+      await notifyClient.notify({ category: 'run_completed', title: 'Run Completed', message: 'body' });
 
-      expect(emailClient.hasEmail('Run Completed')).toBe(true);
-      expect(emailClient.hasEmail('Nonexistent')).toBe(false);
+      expect(notifyClient.hasNotification('Run Completed')).toBe(true);
+      expect(notifyClient.hasNotification('Nonexistent')).toBe(false);
     });
 
-    it('should reset all emails', async () => {
-      const emailClient = createMockEmailClient();
+    it('should reset all notifications', async () => {
+      const notifyClient = createMockNotifyClient();
 
-      await emailClient.sendAlert('Test 1', 'body');
-      await emailClient.sendAlert('Test 2', 'body');
+      await notifyClient.notify({ category: 'run_completed', title: 'Test 1', message: 'body' });
+      await notifyClient.notify({ category: 'run_failed', title: 'Test 2', message: 'body' });
 
-      emailClient.reset();
+      notifyClient.reset();
 
-      expect(emailClient.sentEmails).toHaveLength(0);
+      expect(notifyClient.sent).toHaveLength(0);
     });
 
-    it('should track email timestamps', async () => {
-      const emailClient = createMockEmailClient();
+    it('should track notification timestamps', async () => {
+      const notifyClient = createMockNotifyClient();
       const before = new Date();
 
-      await emailClient.sendAlert('Test', 'body');
+      await notifyClient.notify({ category: 'run_completed', title: 'Test', message: 'body' });
 
       const after = new Date();
-      expect(emailClient.sentEmails[0].sentAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-      expect(emailClient.sentEmails[0].sentAt.getTime()).toBeLessThanOrEqual(after.getTime());
+      expect(notifyClient.sent[0].sentAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      expect(notifyClient.sent[0].sentAt.getTime()).toBeLessThanOrEqual(after.getTime());
+    });
+
+    it('should filter notifications by category', async () => {
+      const notifyClient = createMockNotifyClient();
+
+      await notifyClient.notify({ category: 'run_completed', title: 'Run Done', message: 'body' });
+      await notifyClient.notify({ category: 'run_failed', title: 'Run Failed', message: 'body' });
+      await notifyClient.notify({ category: 'run_completed', title: 'Another Run Done', message: 'body' });
+
+      expect(notifyClient.getByCategory('run_completed')).toHaveLength(2);
+      expect(notifyClient.getByCategory('run_failed')).toHaveLength(1);
     });
   });
 

@@ -20,6 +20,8 @@ import {
   createServiceLogger,
   capErrorMessage,
   safeLogError,
+  notify,
+  NotifyCategory,
   type ConsolidateMessage,
   type Watermark,
   type Logger,
@@ -45,7 +47,6 @@ import { PricingEngine } from '@diamond/pricing-engine';
 import { RatingEngine } from '@diamond/rating-engine';
 import { receiveConsolidateMessage, closeConnections } from './service-bus.js';
 import { saveWatermark } from './watermark.js';
-import { sendAlert } from './alerts.js';
 import { createFeedRegistry } from './feeds.js';
 
 const baseLogger = createServiceLogger('consolidator');
@@ -267,14 +268,12 @@ async function processConsolidation(
   const newVersion = await incrementDatasetVersion(adapter.feedId);
   log.info('Dataset version incremented', { feed: adapter.feedId, version: newVersion });
 
-  sendAlert(
-    'Consolidation Completed',
-    `Run ${message.runId} (feed: ${adapter.feedId}) consolidation completed successfully.\n\n` +
-      `Processed: ${totalProcessed}\n` +
-      `Errors: ${totalErrors}\n` +
-      `Total claimed: ${totalClaimed}\n\n` +
-      `Watermark has been advanced.`
-  ).catch(() => {});
+  notify({
+    category: NotifyCategory.CONSOLIDATION_COMPLETED,
+    title: 'Consolidation Completed',
+    message: `Consolidation completed successfully. Watermark has been advanced.`,
+    context: { runId: message.runId, feed: adapter.feedId, processed: String(totalProcessed), errors: String(totalErrors), claimed: String(totalClaimed) },
+  }).catch(() => {});
 }
 
 async function handleConsolidateMessage(
@@ -303,13 +302,12 @@ async function handleConsolidateMessage(
       expectedWorkers: runMetadata.expectedWorkers,
       completedWorkers: runMetadata.completedWorkers,
     });
-    await sendAlert(
-      'Consolidation Skipped',
-      `Run ${message.runId} (feed: ${message.feed}) was not consolidated because ${runMetadata.failedWorkers} worker(s) failed.\n\n` +
-        `Expected workers: ${runMetadata.expectedWorkers}\n` +
-        `Completed workers: ${runMetadata.completedWorkers}\n` +
-        `Failed workers: ${runMetadata.failedWorkers}`
-    );
+    await notify({
+      category: NotifyCategory.CONSOLIDATION_SKIPPED,
+      title: 'Consolidation Skipped',
+      message: `Consolidation skipped — ${runMetadata.failedWorkers} worker(s) failed.`,
+      context: { runId: message.runId, feed: message.feed, expected: String(runMetadata.expectedWorkers), completed: String(runMetadata.completedWorkers), failed: String(runMetadata.failedWorkers) },
+    });
     return;
   }
 
@@ -333,12 +331,13 @@ async function handleConsolidateMessage(
       feed: message.feed,
     }, log);
 
-    await sendAlert(
-      'Consolidation Failed',
-      `Run ${message.runId} (feed: ${message.feed}) consolidation failed.\n\n` +
-        `Error: ${errorMessage}\n\n` +
-        'Watermark was NOT advanced. Manual intervention may be required.'
-    );
+    await notify({
+      category: NotifyCategory.CONSOLIDATION_FAILED,
+      title: 'Consolidation Failed',
+      message: `Consolidation failed. Watermark was NOT advanced. Manual intervention may be required.`,
+      context: { runId: message.runId, feed: message.feed },
+      error,
+    });
 
     throw error;
   }

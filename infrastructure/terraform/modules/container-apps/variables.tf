@@ -199,34 +199,25 @@ variable "nivoda_password" {
   }
 }
 
-## Alerting (Resend)
-variable "resend_api_key" {
-  description = "Resend API key for email alerts"
+## Slack Notifications
+variable "slack_webhook_errors" {
+  description = "Slack webhook URL for error alerts (#errors channel)"
   type        = string
   sensitive   = true
-  default     = "demo"
-
-  validation {
-    condition     = length(var.resend_api_key) > 0
-    error_message = "resend_api_key cannot be empty - Azure Container Apps secrets require a non-empty value"
-  }
-}
-
-variable "alert_email_to" {
-  description = "Email address for alerts"
-  type        = string
   default     = ""
 }
 
-variable "alert_email_from" {
-  description = "Email address for sending alerts"
+variable "slack_webhook_pipeline" {
+  description = "Slack webhook URL for pipeline status (#pipeline channel)"
   type        = string
+  sensitive   = true
   default     = ""
 }
 
-variable "dashboard_url" {
-  description = "Dashboard URL for repricing workflow email links (e.g., https://diamond-staging-dashboard.azurecontainerapps.io)"
+variable "slack_webhook_ops" {
+  description = "Slack webhook URL for ops events (#ops channel)"
   type        = string
+  sensitive   = true
   default     = ""
 }
 

@@ -295,56 +295,70 @@ export function createMockHttpClient(): MockHttpClient {
 }
 
 /**
- * Mock email client for testing alert/notification emails without sending real mail.
- * Mirrors the sendAlert(subject, body) interface used by worker and consolidator alerts.
+ * Mock Slack notification client for testing notify() calls without hitting real webhooks.
+ * Mirrors the notify(options) interface used across all services.
  */
-export interface MockSentEmail {
-  subject: string;
-  body: string;
+import type { NotifyOptions } from '../utils/slack.js';
+
+export interface MockSentNotification {
+  category: string;
+  title: string;
+  message: string;
+  context?: Record<string, string>;
   sentAt: Date;
 }
 
-export interface MockEmailClient {
-  sentEmails: MockSentEmail[];
-  sendAlert(subject: string, body: string): Promise<void>;
-  getEmailsBySubject(pattern: string | RegExp): MockSentEmail[];
-  hasEmail(subjectPattern: string | RegExp): boolean;
+export interface MockNotifyClient {
+  sent: MockSentNotification[];
+  notify(options: NotifyOptions): Promise<void>;
+  getByCategory(category: string): MockSentNotification[];
+  getByTitle(pattern: string | RegExp): MockSentNotification[];
+  hasNotification(titlePattern: string | RegExp): boolean;
   reset(): void;
 }
 
-export function createMockEmailClient(): MockEmailClient {
-  const sentEmails: MockSentEmail[] = [];
+export function createMockNotifyClient(): MockNotifyClient {
+  const sent: MockSentNotification[] = [];
 
   return {
-    sentEmails,
+    sent,
 
-    async sendAlert(subject: string, body: string): Promise<void> {
-      sentEmails.push({ subject, body, sentAt: new Date() });
-    },
-
-    getEmailsBySubject(pattern: string | RegExp): MockSentEmail[] {
-      return sentEmails.filter(email => {
-        if (typeof pattern === 'string') {
-          return email.subject.includes(pattern);
-        }
-        return pattern.test(email.subject);
+    async notify(options: NotifyOptions): Promise<void> {
+      sent.push({
+        category: options.category,
+        title: options.title,
+        message: options.message,
+        context: options.context,
+        sentAt: new Date(),
       });
     },
 
-    hasEmail(subjectPattern: string | RegExp): boolean {
-      return sentEmails.some(email => {
-        if (typeof subjectPattern === 'string') {
-          return email.subject.includes(subjectPattern);
-        }
-        return subjectPattern.test(email.subject);
+    getByCategory(category: string): MockSentNotification[] {
+      return sent.filter(n => n.category === category);
+    },
+
+    getByTitle(pattern: string | RegExp): MockSentNotification[] {
+      return sent.filter(n => {
+        if (typeof pattern === 'string') return n.title.includes(pattern);
+        return pattern.test(n.title);
+      });
+    },
+
+    hasNotification(titlePattern: string | RegExp): boolean {
+      return sent.some(n => {
+        if (typeof titlePattern === 'string') return n.title.includes(titlePattern);
+        return titlePattern.test(n.title);
       });
     },
 
     reset(): void {
-      sentEmails.length = 0;
+      sent.length = 0;
     },
   };
 }
+
+/** @deprecated Use createMockNotifyClient instead */
+export const createMockEmailClient = createMockNotifyClient;
 
 /**
  * Test utilities for async operations

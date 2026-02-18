@@ -20,8 +20,9 @@ import {
   MAX_SCHEDULER_RECORDS,
   createServiceLogger,
   generateTraceId,
-  capErrorMessage,
   safeLogError,
+  notify,
+  NotifyCategory,
   type WorkItemMessage,
   type RunType,
   FULL_RUN_START_DATE,
@@ -203,6 +204,13 @@ async function run(): Promise<void> {
   runLog.info("Enqueueing work items", { count: workItems.length });
   await sendWorkItems(workItems);
   runLog.info("Work items enqueued successfully");
+
+  notify({
+    category: NotifyCategory.SCHEDULER_STARTED,
+    title: 'Pipeline Run Started',
+    message: `${runType} run started for feed "${feedId}" with ${heatmapResult.workerCount} workers covering ${heatmapResult.totalRecords.toLocaleString()} records.`,
+    context: { runId: runMetadata.runId, traceId, feed: feedId, runType, workers: String(heatmapResult.workerCount), records: String(heatmapResult.totalRecords) },
+  }).catch(() => {});
 
   runLog.info("Scheduler completed");
 }

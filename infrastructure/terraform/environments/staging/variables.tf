@@ -147,29 +147,26 @@ variable "internal_service_token" {
   default     = ""
 }
 
-## Alerting (Resend)
-variable "resend_api_key" {
-  description = "Resend API key for alerts"
+## Slack Notifications
+variable "slack_webhook_errors" {
+  description = "Slack webhook URL for error alerts (#errors channel)"
   type        = string
   sensitive   = true
+  default     = "https://hooks.slack.com/services/T0AFJSJ5KGW/B0AFEQFNHNF/9ZeCYSDzKNTM7hh5NaWUgx"
 }
 
-variable "alert_email_to" {
-  description = "Email address for alerts"
+variable "slack_webhook_pipeline" {
+  description = "Slack webhook URL for pipeline status (#pipeline channel)"
   type        = string
-  default     = ""
+  sensitive   = true
+  default     = "https://hooks.slack.com/services/T0AFJSJ5KGW/B0AG0495DRP/JKfby6GiKQL3vHcgyuJBWCZ"
 }
 
-variable "alert_email_from" {
-  description = "Email address for sending alerts"
+variable "slack_webhook_ops" {
+  description = "Slack webhook URL for ops events (#ops channel)"
   type        = string
-  default     = ""
-}
-
-variable "dashboard_url" {
-  description = "Dashboard URL for repricing workflow email links (e.g., https://diamond-staging-dashboard.australiaeast.azurecontainerapps.io). Leave empty to disable email links."
-  type        = string
-  default     = ""
+  sensitive   = true
+  default     = "https://hooks.slack.com/services/T0AFJSJ5KGW/B0AFK4W6P0W/fQZQncc5dyH3aGv5VvHMc7U"
 }
 
 ## API Authentication

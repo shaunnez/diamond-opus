@@ -17,6 +17,8 @@ import {
   createServiceLogger,
   capErrorMessage,
   safeLogError,
+  notify,
+  NotifyCategory,
   AUTO_CONSOLIDATION_SUCCESS_THRESHOLD,
   AUTO_CONSOLIDATION_DELAY_MINUTES,
   WORKER_OFFSET_LIMIT_MULTIPLIER,
@@ -47,7 +49,6 @@ import {
   sendWorkItem,
   closeConnections,
 } from "./service-bus.js";
-import { sendAlert } from "./alerts.js";
 import { createFeedRegistry } from "./feeds.js";
 
 const baseLogger = createServiceLogger('worker');
@@ -307,10 +308,12 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
           runId: workItem.runId,
           traceId: workItem.traceId,
         });
-        sendAlert(
-          'Run Completed',
-          `Run ${workItem.runId} (feed: ${workItem.feed}) completed successfully.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded\nConsolidation has been triggered.`
-        ).catch(() => {});
+        notify({
+          category: NotifyCategory.RUN_COMPLETED,
+          title: 'Run Completed',
+          message: `Run completed successfully. Workers: ${completedWorkers}/${expectedWorkers} succeeded. Consolidation has been triggered.`,
+          context: { runId: workItem.runId, feed: workItem.feed, workers: `${completedWorkers}/${expectedWorkers}` },
+        }).catch(() => {});
       } else if (completedWorkers + failedWorkers >= expectedWorkers) {
         const successRate = completedWorkers / expectedWorkers;
         if (successRate >= AUTO_CONSOLIDATION_SUCCESS_THRESHOLD && completedWorkers > 0) {
@@ -321,17 +324,23 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
           await sendConsolidate({
             type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true,
           }, AUTO_CONSOLIDATION_DELAY_MINUTES);
-          sendAlert('Run Completed (Partial Success)',
-            `Run ${workItem.runId} (feed: ${workItem.feed}) finished with partial success.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
-          ).catch(() => {});
+          notify({
+            category: NotifyCategory.RUN_PARTIAL_SUCCESS,
+            title: 'Run Completed (Partial Success)',
+            message: `Run finished with partial success. Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`,
+            context: { runId: workItem.runId, feed: workItem.feed, workers: `${completedWorkers}/${expectedWorkers}`, successRate: `${Math.round(successRate * 100)}%`, failedWorkers: String(failedWorkers) },
+          }).catch(() => {});
         } else {
           log.warn("All workers finished but success rate below threshold, skipping consolidation", {
             successRate: Math.round(successRate * 100), completedWorkers, failedWorkers, expectedWorkers,
             threshold: `${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}%`,
           });
-          sendAlert('Run Failed',
-            `Run ${workItem.runId} (feed: ${workItem.feed}) failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation was NOT triggered. Manual intervention may be required.`
-          ).catch(() => {});
+          notify({
+            category: NotifyCategory.RUN_FAILED,
+            title: 'Run Failed',
+            message: `Run failed — success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold. Consolidation was NOT triggered. Manual intervention may be required.`,
+            context: { runId: workItem.runId, feed: workItem.feed, workers: `${completedWorkers}/${expectedWorkers}`, successRate: `${Math.round(successRate * 100)}%`, failedWorkers: String(failedWorkers) },
+          }).catch(() => {});
         }
       }
     }
@@ -370,17 +379,23 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
           await sendConsolidate({
             type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true,
           }, AUTO_CONSOLIDATION_DELAY_MINUTES);
-          sendAlert('Run Completed (Partial Success)',
-            `Run ${workItem.runId} (feed: ${workItem.feed}) finished with partial success.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`
-          ).catch(() => {});
+          notify({
+            category: NotifyCategory.RUN_PARTIAL_SUCCESS,
+            title: 'Run Completed (Partial Success)',
+            message: `Run finished with partial success. Consolidation will auto-start in ${AUTO_CONSOLIDATION_DELAY_MINUTES} minutes.`,
+            context: { runId: workItem.runId, feed: workItem.feed, workers: `${completedWorkers}/${expectedWorkers}`, successRate: `${Math.round(successRate * 100)}%`, failedWorkers: String(failedWorkers) },
+          }).catch(() => {});
         } else {
           log.warn("All workers finished but success rate below threshold, skipping consolidation", {
             successRate: Math.round(successRate * 100), completedWorkers, failedWorkers, expectedWorkers,
             threshold: `${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}%`,
           });
-          sendAlert('Run Failed',
-            `Run ${workItem.runId} (feed: ${workItem.feed}) failed - success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold.\n\nWorkers: ${completedWorkers}/${expectedWorkers} succeeded (${Math.round(successRate * 100)}%)\nFailed workers: ${failedWorkers}\n\nConsolidation was NOT triggered. Manual intervention may be required.`
-          ).catch(() => {});
+          notify({
+            category: NotifyCategory.RUN_FAILED,
+            title: 'Run Failed',
+            message: `Run failed — success rate below ${AUTO_CONSOLIDATION_SUCCESS_THRESHOLD * 100}% threshold. Consolidation was NOT triggered. Manual intervention may be required.`,
+            context: { runId: workItem.runId, feed: workItem.feed, workers: `${completedWorkers}/${expectedWorkers}`, successRate: `${Math.round(successRate * 100)}%`, failedWorkers: String(failedWorkers) },
+          }).catch(() => {});
         }
       }
     } catch (checkError) {

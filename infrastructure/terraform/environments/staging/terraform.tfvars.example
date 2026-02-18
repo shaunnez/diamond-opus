@@ -39,10 +39,10 @@ database_url = "postgresql://postgres:superstrongpassword123!@db.yazrhmjedaaplwb
 # API Configuration
 hmac_secrets = "{\"shopify\":\"secret1\",\"internal\":\"secret2\"}"
  
-# Alerts (Resend)
-resend_api_key   = "re_..."
-alert_email_to   = "alerts@example.com"
-alert_email_from = "noreply@yourdomain.com"
+# Slack Notifications
+slack_webhook_errors   = "https://hooks.slack.com/services/T.../B.../xxx"
+slack_webhook_pipeline = "https://hooks.slack.com/services/T.../B.../yyy"
+slack_webhook_ops      = "https://hooks.slack.com/services/T.../B.../zzz"
 
 
 # Optional: Nivoda proxy (leave empty for staging unless you also need domain allowlisting)

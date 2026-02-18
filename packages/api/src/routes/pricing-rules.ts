@@ -19,7 +19,7 @@ import {
   resetJobForRetry,
 } from "@diamond/database";
 import type { StoneType } from "@diamond/shared";
-import { createServiceLogger } from "@diamond/shared";
+import { createServiceLogger, notify, NotifyCategory, formatDuration } from "@diamond/shared";
 import {
   REAPPLY_BATCH_SIZE,
   REAPPLY_MAX_RETRIES,
@@ -28,7 +28,6 @@ import {
 } from "@diamond/shared";
 import { PricingEngine } from "@diamond/pricing-engine";
 import { badRequest } from "../middleware/index.js";
-import { sendReapplyJobEmail } from "../services/reapply-emails.js";
 
 const router = Router();
 const log = createServiceLogger("pricing-reapply");
@@ -728,22 +727,13 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
       durationMs: Date.now() - startedAt.getTime(),
     });
 
-    // Send completion email
-    sendReapplyJobEmail({
-      jobId,
-      status: 'completed',
-      totalDiamonds: processedDiamonds,
-      processedDiamonds,
-      updatedDiamonds,
-      failedDiamonds,
-      startedAt,
-      completedAt,
-    }).catch((emailErr) => {
-      log.error("Failed to send completion email", {
-        jobId,
-        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
-      });
-    });
+    // Send Slack notification
+    notify({
+      category: NotifyCategory.REPRICING_COMPLETED,
+      title: 'Repricing Job Completed',
+      message: `Repricing job completed successfully in ${formatDuration(startedAt, completedAt)}.`,
+      context: { jobId, processed: String(processedDiamonds), updated: String(updatedDiamonds), failed: String(failedDiamonds) },
+    }).catch(() => {});
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     const nextRetryAt = calculateNextRetryTime(currentRetryCount + 1);
@@ -763,23 +753,14 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
       nextRetryAt,
     });
 
-    // Send failure email
-    sendReapplyJobEmail({
-      jobId,
-      status: 'failed',
-      totalDiamonds: 0,
-      processedDiamonds: 0,
-      updatedDiamonds: 0,
-      failedDiamonds: 0,
-      startedAt,
-      completedAt,
-      error: errorMsg,
-    }).catch((emailErr) => {
-      log.error("Failed to send failure email", {
-        jobId,
-        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
-      });
-    });
+    // Send Slack notification
+    notify({
+      category: NotifyCategory.REPRICING_FAILED,
+      title: 'Repricing Job Failed',
+      message: `Repricing job failed after ${formatDuration(startedAt, completedAt)}.`,
+      context: { jobId, error: errorMsg },
+      error: err,
+    }).catch(() => {});
   }
 }
 

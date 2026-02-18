@@ -1,4 +1,5 @@
 import { pino, Logger as PinoLogger, LoggerOptions } from 'pino';
+import { notify, NotifyCategory } from './slack.js';
 
 /**
  * Log context that can be attached to log entries for correlation and filtering.
@@ -309,16 +310,25 @@ export function capErrorMessage(message: string, maxLength = 1000): string {
   return message.substring(0, maxLength) + '... (truncated)';
 }
 
+/** Map service names to default Slack notification categories for errors */
+const SERVICE_ERROR_CATEGORY: Record<string, NotifyCategory> = {
+  scheduler: NotifyCategory.SCHEDULER_FAILED,
+  worker: NotifyCategory.WORKER_ERROR,
+  consolidator: NotifyCategory.CONSOLIDATION_FAILED,
+  api: NotifyCategory.API_ERROR,
+};
+
 /**
- * Safely persist an error to the error_logs table.
+ * Safely persist an error to the error_logs table and send a Slack notification.
  * Falls back to stdout if the persist function throws, ensuring the service never crashes
- * due to log persistence failures.
+ * due to log persistence failures. The Slack notification is always fire-and-forget.
  *
  * @param persistFn - The insertErrorLog function from @diamond/database
  * @param service - Service name
  * @param error - The caught error
  * @param context - Optional context to persist
  * @param logger - Optional logger for fallback stdout output
+ * @param category - Optional Slack notification category (defaults to service-based category)
  */
 export function safeLogError(
   persistFn: (service: string, msg: string, stack?: string, ctx?: Record<string, unknown>) => Promise<void>,
@@ -326,6 +336,7 @@ export function safeLogError(
   error: unknown,
   context?: Record<string, unknown>,
   logger?: Logger,
+  category?: NotifyCategory,
 ): void {
   const rawMessage = error instanceof Error ? error.message : String(error);
   const errorMessage = capErrorMessage(rawMessage);
@@ -346,4 +357,22 @@ export function safeLogError(
       });
     }
   });
+
+  // Send Slack notification — fire-and-forget, never throws
+  const notifyCategory = category ?? SERVICE_ERROR_CATEGORY[service] ?? NotifyCategory.API_ERROR;
+  const slackContext: Record<string, string> = { service };
+  if (context) {
+    for (const [k, v] of Object.entries(context)) {
+      if (v !== undefined && v !== null) {
+        slackContext[k] = String(v);
+      }
+    }
+  }
+  notify({
+    category: notifyCategory,
+    title: `${service} error`,
+    message: errorMessage,
+    context: slackContext,
+    error,
+  }).catch(() => {});
 }

@@ -1,7 +1,38 @@
 import type { Request, Response, NextFunction } from "express";
-import { createServiceLogger } from "@diamond/shared";
+import { createServiceLogger, notify, NotifyCategory } from "@diamond/shared";
 
 const logger = createServiceLogger('api', { component: 'rate-limiter' });
+
+// Track rate limit rejections per minute and fire a Slack alert when pressure is high
+const RATE_LIMIT_NOTIFY_THRESHOLD = 10; // rejections per minute before alerting
+const RATE_LIMIT_NOTIFY_COOLDOWN_MS = 60_000;
+let rateLimitRejectCount = 0;
+let rateLimitWindowStart = Date.now();
+let rateLimitLastNotified = 0;
+
+function trackRateLimitRejection(queueDepth: number): void {
+  const now = Date.now();
+
+  if (now - rateLimitWindowStart >= 60_000) {
+    rateLimitRejectCount = 0;
+    rateLimitWindowStart = now;
+  }
+
+  rateLimitRejectCount++;
+
+  if (
+    rateLimitRejectCount >= RATE_LIMIT_NOTIFY_THRESHOLD &&
+    now - rateLimitLastNotified >= RATE_LIMIT_NOTIFY_COOLDOWN_MS
+  ) {
+    rateLimitLastNotified = now;
+    notify({
+      category: NotifyCategory.RATE_LIMIT_EXCEEDED,
+      title: 'Rate Limit Pressure Detected',
+      message: `${rateLimitRejectCount} Nivoda proxy requests rejected in the last minute due to rate limiting.`,
+      context: { rejected: String(rateLimitRejectCount), queued: String(queueDepth) },
+    }).catch(() => {});
+  }
+}
 
 export interface RateLimiterConfig {
   /** Maximum requests per window per replica (default: 50) */
@@ -146,6 +177,8 @@ export function createRateLimiterMiddleware(config: RateLimiterConfig) {
         maxRequestsPerWindow: config.maxRequestsPerWindow,
         windowMs: config.windowMs,
       });
+
+      trackRateLimitRejection(limiter.queueDepth);
 
       res.setHeader("Retry-After", String(retryAfterSeconds));
       res.status(429).json({

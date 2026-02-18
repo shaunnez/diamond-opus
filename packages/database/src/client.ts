@@ -1,5 +1,5 @@
 import pg from "pg";
-import { optionalEnv } from "@diamond/shared";
+import { optionalEnv, notify, NotifyCategory } from "@diamond/shared";
 
 const { Pool } = pg;
 
@@ -24,6 +24,21 @@ function getPoolConfig(): pg.PoolConfig {
   };
 }
 
+function attachPoolErrorHandler(p: pg.Pool): void {
+  // Guard for test environments where pool may be mocked without event emitter support
+  if (typeof p.on !== 'function') return;
+
+  p.on('error', (err) => {
+    console.error('[database] Pool error:', err.message);
+    notify({
+      category: NotifyCategory.DATABASE_ERROR,
+      title: 'Database Pool Error',
+      message: err.message,
+      error: err,
+    }).catch(() => {});
+  });
+}
+
 export function getPool(): pg.Pool {
   if (!pool) {
     const poolConfig = getPoolConfig();
@@ -35,6 +50,7 @@ export function getPool(): pg.Pool {
         ...poolConfig,
         // ssl: { rejectUnauthorized: false },
       });
+      attachPoolErrorHandler(pool);
       return pool;
     }
 
@@ -47,6 +63,7 @@ export function getPool(): pg.Pool {
       ...poolConfig,
       // ssl: { rejectUnauthorized: false },
     });
+    attachPoolErrorHandler(pool);
   }
   return pool;
 }

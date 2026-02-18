@@ -1,5 +1,4 @@
-import { Resend } from 'resend';
-import { createServiceLogger, optionalEnv, FRANKFURTER_API_URL, CURRENCY_REFRESH_INTERVAL_MS } from '@diamond/shared';
+import { createServiceLogger, notify, NotifyCategory, FRANKFURTER_API_URL, CURRENCY_REFRESH_INTERVAL_MS } from '@diamond/shared';
 import { upsertExchangeRate, getExchangeRate } from '@diamond/database';
 
 const logger = createServiceLogger('api', { component: 'currency' });
@@ -54,7 +53,13 @@ async function fetchAndCacheRate(): Promise<void> {
     });
   } catch (error) {
     logger.error('Failed to fetch exchange rate', error);
-    await sendCurrencyAlert(error);
+    notify({
+      category: NotifyCategory.EXTERNAL_SERVICE_ERROR,
+      title: 'Currency Rate Fetch Failed',
+      message: 'Failed to fetch USD-to-NZD exchange rate from Frankfurter API. The API will continue using the last known rate from the database.',
+      context: { service: 'currency' },
+      error,
+    }).catch(() => {});
     await loadRateFromDb();
   }
 }
@@ -77,35 +82,6 @@ async function loadRateFromDb(): Promise<void> {
     }
   } catch (error) {
     logger.error('Failed to load exchange rate from database', error);
-  }
-}
-
-async function sendCurrencyAlert(error: unknown): Promise<void> {
-  const apiKey = optionalEnv('RESEND_API_KEY', '');
-  if (!apiKey) {
-    logger.warn('Resend not configured, skipping currency alert email');
-    return;
-  }
-
-  const from = optionalEnv('ALERT_EMAIL_FROM', 'onboarding@resend.dev');
-  const to = optionalEnv('ALERT_EMAIL_TO', 'uksn@me.com');
-  if (!to) {
-    logger.warn('ALERT_EMAIL_TO not configured, skipping currency alert');
-    return;
-  }
-
-  try {
-    const resend = new Resend(apiKey);
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    await resend.emails.send({
-      from,
-      to,
-      subject: '[Diamond Platform] Currency Rate Fetch Failed',
-      text: `Failed to fetch USD-to-NZD exchange rate from Frankfurter API.\n\nError: ${errorMsg}\n\nThe API will continue using the last known rate from the database. Manual intervention may be needed if this persists.`,
-    });
-    logger.info('Currency alert email sent');
-  } catch (emailError) {
-    logger.error('Failed to send currency alert email', emailError);
   }
 }
 
