@@ -87,3 +87,12 @@ export const purchaseRequestSchema = z.object({
 });
 
 export type PurchaseRequestBody = z.infer<typeof purchaseRequestSchema>;
+
+export const relatedDiamondsQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(50).default(12),
+  fields: z.string().optional(),
+  carat_tolerance: z.coerce.number().positive().max(5).default(0.15),
+  price_tolerance: z.coerce.number().int().nonnegative().max(10000).default(250),
+});
+
+export type RelatedDiamondsQuery = z.infer<typeof relatedDiamondsQuerySchema>;
