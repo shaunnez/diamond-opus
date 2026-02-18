@@ -200,26 +200,20 @@ resource "azurerm_container_app" "api" {
         value = tostring(var.api_cache_version_poll_interval_ms)
       }
 
-      # Repricing workflow - dashboard URL for email links
+      # Slack notifications
       env {
-        name  = "DASHBOARD_URL"
-        value = var.dashboard_url
-      }
-
-      # Alerting (for repricing job notifications)
-      env {
-        name        = "RESEND_API_KEY"
-        secret_name = "resend-api-key"
+        name        = "SLACK_WEBHOOK_ERRORS"
+        secret_name = "slack-webhook-errors"
       }
 
       env {
-        name  = "ALERT_EMAIL_TO"
-        value = var.alert_email_to
+        name        = "SLACK_WEBHOOK_PIPELINE"
+        secret_name = "slack-webhook-pipeline"
       }
 
       env {
-        name  = "ALERT_EMAIL_FROM"
-        value = var.alert_email_from
+        name        = "SLACK_WEBHOOK_OPS"
+        secret_name = "slack-webhook-ops"
       }
     }
   }
@@ -312,8 +306,18 @@ resource "azurerm_container_app" "api" {
   }
 
   secret {
-    name  = "resend-api-key"
-    value = var.resend_api_key
+    name  = "slack-webhook-errors"
+    value = coalesce(var.slack_webhook_errors, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-pipeline"
+    value = coalesce(var.slack_webhook_pipeline, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-ops"
+    value = coalesce(var.slack_webhook_ops, "not-configured")
   }
 
   tags = var.tags
@@ -591,20 +595,20 @@ resource "azurerm_container_app" "worker" {
         secret_name = "internal-service-token"
       }
 
-      # Email alerts for run completion/failure notifications
+      # Slack notifications
       env {
-        name        = "RESEND_API_KEY"
-        secret_name = "resend-api-key"
+        name        = "SLACK_WEBHOOK_ERRORS"
+        secret_name = "slack-webhook-errors"
       }
 
       env {
-        name  = "ALERT_EMAIL_TO"
-        value = var.alert_email_to
+        name        = "SLACK_WEBHOOK_PIPELINE"
+        secret_name = "slack-webhook-pipeline"
       }
 
       env {
-        name  = "ALERT_EMAIL_FROM"
-        value = var.alert_email_from
+        name        = "SLACK_WEBHOOK_OPS"
+        secret_name = "slack-webhook-ops"
       }
 
       # Demo feed API URL for DemoFeedAdapter
@@ -688,8 +692,18 @@ resource "azurerm_container_app" "worker" {
   }
 
   secret {
-    name  = "resend-api-key"
-    value = var.resend_api_key
+    name  = "slack-webhook-errors"
+    value = coalesce(var.slack_webhook_errors, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-pipeline"
+    value = coalesce(var.slack_webhook_pipeline, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-ops"
+    value = coalesce(var.slack_webhook_ops, "not-configured")
   }
 
   secret {
@@ -779,19 +793,20 @@ resource "azurerm_container_app" "consolidator" {
         secret_name = "servicebus-connection-string"
       }
 
+      # Slack notifications
       env {
-        name        = "RESEND_API_KEY"
-        secret_name = "resend-api-key"
+        name        = "SLACK_WEBHOOK_ERRORS"
+        secret_name = "slack-webhook-errors"
       }
 
       env {
-        name  = "ALERT_EMAIL_TO"
-        value = var.alert_email_to
+        name        = "SLACK_WEBHOOK_PIPELINE"
+        secret_name = "slack-webhook-pipeline"
       }
 
       env {
-        name  = "ALERT_EMAIL_FROM"
-        value = var.alert_email_from
+        name        = "SLACK_WEBHOOK_OPS"
+        secret_name = "slack-webhook-ops"
       }
 
       # Database pooling configuration for multi-replica consolidation
@@ -860,8 +875,18 @@ resource "azurerm_container_app" "consolidator" {
   }
 
   secret {
-    name  = "resend-api-key"
-    value = var.resend_api_key
+    name  = "slack-webhook-errors"
+    value = coalesce(var.slack_webhook_errors, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-pipeline"
+    value = coalesce(var.slack_webhook_pipeline, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-ops"
+    value = coalesce(var.slack_webhook_ops, "not-configured")
   }
 
   secret {
@@ -972,6 +997,22 @@ resource "azurerm_container_app_job" "scheduler" {
         value = "https://${azurerm_container_app.demo_feed_api.ingress[0].fqdn}"
       }
 
+      # Slack notifications
+      env {
+        name        = "SLACK_WEBHOOK_ERRORS"
+        secret_name = "slack-webhook-errors"
+      }
+
+      env {
+        name        = "SLACK_WEBHOOK_PIPELINE"
+        secret_name = "slack-webhook-pipeline"
+      }
+
+      env {
+        name        = "SLACK_WEBHOOK_OPS"
+        secret_name = "slack-webhook-ops"
+      }
+
       # Database pooling configuration
       env {
         name  = "PG_POOL_MAX"
@@ -1054,6 +1095,21 @@ resource "azurerm_container_app_job" "scheduler" {
   secret {
     name  = "internal-service-token"
     value = coalesce(var.internal_service_token, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-errors"
+    value = coalesce(var.slack_webhook_errors, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-pipeline"
+    value = coalesce(var.slack_webhook_pipeline, "not-configured")
+  }
+
+  secret {
+    name  = "slack-webhook-ops"
+    value = coalesce(var.slack_webhook_ops, "not-configured")
   }
 
   tags = var.tags

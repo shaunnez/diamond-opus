@@ -114,11 +114,10 @@ module "container_apps" {
   nivoda_proxy_base_url  = var.nivoda_proxy_base_url
   internal_service_token = var.internal_service_token
 
-  hmac_secrets     = var.hmac_secrets
-  resend_api_key   = var.resend_api_key
-  alert_email_to   = var.alert_email_to
-  alert_email_from = var.alert_email_from
-  dashboard_url    = var.dashboard_url
+  hmac_secrets           = var.hmac_secrets
+  slack_webhook_errors   = var.slack_webhook_errors
+  slack_webhook_pipeline = var.slack_webhook_pipeline
+  slack_webhook_ops      = var.slack_webhook_ops
 
   # Scheduler configuration
   scheduler_cron_expression = var.scheduler_cron_expression

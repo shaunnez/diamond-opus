@@ -147,28 +147,25 @@ variable "internal_service_token" {
   default     = ""
 }
 
-## Alerting (Resend)
-variable "resend_api_key" {
-  description = "Resend API key for alerts"
+## Slack Notifications
+variable "slack_webhook_errors" {
+  description = "Slack webhook URL for error alerts (#errors channel)"
   type        = string
   sensitive   = true
-}
-
-variable "alert_email_to" {
-  description = "Email address for alerts"
-  type        = string
   default     = ""
 }
 
-variable "alert_email_from" {
-  description = "Email address for sending alerts"
+variable "slack_webhook_pipeline" {
+  description = "Slack webhook URL for pipeline status (#pipeline channel)"
   type        = string
+  sensitive   = true
   default     = ""
 }
 
-variable "dashboard_url" {
-  description = "Dashboard URL for repricing workflow email links (e.g., https://diamond-prod-dashboard.australiaeast.azurecontainerapps.io). Leave empty to disable email links."
+variable "slack_webhook_ops" {
+  description = "Slack webhook URL for ops events (#ops channel)"
   type        = string
+  sensitive   = true
   default     = ""
 }
 
