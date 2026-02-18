@@ -143,7 +143,6 @@ Sensitive values can be provided via environment variables:
 export TF_VAR_database_url="postgresql://..."
 export TF_VAR_nivoda_username="user@example.com"
 export TF_VAR_nivoda_password="secret"
-export TF_VAR_hmac_secrets='{"shopify":"key1","internal":"key2"}'
 export TF_VAR_resend_api_key="re_..."
 ```
 

@@ -54,7 +54,7 @@ Diamond Opus is a production-ready TypeScript monorepo for ingesting, consolidat
 - **Failure-tolerant**: Worker failures prevent consolidation and watermark advancement
 - **Incremental sync**: Watermark tracks last successful sync for efficient updates
 - **Rule-based pricing**: Database-driven pricing rules with priority-based matching
-- **Dual authentication**: API Key and HMAC signature support
+- **API key authentication**: SHA256-hashed keys via `X-API-Key` header
 - **Azure-native**: Service Bus queues, Blob Storage, Container Apps
 
 ### Technology Stack
@@ -232,13 +232,10 @@ Nivoda Response:
 
 ### Authentication
 
-Dual auth system (checked in order):
+API key authentication:
 
 1. **API Key Auth**: `X-API-Key` header → SHA256 hash against `api_keys` table
-2. **HMAC Auth**: `X-Client-Id`, `X-Timestamp`, `X-Signature` headers
-   - Canonical string: `METHOD\nPATH\nTIMESTAMP\nSHA256(BODY)`
-   - Timestamp tolerance: 300 seconds (5 minutes)
-3. Neither valid → 401 Unauthorized
+2. Missing or invalid key → 401 Unauthorized
 
 ### Endpoints
 
@@ -467,7 +464,6 @@ npm run docs:generate        # Regenerate concatenated docs
 | `NIVODA_PASSWORD` | Nivoda account password | Yes |
 | `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage for watermarks | Yes |
 | `AZURE_SERVICE_BUS_CONNECTION_STRING` | Azure Service Bus for queues | Yes |
-| `HMAC_SECRETS` | JSON object of client secrets | Yes (API) |
 | `RESEND_API_KEY` | Resend API key for alerts | Yes (Consolidator) |
 | `ALERT_EMAIL_TO` | Alert recipient email | Yes (Consolidator) |
 | `ALERT_EMAIL_FROM` | Alert sender email | Yes (Consolidator) |

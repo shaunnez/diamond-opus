@@ -91,11 +91,6 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name        = "HMAC_SECRETS"
-        secret_name = "hmac-secrets"
-      }
-
-      env {
         name        = "NIVODA_ENDPOINT"
         secret_name = "nivoda-endpoint"
       }
@@ -273,11 +268,6 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "servicebus-connection-string"
     value = var.servicebus_connection_string
-  }
-
-  secret {
-    name  = "hmac-secrets"
-    value = var.hmac_secrets
   }
 
   secret {

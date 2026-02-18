@@ -49,7 +49,7 @@ The system is designed for reliability with watermark-based incremental sync, fa
 - **Rule-based pricing**: Database-driven pricing rules with priority-based matching
 - **Rule-based rating**: Configurable quality scoring (1-10) via `@diamond/rating-engine`
 - **Centralized rate limiting**: Ingestion proxy with token bucket algorithm protects Nivoda API
-- **Dual authentication**: API Key and HMAC signature support
+- **API key authentication**: SHA256-hashed keys via `X-API-Key` header
 - **Azure-native**: Service Bus queues, Blob Storage, Container Apps
 
 ## Prerequisites
@@ -89,7 +89,6 @@ Required environment variables (see `.env.example` for full list):
 | `NIVODA_PASSWORD` | Nivoda account password |
 | `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage for watermarks |
 | `AZURE_SERVICE_BUS_CONNECTION_STRING` | Azure Service Bus |
-| `HMAC_SECRETS` | JSON object of client secrets |
 | `RESEND_API_KEY` | Resend API key for alerts (worker + consolidator) |
 | `ALERT_EMAIL_TO` | Alert recipient email |
 | `ALERT_EMAIL_FROM` | Alert sender email |
@@ -333,25 +332,8 @@ npm run test -w @diamond/pricing-engine
 
 ## API Authentication
 
-The API supports two authentication methods:
-
-### 1. API Key
-
 ```bash
 curl -H "X-API-Key: your-api-key" http://localhost:3000/api/v2/diamonds
-```
-
-### 2. HMAC Signature
-
-```bash
-# Headers required:
-# X-Client-Id: your-client-id
-# X-Timestamp: unix-timestamp-seconds
-# X-Signature: hmac-sha256-signature
-
-# Signature computation:
-# canonical = METHOD + '\n' + PATH + '\n' + TIMESTAMP + '\n' + SHA256(BODY)
-# signature = HMAC-SHA256(secret, canonical)
 ```
 
 ## API Endpoints

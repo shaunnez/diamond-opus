@@ -39,7 +39,6 @@ terraform/
    database_password = "your-actual-password"
    nivoda_username   = "your-nivoda-username"
    nivoda_password   = "your-nivoda-password"
-   hmac_secrets      = "{\"client1\":\"secret1\"}"
    resend_api_key    = "re_xxxxxxxxxxxx"
    alert_email_to    = "alerts@yourdomain.com"
    alert_email_from  = "noreply@yourdomain.com"
@@ -50,7 +49,6 @@ terraform/
    export TF_VAR_database_password="your-actual-password"
    export TF_VAR_nivoda_username="your-nivoda-username"
    export TF_VAR_nivoda_password="your-nivoda-password"
-   export TF_VAR_hmac_secrets='{"client1":"secret1"}'
    export TF_VAR_resend_api_key="re_xxxxxxxxxxxx"
    ```
 
@@ -83,7 +81,6 @@ terraform destroy
 - `database_username` - PostgreSQL username (contains project ID)
 - `nivoda_username` - Nivoda API username
 - `nivoda_password` - Nivoda API password
-- `hmac_secrets` - JSON object of HMAC client secrets
 - `resend_api_key` - Resend API key for email alerts
 
 **Always use:**
@@ -98,7 +95,7 @@ Variables are organized into logical sections:
 1. **Core Configuration** - Subscription, environment, location, image tags
 2. **Infrastructure SKUs** - Service Bus, Storage, Container Registry tiers
 3. **Database Configuration** - Supabase connection details
-4. **External APIs** - Nivoda, Resend, HMAC secrets
+4. **External APIs** - Nivoda, Resend
 5. **Scheduler Configuration** - Cron expression, parallelism
 6. **Container Resources** - CPU/memory allocation per container type
 7. **Scaling Configuration** - Min/max replicas for each service
@@ -277,7 +274,6 @@ GitHub Actions workflow pattern:
     TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
     TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
     TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
-    TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
     TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
     TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
   run: terraform plan

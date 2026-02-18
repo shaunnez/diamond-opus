@@ -23,8 +23,6 @@ export const NIVODA_MAX_LIMIT = 50;
 export const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
-export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 300; // 5 minutes
-
 // Nivoda proxy rate limiting (in-memory on API proxy)
 /** Max requests per second per API replica for Nivoda proxy */
 export const NIVODA_PROXY_RATE_LIMIT = parseInt(

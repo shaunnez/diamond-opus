@@ -196,14 +196,10 @@ The scheduler uses adaptive density scanning to partition work by **price per ca
 
 ## Authentication
 
-Dual auth system (checked in order):
+API key authentication:
 
 1. **API Key Auth**: `X-API-Key` header → SHA256 hash against `api_keys` table
-2. **HMAC Auth**: `X-Client-Id`, `X-Timestamp`, `X-Signature` headers
-   - Canonical string: `METHOD\nPATH\nTIMESTAMP\nSHA256(BODY)`
-   - Timestamp tolerance: 300 seconds (5 minutes)
-   - Secrets stored in `HMAC_SECRETS` env var as JSON
-3. Neither valid → 401 Unauthorized
+2. Missing or invalid key → 401 Unauthorized
 
 ## Key Files
 
@@ -310,7 +306,6 @@ SLACK_WEBHOOK_OPS        # Webhook URL for ops events (#ops channel)
 - `DATABASE_URL` or individual `DATABASE_*` vars (HOST, PORT, NAME, USERNAME, PASSWORD)
 - `NIVODA_ENDPOINT`, `NIVODA_USERNAME`, `NIVODA_PASSWORD`
 - `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_SERVICE_BUS_CONNECTION_STRING`
-- `HMAC_SECRETS` (JSON object of client secrets)
 
 **Optional:**
 - `FEED` - Feed to use (default: `nivoda`)

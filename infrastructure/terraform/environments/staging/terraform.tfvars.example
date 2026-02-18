@@ -36,9 +36,6 @@ nivoda_password  = "staging-nivoda-22"
 # Database (Supabase)
 database_url = "postgresql://postgres:superstrongpassword123!@db.yazrhmjedaaplwbsaqob.supabase.co:5432/postgres"
  
-# API Configuration
-hmac_secrets = "{\"shopify\":\"secret1\",\"internal\":\"secret2\"}"
- 
 # Slack Notifications
 slack_webhook_errors   = "https://hooks.slack.com/services/T.../B.../xxx"
 slack_webhook_pipeline = "https://hooks.slack.com/services/T.../B.../yyy"

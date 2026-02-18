@@ -7,7 +7,7 @@ Express REST API for the Diamond Opus platform.
 This package provides:
 
 - **REST API** for diamond search and operations
-- **Dual authentication** (API Key + HMAC)
+- **API key authentication** (X-API-Key header)
 - **Swagger documentation** with OpenAPI spec
 - **Request validation** with Zod schemas
 - **Structured logging** and error handling
@@ -29,7 +29,6 @@ Required environment variables:
 ```bash
 PORT=3000
 DATABASE_URL=postgresql://...
-HMAC_SECRETS={"shopify":"secret1","internal":"secret2"}
 ```
 
 ## Running
@@ -142,44 +141,6 @@ curl -H "X-API-Key: your-api-key" http://localhost:3000/api/v2/diamonds
 
 The key is SHA256 hashed and compared against `api_keys` table.
 
-### HMAC Signature Authentication
-
-Include these headers:
-
-```
-X-Client-Id: your-client-id
-X-Timestamp: unix-timestamp-seconds
-X-Signature: hmac-sha256-signature
-```
-
-**Signature Computation:**
-
-```
-canonical_string = METHOD + '\n' + PATH + '\n' + TIMESTAMP + '\n' + SHA256(BODY)
-signature = HMAC-SHA256(client_secret, canonical_string)
-```
-
-**Example (Node.js):**
-
-```javascript
-const crypto = require('crypto');
-
-const method = 'GET';
-const path = '/api/v2/diamonds';
-const timestamp = Math.floor(Date.now() / 1000).toString();
-const body = '';
-
-const canonical = `${method}\n${path}\n${timestamp}\n${crypto.createHash('sha256').update(body).digest('hex')}`;
-const signature = crypto.createHmac('sha256', clientSecret).update(canonical).digest('hex');
-
-// Use headers:
-// X-Client-Id: your-client-id
-// X-Timestamp: <timestamp>
-// X-Signature: <signature>
-```
-
-**Timestamp Tolerance:** 300 seconds (5 minutes)
-
 ## Swagger Documentation
 
 Access Swagger UI at `http://localhost:3000/api-docs` when the API is running.
@@ -266,9 +227,9 @@ All requests are logged with:
 ## Middleware Stack
 
 1. **CORS** - Enabled for all origins
-2. **JSON Parser** - With raw body capture for HMAC
+2. **JSON Parser** - With raw body capture
 3. **Request Logging** - Trace ID and timing
-4. **Authentication** - API Key or HMAC
+4. **Authentication** - API Key
 5. **Route Handlers** - Business logic
 6. **Error Handler** - Centralized error formatting
 

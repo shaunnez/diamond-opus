@@ -169,13 +169,6 @@ variable "slack_webhook_ops" {
   default     = ""
 }
 
-## API Authentication
-variable "hmac_secrets" {
-  description = "JSON object of HMAC secrets"
-  type        = string
-  sensitive   = true
-}
-
 # ============================================
 # SCHEDULER CONFIGURATION
 # ============================================

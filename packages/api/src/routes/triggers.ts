@@ -210,7 +210,7 @@ async function triggerSchedulerJob(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -326,7 +326,7 @@ router.post(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -433,7 +433,7 @@ router.post(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -568,7 +568,7 @@ router.post(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: runId
@@ -639,7 +639,7 @@ router.get(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -740,7 +740,7 @@ router.post(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -831,7 +831,7 @@ router.post(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -916,7 +916,7 @@ router.post(
  *       - Triggers
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:

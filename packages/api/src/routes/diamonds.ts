@@ -130,7 +130,7 @@ function getTradingAdapter(feedId: string): TradingAdapter {
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: shape
@@ -490,7 +490,7 @@ router.get(
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -604,7 +604,7 @@ router.get(
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -646,7 +646,7 @@ router.get(
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -689,7 +689,7 @@ router.post(
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -768,7 +768,7 @@ router.post(
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -835,7 +835,7 @@ router.post(
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: header
  *         name: X-Idempotency-Key

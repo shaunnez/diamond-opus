@@ -221,18 +221,6 @@ variable "slack_webhook_ops" {
   default     = ""
 }
 
-## API Authentication
-variable "hmac_secrets" {
-  description = "JSON object of HMAC secrets for API authentication"
-  type        = string
-  sensitive   = true
-  default     = "{\"shopify\":\"changeme\",\"internal\":\"changeme\"}"
-
-  validation {
-    condition     = length(var.hmac_secrets) > 0
-    error_message = "hmac_secrets cannot be empty - Azure Container Apps secrets require a non-empty value. Use '{}' for empty JSON object."
-  }
-}
 
 
 # ============================================

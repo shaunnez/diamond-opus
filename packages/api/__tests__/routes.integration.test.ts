@@ -53,11 +53,6 @@ describe('API Routes', () => {
     vi.clearAllMocks();
     app = createApp();
 
-    // Set up default HMAC secrets
-    process.env['HMAC_SECRETS'] = JSON.stringify({
-      'test-client': 'test-secret',
-    });
-
     // Default: valid API key
     mockGetApiKeyByHash.mockResolvedValue({
       id: 'key-1',
@@ -68,10 +63,6 @@ describe('API Routes', () => {
       updatedAt: new Date(),
       lastUsedAt: null,
     });
-  });
-
-  afterEach(() => {
-    delete process.env['HMAC_SECRETS'];
   });
 
   describe('GET /health', () => {

@@ -43,7 +43,7 @@ const VALID_STONE_TYPES: StoneType[] = ['natural', 'lab', 'fancy'];
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     responses:
  *       200:
  *         description: List of pricing rules
@@ -86,7 +86,7 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       required: true
  *       content:
@@ -262,7 +262,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -442,7 +442,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -775,7 +775,7 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     responses:
  *       200:
  *         description: List of repricing jobs
@@ -800,7 +800,7 @@ router.get("/reapply/jobs", async (_req: Request, res: Response, next: NextFunct
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -838,7 +838,7 @@ router.get("/reapply/jobs/:id", async (req: Request, res: Response, next: NextFu
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id
@@ -910,7 +910,7 @@ router.post("/reapply/jobs/:id/revert", async (req: Request, res: Response, next
  *       - Pricing Rules
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: id

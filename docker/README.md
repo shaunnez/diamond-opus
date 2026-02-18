@@ -207,7 +207,6 @@ docker-compose up --build
 # API
 docker run -p 3000:3000 \
   -e DATABASE_URL="..." \
-  -e HMAC_SECRETS='{}' \
   diamond-api
 
 # Worker

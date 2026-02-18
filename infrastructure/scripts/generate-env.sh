@@ -65,8 +65,6 @@ ACR_PASSWORD=$ACR_PASSWORD
 
 # API Configuration
 PORT=3000
-HMAC_SECRETS={"shopify":"changeme","internal":"changeme"}
-
 # Alerts (fill in manually)
 RESEND_API_KEY=
 ALERT_EMAIL_TO=

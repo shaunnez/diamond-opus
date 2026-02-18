@@ -29,12 +29,7 @@ const options: swaggerJsdoc.Options = {
           type: 'apiKey',
           in: 'header',
           name: 'X-API-Key',
-          description: `API key for authentication.
-
-IMPORTANT: When using API key authentication, HMAC authentication will NOT be attempted as a fallback.
-If the API key is invalid, the request will be rejected immediately.
-
-Use either API key OR HMAC authentication, not both.`,
+          description: `API key for authentication. Pass your API key in the X-API-Key header.`,
         }
       },
     },

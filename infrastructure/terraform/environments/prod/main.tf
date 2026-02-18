@@ -114,7 +114,6 @@ module "container_apps" {
   nivoda_proxy_base_url  = var.nivoda_proxy_base_url
   internal_service_token = var.internal_service_token
 
-  hmac_secrets           = var.hmac_secrets
   slack_webhook_errors   = var.slack_webhook_errors
   slack_webhook_pipeline = var.slack_webhook_pipeline
   slack_webhook_ops      = var.slack_webhook_ops

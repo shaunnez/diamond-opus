@@ -136,8 +136,7 @@ export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountNam
 export AZURE_SERVICE_BUS_CONNECTION_STRING="Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
 export API_BASE_URL="http://localhost:3000"
 export DEMO_FEED_API_URL="http://localhost:4000"
-export HMAC_SECRET="local-test-secret"
-export HMAC_CLIENT_ID="local"
+export LOCAL_API_KEY="local-dev-key"
 
 npx vitest run --config tests/local/vitest.config.ts
 

@@ -12,7 +12,6 @@ const router = Router();
  *       - System
  *     security:
  *       - ApiKeyAuth: []
- *       - HMACAuth: []
  *     responses:
  *       200:
  *         description: System configuration details

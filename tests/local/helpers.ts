@@ -2,10 +2,9 @@
  * Shared test helpers for local stack integration tests.
  *
  * Expects these environment variables to be set:
- *   DATABASE_URL, API_BASE_URL, HMAC_SECRET, HMAC_CLIENT_ID
+ *   DATABASE_URL, API_BASE_URL, LOCAL_API_KEY
  */
 
-import { createHash, createHmac } from 'node:crypto';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -41,54 +40,31 @@ export async function closePool(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// HMAC Auth Helper
-// ---------------------------------------------------------------------------
-
-function sha256(data: string): string {
-  return createHash('sha256').update(data).digest('hex');
-}
-
-function hmacSha256(secret: string, data: string): string {
-  return createHmac('sha256', secret).update(data).digest('hex');
-}
-
-export function makeHmacHeaders(
-  method: string,
-  path: string,
-  body: string = '',
-): Record<string, string> {
-  const clientId = process.env.HMAC_CLIENT_ID ?? 'local';
-  const secret = process.env.HMAC_SECRET ?? 'local-test-secret';
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const bodyHash = sha256(body);
-  const canonical = [method, path, timestamp, bodyHash].join('\n');
-  const signature = hmacSha256(secret, canonical);
-
-  return {
-    'x-client-id': clientId,
-    'x-timestamp': timestamp,
-    'x-signature': signature,
-    'content-type': 'application/json',
-  };
-}
-
-// ---------------------------------------------------------------------------
 // API Client
 // ---------------------------------------------------------------------------
 
 const API_BASE = (): string => process.env.API_BASE_URL ?? 'http://localhost:3000';
 
 export async function apiGet(path: string): Promise<Response> {
-  const headers = makeHmacHeaders('GET', path);
-  return fetch(`${API_BASE()}${path}`, { method: 'GET', headers });
+  const apiKey = process.env.LOCAL_API_KEY ?? 'local-dev-key';
+  return fetch(`${API_BASE()}${path}`, {
+    method: 'GET',
+    headers: {
+      'x-api-key': apiKey,
+      'content-type': 'application/json',
+    },
+  });
 }
 
 export async function apiPost(path: string, body: unknown = {}): Promise<Response> {
+  const apiKey = process.env.LOCAL_API_KEY ?? 'local-dev-key';
   const bodyStr = JSON.stringify(body);
-  const headers = makeHmacHeaders('POST', path, bodyStr);
   return fetch(`${API_BASE()}${path}`, {
     method: 'POST',
-    headers,
+    headers: {
+      'x-api-key': apiKey,
+      'content-type': 'application/json',
+    },
     body: bodyStr,
   });
 }

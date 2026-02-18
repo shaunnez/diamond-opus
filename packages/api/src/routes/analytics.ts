@@ -56,7 +56,7 @@ const router = Router();
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     responses:
  *       200:
  *         description: Dashboard summary data
@@ -131,7 +131,7 @@ async function streamToString(readableStream: NodeJS.ReadableStream): Promise<st
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     responses:
  *       200:
  *         description: Combined dashboard data
@@ -274,7 +274,7 @@ router.put('/watermark', async (req: Request, res: Response, next: NextFunction)
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: run_type
@@ -356,7 +356,7 @@ router.get(
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: runId
@@ -404,7 +404,7 @@ router.get(
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: limit
@@ -441,7 +441,7 @@ router.get('/failed-workers', async (req: Request, res: Response, next: NextFunc
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     responses:
  *       200:
  *         description: Feed statistics
@@ -480,7 +480,7 @@ router.get('/feeds', async (_req: Request, res: Response, next: NextFunction) =>
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: feed
@@ -533,7 +533,7 @@ router.get(
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: feed
@@ -588,7 +588,7 @@ router.get(
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: runId
@@ -646,7 +646,7 @@ router.get(
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: page
@@ -697,7 +697,7 @@ router.get('/holds', async (req: Request, res: Response, next: NextFunction) => 
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: page
@@ -751,7 +751,7 @@ router.get('/orders', async (req: Request, res: Response, next: NextFunction) =>
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: service
@@ -827,7 +827,7 @@ router.get('/error-logs', async (req: Request, res: Response, next: NextFunction
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     responses:
  *       200:
  *         description: List of service names
@@ -852,7 +852,7 @@ router.get('/error-logs/services', async (_req: Request, res: Response, next: Ne
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: query
  *         name: service
@@ -888,7 +888,7 @@ router.delete('/error-logs', async (req: Request, res: Response, next: NextFunct
  *       - Analytics
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: table

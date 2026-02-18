@@ -206,7 +206,7 @@ interface RunHeatmapBody {
  *       - Heatmap
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       content:
  *         application/json:
@@ -332,7 +332,7 @@ router.post(
  *       - Heatmap
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     requestBody:
  *       content:
  *         application/json:
@@ -434,7 +434,7 @@ router.post(
  *       - Heatmap
  *     security:
  *       - ApiKeyAuth: []
- *       - HmacAuth: []
+ 
  *     parameters:
  *       - in: path
  *         name: feed

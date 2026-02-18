@@ -170,7 +170,6 @@ jobs:
           TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
-          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
           TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
           TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
@@ -247,7 +246,6 @@ jobs:
           TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
-          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
           TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
           TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
@@ -276,7 +274,6 @@ jobs:
           TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
-          TF_VAR_hmac_secrets: ${{ secrets.HMAC_SECRETS }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
           TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
           TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}

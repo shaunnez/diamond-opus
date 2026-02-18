@@ -73,13 +73,7 @@ For environment-specific secrets, configure in the `staging` environment.
 | `DATABASE_USERNAME` | PostgreSQL username | `database_username` | All apps |
 | `DATABASE_PASSWORD` | PostgreSQL password | `database_password` | All apps |
 
-### API Authentication (1 secret)
-
-| Secret Name | Description | TF Variable | Used By |
-|-------------|-------------|-------------|---------|
-| `HMAC_SECRETS` | JSON object of HMAC client secrets | `hmac_secrets` | API |
-
-## Total: 17 Secrets
+## Total: 16 Secrets
 
 ## Environment Variables by Container
 
@@ -87,7 +81,6 @@ For environment-specific secrets, configure in the `staging` environment.
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - `AZURE_STORAGE_CONNECTION_STRING` (auto from Terraform)
 - `AZURE_SERVICE_BUS_CONNECTION_STRING` (auto from Terraform)
-- `HMAC_SECRETS`
 - `NIVODA_ENDPOINT`, `NIVODA_USERNAME`, `NIVODA_PASSWORD`
 - `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_SCHEDULER_JOB_NAME`
 
@@ -142,7 +135,6 @@ After configuring secrets, the workflow includes a debug step that validates the
 2. **Rotate secrets regularly** - Especially after team member departures
 3. **Use least-privilege principle** - Service principals should have minimal required permissions
 4. **Monitor secret access** - GitHub provides audit logs for secret access
-5. **HMAC_SECRETS format** - Must be valid JSON: `{"clientId":"secretValue"}`
 
 ## Obtaining Values
 
