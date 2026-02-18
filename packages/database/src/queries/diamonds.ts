@@ -320,17 +320,44 @@ export async function searchDiamonds(
     values.push(params.ratingMax);
   }
 
+  if (params.availability && params.availability.length > 0) {
+    conditions.push(`availability = ANY($${paramIndex++})`);
+    values.push(params.availability);
+  }
+
+  if (params.priceModelPriceMin !== undefined) {
+    conditions.push(`price_model_price >= $${paramIndex++}`);
+    values.push(params.priceModelPriceMin);
+  }
+
+  if (params.priceModelPriceMax !== undefined) {
+    conditions.push(`price_model_price <= $${paramIndex++}`);
+    values.push(params.priceModelPriceMax);
+  }
+
   const whereClause = conditions.join(' AND ');
   const page = params.page ?? 1;
-  const limit = Math.min(params.limit ?? 50, 100);
+  const limit = Math.min(params.limit ?? 50, 1000);
   const offset = (page - 1) * limit;
 
   const sortBy = params.sortBy ?? 'created_at';
   const sortOrder = params.sortOrder ?? 'desc';
-  const allowedSortColumns = ['created_at', 'feed_price', 'carats', 'color', 'clarity', 'ratio', 'fancy_color', 'fluorescence_intensity', 'certificate_lab'];
+  const allowedSortColumns = [
+    'created_at',
+    'feed_price',
+    'carats',
+    'color',
+    'clarity',
+    'ratio',
+    'fancy_color',
+    'fluorescence_intensity',
+    'certificate_lab',
+    'price_model_price',
+    'rating',
+  ];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
-  console.log("where clause", whereClause, values, `ORDER BY ${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`);
+  console.log("where clause", whereClause, values, `ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT ${limit} OFFSET ${offset}`);
 
   const countResult = await query<{ count: string }>(
     `SELECT COUNT(*) as count FROM diamonds WHERE ${whereClause}`,
@@ -341,7 +368,7 @@ export async function searchDiamonds(
 
   console.log(total, 'total diamonds found');
   const dataResult = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     [...values, limit, offset]
   );
 
