@@ -15,6 +15,7 @@ import type {
   HeatmapConfigOverrides,
   TradingAdapter,
   TradingHoldResult,
+  TradingHoldCancelResult,
   TradingOrderResult,
   TradingOrderOptions,
   TradingAvailabilityResult,
@@ -138,14 +139,15 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
 
   // --- TradingAdapter methods ---
 
-  async createHold(diamond: Diamond): Promise<TradingHoldResult> {
+  async createHold(supplierStoneId: string): Promise<TradingHoldResult> {
     // Nivoda uses supplierStoneId (diamond.id in Nivoda terms) for holds
-    const result = await this.getOrCreateAdapter().createHold(diamond.supplierStoneId);
+    const result = await this.getOrCreateAdapter().createHold(supplierStoneId);
     return { id: result.id, denied: result.denied, until: result.until };
   }
 
-  async cancelHold(feedHoldId: string): Promise<void> {
-    await this.getOrCreateAdapter().cancelHold(feedHoldId);
+  async cancelHold(feedHoldId: string): Promise<TradingHoldCancelResult> {
+    const result = await this.getOrCreateAdapter().cancelHold(feedHoldId);
+    return { id: result.id };
   }
 
   async createOrder(diamond: Diamond, options: TradingOrderOptions): Promise<TradingOrderResult> {
@@ -160,10 +162,6 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
       },
     ]);
     return { id: orderId };
-  }
-
-  async cancelOrder(_feedOrderId: string): Promise<void> {
-    throw new Error('Order cancellation is not supported for the Nivoda feed');
   }
 
   async checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult> {

@@ -140,7 +140,7 @@ export class DemoFeedAdapter implements FeedAdapter, TradingAdapter {
 
   // --- TradingAdapter methods ---
 
-  async createHold(_diamond: Diamond): Promise<TradingHoldResult> {
+  async createHold(_supplierStoneId: string): Promise<TradingHoldResult> {
     // Simulate API call with believable delay (1.5-3s)
     await simulatedDelay(1500, 3000);
     const holdId = `demo-hold-${randomUUID()}`;
@@ -151,10 +151,17 @@ export class DemoFeedAdapter implements FeedAdapter, TradingAdapter {
       until: holdUntil.toISOString(),
     };
   }
-
-  async cancelHold(_feedHoldId: string): Promise<void> {
+  
+  async cancelHold(_feedHoldId: string): Promise<TradingHoldResult> {
     // Simulate API call (0.5-1.5s)
     await simulatedDelay(500, 1500);
+    const holdId = `demo-hold-${randomUUID()}`;
+    const holdUntil = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h hold
+    return {
+      id: holdId,
+      denied: false,
+      until: holdUntil.toISOString(),
+    };
   }
 
   async createOrder(_diamond: Diamond, _options: TradingOrderOptions): Promise<TradingOrderResult> {
@@ -162,11 +169,6 @@ export class DemoFeedAdapter implements FeedAdapter, TradingAdapter {
     await simulatedDelay(2000, 4000);
     const orderId = `demo-order-${randomUUID()}`;
     return { id: orderId };
-  }
-
-  async cancelOrder(_feedOrderId: string): Promise<void> {
-    // Simulate API call (0.5-1.5s)
-    await simulatedDelay(500, 1500);
   }
 
   async checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult> {

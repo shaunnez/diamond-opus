@@ -177,8 +177,6 @@ export const CANCEL_HOLD_MUTATION = gql`
     as(token: $token) {
       cancel_hold(hold_id: $holdId) {
         id
-        denied
-        until
       }
     }
   }

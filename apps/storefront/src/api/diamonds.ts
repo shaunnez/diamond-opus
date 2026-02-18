@@ -51,7 +51,7 @@ export async function getDiamond(id: string): Promise<Diamond> {
 }
 
 export async function checkAvailability(id: string): Promise<AvailabilityResponse> {
-  const response = await api.get<{ data: AvailabilityResponse }>(`/trading/diamonds/${id}/check-availability`);
+  const response = await api.post<{ data: AvailabilityResponse }>(`/diamonds/${id}/availability`);
   return response.data.data;
 }
 
@@ -61,12 +61,11 @@ export async function placeDiamondHold(id: string): Promise<HoldResponse> {
 }
 
 export async function purchaseDiamond(
-  id: string,
   idempotencyKey: string,
   options?: { destination_id?: string; reference?: string; comments?: string }
 ): Promise<{ id: string; status: string }> {
   const response = await api.post<{ data: { id: string; status: string } }>(
-    `/diamonds/${id}/purchase`,
+    `/diamonds/purchase`,
     {
       destination_id: options?.destination_id || 'default',
       reference: options?.reference,
@@ -79,10 +78,9 @@ export async function purchaseDiamond(
   return response.data.data;
 }
 
-export async function cancelDiamondHold(holdId: string): Promise<{ hold_id: string; status: string; message: string }> {
+export async function cancelDiamondHold(diamondId: string): Promise<{ hold_id: string; status: string; message: string }> {
   const response = await api.post<{ data: { hold_id: string; status: string; message: string } }>(
-    '/nivoda/cancel-hold',
-    { hold_id: holdId }
+    `/diamonds/${diamondId}/cancel-hold`
   );
   return response.data.data;
 }

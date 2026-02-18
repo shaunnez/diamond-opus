@@ -28,6 +28,7 @@ import type {
   NivodaOrderItemInput,
   NivodaOrder,
   NivodaDiamondAvailability,
+  NivodaCancelHoldResponse,
 } from './types.js';
 import { ProxyGraphqlTransport } from "./proxyTransport.js";
 
@@ -61,7 +62,7 @@ interface CreateHoldResponse {
 
 interface CancelHoldResponse {
   as: {
-    cancel_hold: NivodaHoldResponse;
+    cancel_hold:NivodaCancelHoldResponse;
   };
 }
 
@@ -391,7 +392,7 @@ export class NivodaAdapter {
     });
   }
 
-  async cancelHold(holdId: string): Promise<NivodaHoldResponse> {
+  async cancelHold(holdId: string): Promise<NivodaCancelHoldResponse> {
     return this.executeWithTokenRefresh(async (token) => {
       const response = await this.transport.request<CancelHoldResponse>(
         CANCEL_HOLD_MUTATION,

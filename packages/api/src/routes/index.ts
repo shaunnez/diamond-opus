@@ -6,8 +6,6 @@ import triggersRouter from './triggers.js';
 import heatmapRouter from './heatmap.js';
 import pricingRulesRouter from './pricing-rules.js';
 import ratingRulesRouter from './rating-rules.js';
-import nivodaRouter from './nivoda.js';
-import tradingRouter from './trading.js';
 import systemRouter from './system.js';
 import { authMiddleware } from '../middleware/index.js';
 
@@ -22,8 +20,6 @@ router.use('/api/v2/triggers', authMiddleware, triggersRouter);
 router.use('/api/v2/heatmap', authMiddleware, heatmapRouter);
 router.use('/api/v2/pricing-rules', authMiddleware, pricingRulesRouter);
 router.use('/api/v2/rating-rules', authMiddleware, ratingRulesRouter);
-router.use('/api/v2/nivoda', authMiddleware, nivodaRouter);
-router.use('/api/v2/trading', authMiddleware, tradingRouter);
 router.use('/api/v2/system', authMiddleware, systemRouter);
 
 export default router;

@@ -1,3 +1,16 @@
+if (process.env.NODE_ENV !== 'production') {
+  const { config } = await import('dotenv');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, resolve } = await import('node:path');
+
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const rootDir = resolve(__dirname, '../../..');
+
+  config({ path: resolve(rootDir, '.env.local') });
+  config({ path: resolve(rootDir, '.env') });
+}
+
+
 import express from "express";
 import type { Request, Response } from "express";
 import { createServiceLogger, optionalEnv } from "@diamond/shared";
@@ -18,7 +31,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 // Start server
-const port = Number(optionalEnv('PORT', '3000'));
+const port = Number(optionalEnv('PORT', '3001'));
 const server = app.listen(port, () => {
   const traceId = crypto.randomUUID();
   logger.info('server_started', {

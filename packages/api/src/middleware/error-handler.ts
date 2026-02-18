@@ -67,3 +67,7 @@ export function badRequest(message: string): AppError {
 export function conflict(message: string): AppError {
   return createError(message, 409, 'CONFLICT');
 }
+
+export function fatalError(message: string): AppError {
+  return createError(message, 500, 'FATAL_ERROR');
+}

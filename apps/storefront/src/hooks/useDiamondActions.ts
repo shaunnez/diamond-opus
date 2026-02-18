@@ -15,15 +15,15 @@ export function useDiamondActions(diamondId: string) {
   });
 
   const purchaseMutation = useMutation({
-    mutationFn: (options?: { reference?: string; comments?: string }) => {
+    mutationFn: (options?: { reference?: string; comments?: string, destination_id: string }) => {
       const idempotencyKey = `purchase-${diamondId}-${Date.now()}`;
-      return purchaseDiamond(diamondId, idempotencyKey, options);
+      return purchaseDiamond(idempotencyKey, options);
     },
     onSuccess: invalidate,
   });
 
   const cancelHoldMutation = useMutation({
-    mutationFn: (holdId: string) => cancelDiamondHold(holdId),
+    mutationFn: () => cancelDiamondHold(diamondId),
     onSuccess: invalidate,
   });
 

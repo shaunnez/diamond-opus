@@ -10,8 +10,8 @@ import {
   getPurchaseByIdempotencyKey,
   updatePurchaseStatus,
 } from '@diamond/database';
-import { NivodaAdapter } from '@diamond/nivoda';
-import { validateQuery, validateParams, validateBody, notFound, badRequest, conflict } from '../middleware/index.js';
+import { NivodaAdapter, NivodaFeedAdapter } from '@diamond/nivoda';
+import { validateQuery, validateParams, validateBody, notFound, badRequest, conflict, fatalError } from '../middleware/index.js';
 import {
   diamondSearchSchema,
   diamondIdSchema,
@@ -28,6 +28,8 @@ import {
   setCachedSearch,
   getCompositeVersion,
 } from '../services/cache.js';
+import { TradingAdapter } from '@diamond/feed-registry';
+import { DemoFeedAdapter } from '@diamond/demo-feed';
 
 const router = Router();
 
@@ -69,6 +71,22 @@ function enrichWithNzd(diamond: Diamond): Diamond {
   }
   return diamond;
 }
+
+
+/**
+ * Returns a TradingAdapter for the given feed.
+ */
+function getTradingAdapter(feedId: string): TradingAdapter {
+  switch (feedId) {
+    case 'nivoda':
+      return new NivodaFeedAdapter();
+    case 'demo':
+      return new DemoFeedAdapter();
+    default:
+      throw badRequest(`Trading is not supported for feed: ${feedId}`);
+  }
+}
+
 
 /**
  * @openapi
@@ -138,7 +156,7 @@ function enrichWithNzd(diamond: Diamond): Diamond {
  *         name: sort_by
  *         schema:
  *           type: string
- *           enum: [created_at, feed_price_cents, carats, color, clarity]
+ *           enum: [created_at, feed_price, carats, color, clarity]
  *       - in: query
  *         name: sort_order
  *         schema:
@@ -322,14 +340,9 @@ router.post(
       if (!diamond) {
         throw notFound('Diamond not found');
       }
-
-      res.json({
-        data: {
-          id: diamond.id,
-          availability: diamond.availability,
-          hold_id: diamond.holdId,
-        },
-      });
+      const adapter = getTradingAdapter(diamond.feed);
+      const result = await adapter.checkAvailability(diamond);
+      res.json({ data: result })
     } catch (error) {
       next(error);
     }
@@ -377,13 +390,20 @@ router.post(
         throw conflict('Diamond is not available for hold');
       }
 
-      const adapter = new NivodaAdapter();
-      const holdResponse = await adapter.createHold(diamond.offerId);
+      const adapter = getTradingAdapter(diamond.feed);
+      const availability = await adapter.checkAvailability(diamond);
+      if (!availability?.available) {
+        res.status(400).json({
+          error: { code: 'NOT_AVAILABLE', message: 'Diamond is not available' },
+        });
+      }
+
+      const holdResponse = await adapter.createHold(diamond.supplierStoneId);
 
       await createHoldHistory(
         diamond.id,
         diamond.feed,
-        diamond.offerId,
+        diamond.supplierStoneId,
         holdResponse.id,
         holdResponse.denied,
         holdResponse.until ? new Date(holdResponse.until) : undefined
@@ -406,11 +426,13 @@ router.post(
   }
 );
 
+
+
 /**
  * @openapi
- * /api/v2/diamonds/{id}/purchase:
+ * /api/v2/diamonds/{id}/cancel-hold:
  *   post:
- *     summary: Purchase diamond
+ *     summary: Cancel hold on diamond
  *     tags:
  *       - Diamonds
  *     security:
@@ -423,6 +445,67 @@ router.post(
  *         schema:
  *           type: string
  *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Hold cancelled
+ *       404:
+ *         description: Diamond not found
+ *       409:
+ *         description: Diamond not available for hold
+ */
+router.post(
+  '/:id/cancel-hold',
+  validateParams(diamondIdSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = (req as Request & { validatedParams: DiamondIdParams }).validatedParams;
+
+      const diamond = await getDiamondById(id);
+      if (!diamond) {
+        throw notFound('Diamond not found');
+      }
+
+      if (diamond.availability !== 'on_hold' && diamond.holdId) {
+        throw conflict('Diamond is not available to cancel hold');
+      }
+
+      const adapter = getTradingAdapter(diamond.feed);
+      const availability = await adapter.checkAvailability(diamond);
+      if (availability?.status !== 'on_hold') {
+        res.status(400).json({
+          error: { code: 'NOT_AVAILABLE', message: 'Diamond is not on hold' },
+        });
+      }
+
+      const holdResponse = await adapter.cancelHold(diamond.holdId || '');
+
+      if (!holdResponse.id) {
+        await updateDiamondAvailability(diamond.id, 'available', holdResponse.id);
+      }
+
+      res.json({
+        data: {
+          id: holdResponse.id
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/**
+ * @openapi
+ * /api/v2/diamonds/purchase:
+ *   post:
+ *     summary: Purchase diamond
+ *     tags:
+ *       - Diamonds
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
  *       - in: header
  *         name: X-Idempotency-Key
  *         required: true
@@ -444,7 +527,7 @@ router.post(
  *               comments:
  *                 type: string
  *               return_option:
- *                 type: string
+ *                 type: boolean
  *     responses:
  *       200:
  *         description: Purchase created
@@ -456,12 +539,10 @@ router.post(
  *         description: Duplicate request or diamond not available
  */
 router.post(
-  '/:id/purchase',
-  validateParams(diamondIdSchema),
+  '/purchase',
   validateBody(purchaseRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = (req as Request & { validatedParams: DiamondIdParams }).validatedParams;
       const body = req.body as PurchaseRequestBody;
       const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
 
@@ -480,13 +561,20 @@ router.post(
         return;
       }
 
-      const diamond = await getDiamondById(id);
+      // todo: remove raw availability?
+      const diamond = await getDiamondById(body.destination_id);
       if (!diamond) {
         throw notFound('Diamond not found');
       }
 
-      if (diamond.availability === 'sold') {
-        throw conflict('Diamond is already sold');
+      if (diamond.availability !== 'available') {
+        throw conflict('Diamond not available');
+      }
+
+      const adapter = getTradingAdapter(diamond.feed);
+      const availability = await adapter.checkAvailability(diamond);
+      if (!availability?.available) {
+        throw conflict('Diamond not available');
       }
 
       const purchaseRecord = await createPurchaseHistory(
@@ -501,17 +589,23 @@ router.post(
       );
 
       try {
-        const adapter = new NivodaAdapter();
-        const orderResponse = await adapter.createOrder([
-          {
-            offerId: diamond.offerId,
-            destinationId: body.destination_id,
-            customer_comment: body.comments,
-            customer_order_number: body.reference,
-            return_option: body.return_option,
-          }
-        ]);
-        await updatePurchaseStatus(purchaseRecord.id, 'confirmed', orderResponse);
+        const orderResponse = await adapter.createOrder(diamond, { comments: body.comments,  reference: body.reference });
+        // [
+        //   {
+        //     offerId: diamond.offerId,
+        //     // todo: confirm destination id
+        //     // destinationId: body.destination_id,
+        //     customer_comment: body.comments,
+        //     // todo: maybe not make this set from front end
+        //     customer_order_number: body.reference,
+        //     return_option: body.return_option,
+        //   }
+        // ]);
+        
+        if (!orderResponse) {
+          throw fatalError('Diamond failed to place order');
+        }
+        await updatePurchaseStatus(purchaseRecord.id, 'confirmed', orderResponse?.id);
         await updateDiamondAvailability(diamond.id, 'sold');
 
         res.json({

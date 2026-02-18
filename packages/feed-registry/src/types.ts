@@ -124,6 +124,9 @@ export interface TradingHoldResult {
   denied: boolean;
   until?: string;
 }
+export interface TradingHoldCancelResult {
+  id: string;
+}
 
 export interface TradingOrderResult {
   id: string;
@@ -149,10 +152,9 @@ export interface TradingAvailabilityResult {
  * required by the upstream API (e.g., Nivoda uses supplierStoneId for holds).
  */
 export interface TradingAdapter {
-  createHold(diamond: Diamond): Promise<TradingHoldResult>;
-  cancelHold(feedHoldId: string): Promise<void>;
+  createHold(supplierStoneId: string): Promise<TradingHoldResult>;
+  cancelHold(feedHoldId: string): Promise<TradingHoldCancelResult>;
   createOrder(diamond: Diamond, options: TradingOrderOptions): Promise<TradingOrderResult>;
-  cancelOrder(feedOrderId: string): Promise<void>;
   checkAvailability(diamond: Diamond): Promise<TradingAvailabilityResult>;
 }
 

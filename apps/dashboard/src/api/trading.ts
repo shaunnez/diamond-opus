@@ -59,12 +59,12 @@ export interface CreateOrderOptions {
 export async function searchDiamonds(q: string, limit = 10, feed?: string): Promise<DiamondSummary[]> {
   const params = new URLSearchParams({ q, limit: String(limit) });
   if (feed) params.set('feed', feed);
-  const response = await api.get<{ data: DiamondSummary[] }>(`/trading/diamonds/search?${params}`);
+  const response = await api.get<{ data: DiamondSummary[] }>(`/trading/search?${params}`);
   return response.data.data;
 }
 
 export async function getDiamondById(id: string): Promise<DiamondSummary> {
-  const response = await api.get<{ data: DiamondSummary }>(`/trading/diamonds/${id}`);
+  const response = await api.get<{ data: DiamondSummary }>(`/trading/${id}`);
   return response.data.data;
 }
 
@@ -100,10 +100,3 @@ export async function createOrder(options: CreateOrderOptions): Promise<OrderRes
   return response.data.data;
 }
 
-export async function cancelOrder(orderId: string): Promise<CancelResponse> {
-  const response = await api.post<{ data: CancelResponse }>(
-    '/trading/cancel-order',
-    { order_id: orderId }
-  );
-  return response.data.data;
-}

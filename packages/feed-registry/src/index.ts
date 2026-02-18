@@ -10,6 +10,7 @@ export type {
   TradingHoldResult,
   TradingOrderResult,
   TradingOrderOptions,
+  TradingHoldCancelResult,
   TradingAvailabilityResult,
 } from './types.js';
 export { ALLOWED_RAW_TABLES } from './types.js';

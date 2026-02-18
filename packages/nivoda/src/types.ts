@@ -163,6 +163,9 @@ export interface NivodaHoldResponse {
   until?: string;
 }
 
+export interface NivodaCancelHoldResponse {
+  id: string;
+}
 
 export interface NivodaOrderItemInput {
   offerId: string;

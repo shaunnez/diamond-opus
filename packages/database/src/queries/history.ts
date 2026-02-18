@@ -60,17 +60,18 @@ function mapRowToPurchaseHistory(row: PurchaseHistoryRow): PurchaseHistory {
 export async function createHoldHistory(
   diamondId: string,
   feed: string,
-  offerId: string,
+  supplierStoneId: string,
   feedHoldId?: string,
   denied?: boolean,
   holdUntil?: Date
 ): Promise<HoldHistory> {
   const status = denied ? 'expired' : 'active';
+  // todo: change offer_id to supplierStoneId
   const result = await query<HoldHistoryRow>(
     `INSERT INTO hold_history (diamond_id, feed, feed_hold_id, offer_id, status, denied, hold_until)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [diamondId, feed, feedHoldId, offerId, status, denied ?? false, holdUntil]
+    [diamondId, feed, feedHoldId, supplierStoneId, status, denied ?? false, holdUntil]
   );
   return mapRowToHoldHistory(result.rows[0]!);
 }

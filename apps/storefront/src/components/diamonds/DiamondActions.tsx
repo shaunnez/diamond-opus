@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Shield, ShoppingCart, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
-import { Tooltip } from '../ui/Tooltip';
 import { useDiamondActions } from '../../hooks/useDiamondActions';
 import { formatCarats } from '../../utils/format';
 import type { Diamond } from '../../types/diamond';
@@ -53,7 +52,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
     clearMessages();
     setPurchaseModalOpen(false);
     try {
-      await actions.purchase.mutateAsync(undefined);
+      await actions.purchase.mutateAsync({ comments: 'test comment', reference: 'test reference', destination_id: diamond.id });
       setSuccessMessage('Purchase order created successfully');
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to create purchase order');
@@ -63,9 +62,9 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
   const handleCancelHold = async () => {
     clearMessages();
     setCancelHoldModalOpen(false);
-    if (!diamond.holdId) return;
+    if (!diamond.id) return;
     try {
-      await actions.cancelHold.mutateAsync(diamond.holdId);
+      await actions.cancelHold.mutateAsync();
       setSuccessMessage('Hold cancelled successfully');
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to cancel hold');
@@ -134,92 +133,53 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
       <div className="flex flex-col sm:flex-row gap-2">
         {/* Hold Button */}
         {isAvailable && (
-          isDemo ? (
-            <Button
-              variant="secondary"
-              onClick={handleHold}
-              disabled={isActing}
-              className="flex items-center justify-center gap-2 flex-1"
-            >
-              {actions.hold.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Shield className="w-4 h-4" />
-              )}
-              Place on Hold
-            </Button>
-          ) : (
-            <Tooltip content="Not enabled for this feed">
-              <Button
-                variant="secondary"
-                disabled
-                className="flex items-center justify-center gap-2 flex-1 w-full"
-              >
-                <Shield className="w-4 h-4" />
-                Place on Hold
-              </Button>
-            </Tooltip>
-          )
+          <Button
+            variant="secondary"
+            onClick={handleHold}
+            disabled={isActing}
+            className="flex items-center justify-center gap-2 flex-1"
+          >
+            {actions.hold.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Shield className="w-4 h-4" />
+            )}
+            Place on Hold
+          </Button>
         )}
 
         {/* Purchase Button */}
         {(isAvailable || isOnHold) && (
-          isDemo ? (
-            <Button
-              variant="primary"
-              onClick={() => { clearMessages(); setPurchaseModalOpen(true); }}
-              disabled={isActing}
-              className="flex items-center justify-center gap-2 flex-1"
-            >
-              {actions.purchase.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ShoppingCart className="w-4 h-4" />
-              )}
-              Purchase
-            </Button>
-          ) : (
-            <Tooltip content="Not enabled for this feed">
-              <Button
-                variant="primary"
-                disabled
-                className="flex items-center justify-center gap-2 flex-1 w-full"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                Purchase
-              </Button>
-            </Tooltip>
-          )
+          <Button
+            variant="primary"
+            onClick={() => { clearMessages(); setPurchaseModalOpen(true); }}
+            disabled={isActing}
+            className="flex items-center justify-center gap-2 flex-1"
+          >
+            {actions.purchase.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ShoppingCart className="w-4 h-4" />
+            )}
+            Purchase
+          </Button>
         )}
 
         {/* Cancel Hold Button */}
         {isOnHold && diamond.holdId && (
-          isDemo ? (
-            <Button
-              variant="danger"
-              onClick={() => { clearMessages(); setCancelHoldModalOpen(true); }}
-              disabled={isActing}
-              className="flex items-center justify-center gap-2 flex-1"
-            >
-              {actions.cancelHold.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
-              Cancel Hold
-            </Button>
-          ) : (
-            <Tooltip content="Not enabled for this feed">
-              <Button
-                variant="danger"
-                disabled
-                className="flex items-center justify-center gap-2 flex-1 w-full"
-              >
-                <XCircle className="w-4 h-4" />
-                Cancel Hold
-              </Button>
-            </Tooltip>
-          )
+          <Button
+            variant="danger"
+            onClick={() => { clearMessages(); setCancelHoldModalOpen(true); }}
+            disabled={isActing}
+            className="flex items-center justify-center gap-2 flex-1"
+          >
+            {actions.cancelHold.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <XCircle className="w-4 h-4" />
+            )}
+            Cancel Hold
+          </Button>
         )}
       </div>
 
