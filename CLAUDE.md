@@ -129,9 +129,9 @@ Feed-specific behaviour belongs in `FeedAdapter` implementations and feed regist
 When creating or updating a pricing rule, the dashboard form includes an optional "Recalculate pricing now" checkbox (default: OFF).
 If enabled, the API creates a repricing job and starts it asynchronously, returning immediately with the job ID.
 The job processes available diamonds in batches, only updating rows where pricing changed (compared with cents rounding for money, epsilon for floats).
-Email notifications are sent on completion or failure.
+Slack notifications are sent on completion or failure.
 Progress is shown in the dashboard with live polling.
-Key files: `packages/api/src/routes/pricing-rules.ts`, `packages/api/src/services/reapply-emails.ts`, `packages/database/src/queries/pricing-reapply.ts`.
+Key files: `packages/api/src/routes/pricing-rules.ts`, `packages/database/src/queries/pricing-reapply.ts`.
 
 **Rate limiting:**
 - Rate limiting is enforced at the API proxy layer using an in-memory token bucket
@@ -224,7 +224,7 @@ Dual auth system (checked in order):
 - `packages/api/src/routes/pricing-rules.ts` - Pricing rule CRUD and repricing job endpoints
 - `packages/nivoda/src/proxyTransport.ts` - Proxy transport (used when NIVODA_PROXY_BASE_URL is set)
 - `packages/api/src/services/cache.ts` - In-memory LRU search cache with version-keyed invalidation
-- `packages/api/src/services/reapply-emails.ts` - Email notifications for repricing jobs
+- `packages/shared/src/utils/slack.ts` - Slack notification service (channel routing, retry, rate limiting)
 - `packages/database/src/queries/dataset-versions.ts` - Dataset version queries (get/increment)
 - `packages/database/src/queries/pricing-reapply.ts` - Repricing job queries (job CRUD, batch scanning, snapshots)
 - `packages/database/src/client.ts` - PostgreSQL connection pool
@@ -294,12 +294,11 @@ REAPPLY_RETRY_BASE_DELAY_MINUTES = 5      // Base delay for first retry
 REAPPLY_RETRY_MAX_DELAY_MINUTES = 30      // Maximum retry delay cap
 ```
 
-**Email notifications**
+**Slack notifications**
 ```bash
-RESEND_API_KEY           # Resend API key for sending emails
-ALERT_EMAIL_FROM         # From email address (default: onboarding@resend.dev)
-ALERT_EMAIL_TO           # Recipient email for alerts and repricing notifications
-DASHBOARD_URL            # Dashboard URL for links in emails (e.g., https://dashboard.example.com)
+SLACK_WEBHOOK_ERRORS     # Webhook URL for error alerts (#errors channel)
+SLACK_WEBHOOK_PIPELINE   # Webhook URL for pipeline status (#pipeline channel)
+SLACK_WEBHOOK_OPS        # Webhook URL for ops events (#ops channel)
 ```
 
 **Database pool tuning**
