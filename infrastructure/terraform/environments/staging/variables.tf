@@ -152,21 +152,21 @@ variable "slack_webhook_errors" {
   description = "Slack webhook URL for error alerts (#errors channel)"
   type        = string
   sensitive   = true
-  default     = ""
+  default     = "https://hooks.slack.com/services/T0AFJSJ5KGW/B0AFEQFNHNF/9ZeCYSDzKNTM7hh5NaWUgx"
 }
 
 variable "slack_webhook_pipeline" {
   description = "Slack webhook URL for pipeline status (#pipeline channel)"
   type        = string
   sensitive   = true
-  default     = ""
+  default     = "https://hooks.slack.com/services/T0AFJSJ5KGW/B0AG0495DRP/JKfby6GiKQL3vHcgyuJBWCZ"
 }
 
 variable "slack_webhook_ops" {
   description = "Slack webhook URL for ops events (#ops channel)"
   type        = string
   sensitive   = true
-  default     = ""
+  default     = "https://hooks.slack.com/services/T0AFJSJ5KGW/B0AFK4W6P0W/fQZQncc5dyH3aGv5VvHMc7U"
 }
 
 ## API Authentication
