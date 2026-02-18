@@ -88,3 +88,21 @@ export async function cancelDiamondHold(diamondId: string): Promise<{ hold_id: s
   );
   return response.data.data;
 }
+
+export async function getRelatedDiamonds(
+  id: string,
+  options?: {
+    limit?: number;
+    fields?: string;
+    carat_tolerance?: number;
+    price_tolerance?: number;
+  }
+): Promise<Diamond[]> {
+  const query: Record<string, string> = {};
+  if (options?.limit !== undefined) query.limit = String(options.limit);
+  if (options?.fields) query.fields = options.fields;
+  if (options?.carat_tolerance !== undefined) query.carat_tolerance = String(options.carat_tolerance);
+  if (options?.price_tolerance !== undefined) query.price_tolerance = String(options.price_tolerance);
+  const response = await api.get<{ data: Diamond[] }>(`/diamonds/${id}/related`, { params: query });
+  return response.data.data;
+}
