@@ -14,6 +14,7 @@ vi.mock('@diamond/database', () => ({
   updateApiKeyLastUsed: vi.fn().mockResolvedValue(undefined),
   searchDiamonds: vi.fn(),
   getDiamondById: vi.fn(),
+  getRelatedDiamonds: vi.fn(),
   updateDiamondAvailability: vi.fn().mockResolvedValue(undefined),
   createHoldHistory: vi.fn().mockResolvedValue(undefined),
   createPurchaseHistory: vi.fn(),
@@ -35,12 +36,14 @@ const {
   getApiKeyByHash,
   searchDiamonds,
   getDiamondById,
+  getRelatedDiamonds,
   getPurchaseByIdempotencyKey,
 } = await import('@diamond/database');
 
 const mockGetApiKeyByHash = vi.mocked(getApiKeyByHash);
 const mockSearchDiamonds = vi.mocked(searchDiamonds);
 const mockGetDiamondById = vi.mocked(getDiamondById);
+const mockGetRelatedDiamonds = vi.mocked(getRelatedDiamonds);
 const mockGetPurchaseByIdempotencyKey = vi.mocked(getPurchaseByIdempotencyKey);
 
 describe('API Routes', () => {
@@ -491,4 +494,98 @@ describe('API Routes', () => {
     //   expect(response.status).toBe(400);
     // });
   // });
+
+  describe('GET /api/v2/diamonds/:id/related', () => {
+    const mockDiamond = {
+      id: 'diamond-1',
+      supplier: 'nivoda',
+      supplierStoneId: 'stone-1',
+      offerId: 'offer-1',
+      shape: 'ROUND',
+      carats: 1.5,
+      color: 'G',
+      clarity: 'VS1',
+      cut: 'Excellent',
+      polish: 'Excellent',
+      symmetry: 'Excellent',
+      fluorescence: 'None',
+      labGrown: false,
+      treated: false,
+      feedPrice: 5000,
+      pricePerCarat: 3333.33,
+      priceModelPrice: 5750,
+      markupRatio: 1.15,
+      rating: null,
+      availability: 'available' as const,
+      rawAvailability: null,
+      holdId: null,
+      imageUrl: null,
+      videoUrl: null,
+      certificateLab: 'GIA',
+      certificateNumber: 'GIA123',
+      certificatePdfUrl: null,
+      tablePct: null,
+      depthPct: null,
+      lengthMm: null,
+      widthMm: null,
+      depthMm: null,
+      crownAngle: null,
+      crownHeight: null,
+      pavilionAngle: null,
+      pavilionDepth: null,
+      girdle: null,
+      culetSize: null,
+      eyeClean: null,
+      brown: null,
+      green: null,
+      milky: null,
+      supplierName: 'Test Supplier',
+      supplierLegalName: null,
+      status: 'active' as const,
+      sourceUpdatedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+
+    it('should return 200 with related diamonds array', async () => {
+      mockGetRelatedDiamonds.mockResolvedValue({ anchor: mockDiamond, related: [mockDiamond] });
+
+      const response = await request(app)
+        .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
+        .set('X-API-Key', 'test-api-key');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data).toHaveLength(1);
+    });
+
+    it('should return 404 when anchor diamond is not found', async () => {
+      mockGetRelatedDiamonds.mockResolvedValue(null);
+
+      const response = await request(app)
+        .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
+        .set('X-API-Key', 'test-api-key');
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('should return 400 for invalid UUID', async () => {
+      const response = await request(app)
+        .get('/api/v2/diamonds/not-a-uuid/related')
+        .set('X-API-Key', 'test-api-key');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should return 400 for limit exceeding maximum', async () => {
+      const response = await request(app)
+        .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
+        .query({ limit: 999 })
+        .set('X-API-Key', 'test-api-key');
+
+      expect(response.status).toBe(400);
+    });
+  });
 });
