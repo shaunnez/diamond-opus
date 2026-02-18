@@ -107,6 +107,10 @@ export function useDiamondSearch() {
     const params: DiamondSearchParams = { ...filters };
     if (!params.limit) params.limit = 24;
     if (!params.page) params.page = 1;
+    // Always request slim fields for list views (full detail fetched per-diamond)
+    params.fields = 'slim';
+    // Default to available-only unless the user has explicitly set availability
+    if (!params.availability?.length) params.availability = ['available'];
 
     // Apply stone type filter
     if (stoneType === 'natural') {

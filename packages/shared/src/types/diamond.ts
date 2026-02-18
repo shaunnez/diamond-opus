@@ -48,6 +48,9 @@ export interface Diamond {
   diamondPrice?: number;
   pricePerCarat: number;
   priceModelPrice?: number;
+  /** NZD equivalent of priceModelPrice (model/selling price). Hero price shown to customers. */
+  priceModelNzd?: number;
+  /** NZD equivalent of feedPrice (pre-markup cost price). Shown as strikethrough for reference. */
   priceNzd?: number;
   markupRatio?: number;
   pricingRating?: number;
@@ -84,6 +87,34 @@ export interface Diamond {
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
+}
+
+/**
+ * Slim diamond shape for list/card views. Contains only the fields needed
+ * to render a diamond card. Raw USD prices are excluded; NZD prices are pre-computed.
+ */
+export interface DiamondSlim {
+  id: string;
+  feed: string;
+  shape: string;
+  carats?: number;
+  color?: string;
+  clarity?: string;
+  cut?: string;
+  fancyColor?: string;
+  fancyIntensity?: string;
+  labGrown: boolean;
+  /** NZD selling price (from priceModelPrice). Hero price. */
+  priceModelNzd?: number;
+  /** NZD cost price (from feedPrice). Shown as strikethrough. */
+  priceNzd?: number;
+  markupRatio?: number;
+  rating?: number;
+  availability: DiamondAvailability;
+  certificateLab?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  createdAt: Date;
 }
 
 export interface DiamondSearchParams {
@@ -124,10 +155,14 @@ export interface DiamondSearchParams {
   depthMeasurementMax?: number;
   ratingMin?: number;
   ratingMax?: number;
+  availability?: string[];
+  priceModelPriceMin?: number;
+  priceModelPriceMax?: number;
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  fields?: 'full' | 'slim';
 }
 
 export interface PaginatedResponse<T> {

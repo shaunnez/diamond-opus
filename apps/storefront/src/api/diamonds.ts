@@ -36,10 +36,14 @@ export async function searchDiamonds(params: DiamondSearchParams): Promise<Diamo
   if (params.lab?.length) query.lab = params.lab.join(',');
   if (params.eye_clean !== undefined) query.eye_clean = String(params.eye_clean);
   if (params.no_bgm !== undefined) query.no_bgm = String(params.no_bgm);
+  if (params.availability?.length) query.availability = params.availability.join(',');
+  if (params.price_model_price_min !== undefined) query.price_model_price_min = String(params.price_model_price_min);
+  if (params.price_model_price_max !== undefined) query.price_model_price_max = String(params.price_model_price_max);
   if (params.page) query.page = String(params.page);
   if (params.limit) query.limit = String(params.limit);
   if (params.sort_by) query.sort_by = params.sort_by;
   if (params.sort_order) query.sort_order = params.sort_order;
+  if (params.fields) query.fields = params.fields;
 
   const response = await api.get<DiamondSearchResponse>('/diamonds', { params: query });
   return response.data;

@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { DiamondMedia } from './DiamondMedia';
 import { AvailabilityBadge, LabBadge, FeedBadge } from '../ui/Badge';
-import { formatNZD, formatUSD, formatCarats, formatMarkupRatio } from '../../utils/format';
+import { StarRating } from '../ui/StarRating';
+import { formatNZD, formatCarats, formatMarkupRatio } from '../../utils/format';
 import type { Diamond } from '../../types/diamond';
 
 interface DiamondCardProps {
@@ -52,15 +53,20 @@ export function DiamondCard({ diamond }: DiamondCardProps) {
           </p>
         )}
 
+        {/* Star rating */}
+        {diamond.rating != null && (
+          <StarRating rating={diamond.rating} size="sm" />
+        )}
+
         {/* Price */}
         <div className="mt-auto pt-2">
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-base font-semibold text-charcoal">
-              {formatNZD(diamond.priceNzd)}
+              {formatNZD(diamond.priceModelNzd ?? diamond.priceNzd)}
             </span>
-            {diamond.feedPrice != null && (
+            {diamond.priceNzd != null && diamond.priceModelNzd != null && (
               <span className="text-xs text-warm-gray-400 line-through">
-                {formatUSD(diamond.feedPrice)}
+                {formatNZD(diamond.priceNzd)}
               </span>
             )}
             {diamond.markupRatio != null && (

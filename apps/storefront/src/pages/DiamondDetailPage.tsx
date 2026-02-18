@@ -7,7 +7,7 @@ import { DiamondSpecs } from '../components/diamonds/DiamondSpecs';
 import { DiamondActions } from '../components/diamonds/DiamondActions';
 import { AvailabilityBadge, LabBadge, FeedBadge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
-import { formatNZD, formatUSD, formatCarats, formatMarkupRatio } from '../utils/format';
+import { formatNZD, formatCarats, formatMarkupRatio } from '../utils/format';
 
 export function DiamondDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -91,14 +91,14 @@ export function DiamondDetailPage() {
           <div className="bg-white border border-border p-5 space-y-2">
             <div className="flex items-baseline gap-3">
               <span className="font-serif text-3xl font-semibold text-charcoal">
-                {formatNZD(diamond.priceNzd)}
+                {formatNZD(diamond.priceModelNzd ?? diamond.priceNzd)}
               </span>
               <span className="text-sm text-warm-gray-400">NZD</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              {diamond.feedPrice != null && (
-                <span className="text-warm-gray-400 line-through">
-                  {formatUSD(diamond.feedPrice)} USD
+              {diamond.priceNzd != null && diamond.priceModelNzd != null && (
+                <span className="text-warm-gray-400 line-through text-sm">
+                  {formatNZD(diamond.priceNzd)} NZD
                 </span>
               )}
               {diamond.markupRatio != null && (
@@ -107,11 +107,6 @@ export function DiamondDetailPage() {
                 </span>
               )}
             </div>
-            {diamond.pricePerCarat != null && (
-              <p className="text-xs text-warm-gray-400">
-                {formatUSD(diamond.pricePerCarat)}/ct
-              </p>
-            )}
           </div>
 
           {/* Actions */}

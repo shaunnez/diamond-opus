@@ -67,9 +67,28 @@ function enrichWithNzd(diamond: Diamond): Diamond {
     return {
       ...diamond,
       priceNzd: Math.round(diamond.feedPrice * rate * 100) / 100,
+      priceModelNzd: diamond.priceModelPrice != null
+        ? Math.round(diamond.priceModelPrice * rate * 100) / 100
+        : undefined,
     };
   }
   return diamond;
+}
+
+const SLIM_FIELDS: (keyof Diamond)[] = [
+  'id', 'feed', 'shape', 'carats', 'color', 'clarity', 'cut',
+  'fancyColor', 'fancyIntensity', 'labGrown',
+  'priceModelNzd', 'priceNzd', 'markupRatio',
+  'rating', 'availability', 'certificateLab',
+  'imageUrl', 'videoUrl', 'createdAt',
+];
+
+function toSlim(diamond: Diamond): Partial<Diamond> {
+  const slim: Partial<Diamond> = {};
+  for (const key of SLIM_FIELDS) {
+    (slim as Record<string, unknown>)[key] = diamond[key];
+  }
+  return slim;
 }
 
 
@@ -212,10 +231,14 @@ router.get(
         depthMeasurementMax: query.depth_mm_max,
         ratingMin: query.rating_min,
         ratingMax: query.rating_max,
+        availability: toArray(query.availability),
+        priceModelPriceMin: query.price_model_price_min,
+        priceModelPriceMax: query.price_model_price_max,
         page: query.page,
         limit: query.limit,
         sortBy: query.sort_by,
         sortOrder: query.sort_order,
+        fields: query.fields,
       };
 
       // --- ETag: return 304 if dataset hasn't changed ---
@@ -231,7 +254,8 @@ router.get(
       const sortBy = payload.sortBy ?? 'created_at';
       const sortOrder = payload.sortOrder ?? 'desc';
       const page = payload.page ?? 1;
-      const limit = Math.min(payload.limit ?? 50, 100);
+      const limit = Math.min(payload.limit ?? 50, 1000);
+      const fields = payload.fields ?? 'full';
       const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, page, limit);
 
       const cached = getCachedSearch(cacheKey);
@@ -245,9 +269,10 @@ router.get(
 
       // --- Cache miss: query DB ---
       const result = await searchDiamonds(payload);
+      const enriched = result.data.map(enrichWithNzd);
       const responseBody = {
         ...result,
-        data: result.data.map(enrichWithNzd),
+        data: fields === 'slim' ? enriched.map(toSlim) : enriched,
       };
 
       // Cache the serialized response
