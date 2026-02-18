@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import type { Diamond } from '../../types/diamond';
 import { formatNumber, formatCarats } from '../../utils/format';
+import { StarRating } from '../ui/StarRating';
 
 interface DiamondSpecsProps {
   diamond: Diamond;
@@ -25,6 +26,15 @@ export function DiamondSpecs({ diamond }: DiamondSpecsProps) {
           Specifications
         </h3>
         <div className="space-y-0">
+          {diamond.rating != null && (
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-xs text-warm-gray-500 uppercase tracking-wider">Rating</span>
+              <div className="flex items-center gap-2">
+                <StarRating rating={diamond.rating} size="md" />
+                <span className="text-sm text-charcoal font-medium">{diamond.rating}/10</span>
+              </div>
+            </div>
+          )}
           <SpecRow label="Shape" value={diamond.shape} />
           <SpecRow label="Carats" value={diamond.carats != null ? formatCarats(diamond.carats).replace('ct', '') : undefined} />
           <SpecRow label="Color" value={diamond.color} />

@@ -24,8 +24,12 @@ export interface Diamond {
   diamondPrice?: number;
   pricePerCarat: number;
   priceModelPrice?: number;
+  /** NZD selling price (model price × NZD rate). Hero price shown to customers. */
+  priceModelNzd?: number;
+  /** NZD cost price (feed price × NZD rate). Shown as strikethrough for reference. */
   priceNzd?: number;
   markupRatio?: number;
+  pricingRating?: number;
   rating?: number;
   availability: DiamondAvailability;
   rawAvailability?: string;
@@ -96,10 +100,14 @@ export interface DiamondSearchParams {
   lab?: string[];
   eye_clean?: boolean;
   no_bgm?: boolean;
+  availability?: string[];
+  price_model_price_min?: number;
+  price_model_price_max?: number;
   page?: number;
   limit?: number;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
+  fields?: 'full' | 'slim';
 }
 
 export type StoneType = 'all' | 'natural' | 'lab' | 'fancy';

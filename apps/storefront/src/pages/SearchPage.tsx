@@ -8,8 +8,9 @@ import { useDiamondSearch } from '../hooks/useDiamondSearch';
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at', order: 'desc' as const },
-  { label: 'Price: Low to High', value: 'feed_price', order: 'asc' as const },
-  { label: 'Price: High to Low', value: 'feed_price', order: 'desc' as const },
+  { label: 'Price: Low to High', value: 'price_model_price', order: 'asc' as const },
+  { label: 'Price: High to Low', value: 'price_model_price', order: 'desc' as const },
+  { label: 'Rating: Best First', value: 'rating', order: 'desc' as const },
   { label: 'Carat: Low to High', value: 'carats', order: 'asc' as const },
   { label: 'Carat: High to Low', value: 'carats', order: 'desc' as const },
   { label: 'Color', value: 'color', order: 'asc' as const },
