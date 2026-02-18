@@ -4,6 +4,8 @@ import type { Diamond } from '@diamond/shared';
 import {
   searchDiamonds,
   getDiamondById,
+  getRelatedDiamonds,
+  RELATED_FIELDS_ALLOWLIST,
   updateDiamondAvailability,
   createHoldHistory,
   createPurchaseHistory,
@@ -15,9 +17,11 @@ import { validateQuery, validateParams, validateBody, notFound, badRequest, conf
 import {
   diamondSearchSchema,
   diamondIdSchema,
+  relatedDiamondsQuerySchema,
   purchaseRequestSchema,
   type DiamondSearchQuery,
   type DiamondIdParams,
+  type RelatedDiamondsQuery,
   type PurchaseRequestBody,
 } from '../validators/index.js';
 import { getNzdRate } from '../services/currency.js';
@@ -467,6 +471,124 @@ router.get(
       res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
       res.set('X-Cache', 'MISS');
       res.type('json').send(responseJson);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /api/v2/diamonds/{id}/related:
+ *   get:
+ *     summary: Get related diamonds
+ *     description: >
+ *       Returns diamonds similar to the anchor diamond based on configurable similarity fields.
+ *       Always restricts to available diamonds, matches lab_grown with anchor, excludes anchor,
+ *       and applies carat and priceModelPrice tolerances.
+ *     tags:
+ *       - Diamonds
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - HmacAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Anchor diamond ID
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 12
+ *           minimum: 1
+ *           maximum: 50
+ *         description: Maximum number of related diamonds to return
+ *       - in: query
+ *         name: fields
+ *         schema:
+ *           type: string
+ *         description: >
+ *           Comma-separated list of similarity fields.
+ *           Allowed: shape, lab_grown, color, clarity, cut, polish, symmetry, fluorescence_intensity, certificate_lab.
+ *           Default: shape,lab_grown,color,clarity,cut
+ *         example: shape,color,clarity
+ *       - in: query
+ *         name: carat_tolerance
+ *         schema:
+ *           type: number
+ *           default: 0.15
+ *           minimum: 0
+ *           maximum: 5
+ *         description: Carat tolerance (+/-) from anchor diamond
+ *       - in: query
+ *         name: price_tolerance
+ *         schema:
+ *           type: integer
+ *           default: 250
+ *           minimum: 0
+ *           maximum: 10000
+ *         description: Absolute USD price tolerance (+/-) on priceModelPrice from anchor
+ *     responses:
+ *       200:
+ *         description: List of related diamonds
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *             example:
+ *               data:
+ *                 - id: "550e8400-e29b-41d4-a716-446655440001"
+ *                   shape: "ROUND"
+ *                   carats: 1.52
+ *                   color: "G"
+ *                   clarity: "VS1"
+ *                   priceModelNzd: 12500
+ *       400:
+ *         description: Invalid parameters
+ *       404:
+ *         description: Anchor diamond not found
+ */
+router.get(
+  '/:id/related',
+  validateParams(diamondIdSchema),
+  validateQuery(relatedDiamondsQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = (req as Request & { validatedParams: DiamondIdParams }).validatedParams;
+      const queryParams = (req as Request & { validatedQuery: RelatedDiamondsQuery }).validatedQuery;
+
+      // Parse and validate fields
+      let fields: string[] | undefined;
+      if (queryParams.fields) {
+        fields = queryParams.fields.split(',').map(f => f.trim()).filter(Boolean);
+        const invalidFields = fields.filter(f => !(f in RELATED_FIELDS_ALLOWLIST));
+        if (invalidFields.length > 0) {
+          throw badRequest(`Invalid similarity fields: ${invalidFields.join(', ')}. Allowed: ${Object.keys(RELATED_FIELDS_ALLOWLIST).join(', ')}`);
+        }
+      }
+
+      const result = await getRelatedDiamonds(id, {
+        limit: queryParams.limit,
+        fields,
+        caratTolerance: queryParams.carat_tolerance,
+        priceTolerance: queryParams.price_tolerance,
+      });
+
+      if (!result) {
+        throw notFound('Diamond not found');
+      }
+
+      const enriched = result.related.map(enrichWithNzd);
+      res.json({ data: enriched.map(toSlim) });
     } catch (error) {
       next(error);
     }

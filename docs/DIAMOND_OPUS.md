@@ -247,6 +247,7 @@ Dual auth system (checked in order):
 | `GET` | `/health` | Health check (no auth) |
 | `GET` | `/api/v2/diamonds` | Search diamonds |
 | `GET` | `/api/v2/diamonds/:id` | Get single diamond |
+| `GET` | `/api/v2/diamonds/:id/related` | Get related/similar diamonds |
 | `POST` | `/api/v2/diamonds/:id/hold` | Create hold |
 | `POST` | `/api/v2/diamonds/:id/purchase` | Create purchase |
 | `POST` | `/api/v2/diamonds/:id/availability` | Update availability |
@@ -254,6 +255,22 @@ Dual auth system (checked in order):
 | `POST` | `/api/v2/triggers/*` | Pipeline trigger endpoints |
 | `POST` | `/api/v2/triggers/delete-run` | Delete a failed run and its data |
 | `GET/POST` | `/api/v2/pricing-rules` | Pricing rules management |
+
+#### Related Diamonds — `GET /api/v2/diamonds/:id/related`
+
+Returns slim diamond records similar to the given anchor. Responds with `{ data: Diamond[] }`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer 1–50 | 12 | Max related diamonds to return |
+| `carat_tolerance` | number | 0.15 | Carat range ± around anchor |
+| `price_tolerance` | number | 250 | USD price_model_price range ± around anchor |
+| `fields` | comma-separated | `shape,lab_grown,color,clarity,cut` | Similarity fields to match (allowed: `shape`, `color`, `clarity`, `cut`, `fluorescence_intensity`, `certificate_lab`, `lab_grown`) |
+
+- Returns `404` if the anchor diamond is not found.
+- Anchor diamond is excluded from results. Only `status = 'active'` and `availability = 'available'` diamonds are returned.
+- If the anchor has no `price_model_price`, the price window filter is skipped.
+- Results are ordered by closest carat delta, then closest price delta, then newest.
 
 Swagger UI available at `http://localhost:3000/api-docs`.
 

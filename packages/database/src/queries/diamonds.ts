@@ -787,6 +787,128 @@ export async function softDeleteDiamond(id: string): Promise<void> {
   );
 }
 
+/** Allowed similarity fields and their database column names. */
+const RELATED_FIELDS_ALLOWLIST: Record<string, string> = {
+  shape: 'shape',
+  lab_grown: 'lab_grown',
+  color: 'color',
+  clarity: 'clarity',
+  cut: 'cut',
+  polish: 'polish',
+  symmetry: 'symmetry',
+  fluorescence_intensity: 'fluorescence_intensity',
+  certificate_lab: 'certificate_lab',
+};
+
+const DEFAULT_RELATED_FIELDS = ['shape', 'lab_grown', 'color', 'clarity', 'cut'];
+
+export interface RelatedDiamondsOptions {
+  limit?: number;
+  fields?: string[];
+  caratTolerance?: number;
+  priceTolerance?: number;
+}
+
+/**
+ * Find diamonds similar to the given anchor diamond.
+ * Returns null if the anchor is not found; otherwise returns the anchor and an array of related diamonds.
+ */
+export async function getRelatedDiamonds(
+  anchorId: string,
+  options: RelatedDiamondsOptions = {}
+): Promise<{ anchor: Diamond; related: Diamond[] } | null> {
+  const anchor = await getDiamondById(anchorId);
+  if (!anchor) return null;
+
+  const limit = Math.min(options.limit ?? 12, 50);
+  const caratTolerance = options.caratTolerance ?? 0.15;
+  const priceTolerance = options.priceTolerance ?? 250;
+  const selectedFields = options.fields && options.fields.length > 0
+    ? options.fields
+    : DEFAULT_RELATED_FIELDS;
+
+  const conditions: string[] = [
+    "status = 'active'",
+    "availability = 'available'",
+  ];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  // Always exclude anchor
+  conditions.push(`id != $${paramIndex++}`);
+  values.push(anchorId);
+
+  // Always match lab_grown
+  conditions.push(`lab_grown = $${paramIndex++}`);
+  values.push(anchor.labGrown);
+
+  // Carat tolerance (skip if anchor has no carats)
+  if (anchor.carats != null) {
+    conditions.push(`carats >= $${paramIndex++}`);
+    values.push(anchor.carats - caratTolerance);
+    conditions.push(`carats <= $${paramIndex++}`);
+    values.push(anchor.carats + caratTolerance);
+  }
+
+  // Price window on priceModelPrice (USD)
+  if (anchor.priceModelPrice != null) {
+    conditions.push(`price_model_price IS NOT NULL`);
+    conditions.push(`price_model_price >= $${paramIndex++}`);
+    values.push(anchor.priceModelPrice - priceTolerance);
+    conditions.push(`price_model_price <= $${paramIndex++}`);
+    values.push(anchor.priceModelPrice + priceTolerance);
+  }
+
+  // Apply similarity fields (excluding lab_grown which is always applied above)
+  for (const field of selectedFields) {
+    if (field === 'lab_grown') continue; // already handled
+    const column = RELATED_FIELDS_ALLOWLIST[field];
+    if (!column) continue;
+
+    // Map field name to anchor property
+    const anchorKey = field === 'fluorescence_intensity' ? 'fluorescenceIntensity'
+      : field === 'certificate_lab' ? 'certificateLab'
+      : field;
+    const anchorValue = (anchor as unknown as Record<string, unknown>)[anchorKey];
+
+    // Skip if anchor has null/undefined for this field
+    if (anchorValue == null) continue;
+
+    conditions.push(`${column} = $${paramIndex++}`);
+    values.push(anchorValue);
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  // Build ORDER BY: closest carat delta, closest price delta, newest
+  const orderParts: string[] = [];
+  if (anchor.carats != null) {
+    orderParts.push(`ABS(carats - $${paramIndex++}) ASC`);
+    values.push(anchor.carats);
+  }
+  if (anchor.priceModelPrice != null) {
+    orderParts.push(`ABS(price_model_price - $${paramIndex++}) ASC NULLS LAST`);
+    values.push(anchor.priceModelPrice);
+  }
+  orderParts.push('created_at DESC');
+  const orderBy = orderParts.join(', ');
+
+  values.push(limit);
+  const limitParam = `$${paramIndex++}`;
+
+  const result = await query<DiamondRow>(
+    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limitParam}`,
+    values
+  );
+
+  return {
+    anchor,
+    related: result.rows.map(mapRowToDiamond),
+  };
+}
+
+export { RELATED_FIELDS_ALLOWLIST };
+
 /**
  * Quick text search across key diamond identifier fields.
  * Searches supplier_stone_id, offer_id, and certificate_number with ILIKE prefix matching.

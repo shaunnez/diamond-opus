@@ -11,7 +11,7 @@ vi.mock('../../client.js', () => ({
   query: (...args: unknown[]) => mockQueryFn(...args),
 }));
 
-import { searchDiamonds } from '../diamonds.js';
+import { searchDiamonds, getRelatedDiamonds } from '../diamonds.js';
 
 function makeCountResult(count = 0) {
   return { rows: [{ count: String(count) }] };
@@ -184,5 +184,127 @@ describe('searchDiamonds — pagination', () => {
     expect(result.pagination.page).toBe(2);
     expect(result.pagination.limit).toBe(50);
     expect(result.pagination.totalPages).toBe(3);
+  });
+});
+
+// Minimal DB row matching the diamonds table column names used by mapRowToDiamond.
+function makeAnchorRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: '550e8400-e29b-41d4-a716-446655440001',
+    feed: 'nivoda',
+    supplier: 'nivoda',
+    supplier_stone_id: 'S1',
+    offer_id: 'O1',
+    shape: 'ROUND',
+    carats: 1.5,
+    color: 'G',
+    clarity: 'VS1',
+    cut: 'Excellent',
+    polish: null,
+    symmetry: null,
+    fluorescence: null,
+    fluorescence_intensity: null,
+    fancy_color: null,
+    fancy_intensity: null,
+    fancy_overtone: null,
+    ratio: null,
+    lab_grown: false,
+    treated: false,
+    feed_price: 5000,
+    supplier_price_cents: 500000,
+    diamond_price: null,
+    price_per_carat: 3333.33,
+    price_model_price: null,
+    price_model_price_cents: null,
+    markup_ratio: null,
+    pricing_rating: null,
+    rating: null,
+    availability: 'available',
+    raw_availability: null,
+    hold_id: null,
+    image_url: null,
+    video_url: null,
+    certificate_lab: null,
+    certificate_number: null,
+    certificate_pdf_url: null,
+    table_pct: null,
+    depth_pct: null,
+    length_mm: null,
+    width_mm: null,
+    depth_mm: null,
+    crown_angle: null,
+    crown_height: null,
+    pavilion_angle: null,
+    pavilion_depth: null,
+    girdle: null,
+    culet_size: null,
+    eye_clean: null,
+    brown: null,
+    green: null,
+    milky: null,
+    supplier_name: null,
+    supplier_legal_name: null,
+    status: 'active',
+    source_updated_at: null,
+    created_at: new Date(),
+    updated_at: new Date(),
+    deleted_at: null,
+    ...overrides,
+  };
+}
+
+describe('getRelatedDiamonds', () => {
+  it('returns null when anchor diamond is not found', async () => {
+    mockQueryFn.mockResolvedValueOnce(makeDataResult([]));
+
+    const result = await getRelatedDiamonds('550e8400-e29b-41d4-a716-446655440000');
+
+    expect(result).toBeNull();
+    expect(mockQueryFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns anchor and related diamonds array', async () => {
+    const anchor = makeAnchorRow();
+    const related = makeAnchorRow({ id: '550e8400-e29b-41d4-a716-446655440002' });
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))
+      .mockResolvedValueOnce(makeDataResult([related]));
+
+    const result = await getRelatedDiamonds('550e8400-e29b-41d4-a716-446655440001');
+
+    expect(result).not.toBeNull();
+    expect(result?.anchor.id).toBe('550e8400-e29b-41d4-a716-446655440001');
+    expect(result?.related).toHaveLength(1);
+  });
+
+  it('applies carat tolerance range in the related query', async () => {
+    const anchor = makeAnchorRow({ carats: 1.5 });
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))
+      .mockResolvedValueOnce(makeDataResult([]));
+
+    await getRelatedDiamonds('550e8400-e29b-41d4-a716-446655440001', { caratTolerance: 0.15 });
+
+    const relatedQuerySql = mockQueryFn.mock.calls[1][0] as string;
+    const relatedQueryValues = mockQueryFn.mock.calls[1][1] as unknown[];
+    expect(relatedQuerySql).toContain('carats >=');
+    expect(relatedQuerySql).toContain('carats <=');
+    expect(relatedQueryValues).toContain(1.35); // 1.5 - 0.15
+    expect(relatedQueryValues).toContain(1.65); // 1.5 + 0.15
+  });
+
+  it('always excludes the anchor from related results', async () => {
+    const anchor = makeAnchorRow();
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))
+      .mockResolvedValueOnce(makeDataResult([]));
+
+    await getRelatedDiamonds('550e8400-e29b-41d4-a716-446655440001');
+
+    const relatedQuerySql = mockQueryFn.mock.calls[1][0] as string;
+    expect(relatedQuerySql).toContain('id !=');
   });
 });
