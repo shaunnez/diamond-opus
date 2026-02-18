@@ -141,14 +141,14 @@ describe('Diamond Database Queries', () => {
       );
     });
 
-    it('should limit results to maximum of 100', async () => {
+    it('should limit results to maximum of 1000', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [{ count: '0' }] });
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
-      await searchDiamonds({ limit: 500 });
+      await searchDiamonds({ limit: 5000 });
 
-      // Second call is data query with limit
-      expect(mockQuery.mock.calls[1][1]).toContain(100);
+      // Second call is data query with limit — cap is now 1000
+      expect(mockQuery.mock.calls[1][1]).toContain(1000);
     });
   });
 
