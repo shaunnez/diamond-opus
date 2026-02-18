@@ -472,15 +472,15 @@ router.post(
       const adapter = getTradingAdapter(diamond.feed);
       const availability = await adapter.checkAvailability(diamond);
       if (availability?.status !== 'on_hold') {
-        res.status(400).json({
+        return res.status(400).json({
           error: { code: 'NOT_AVAILABLE', message: 'Diamond is not on hold' },
         });
       }
 
       const holdResponse = await adapter.cancelHold(diamond.holdId || '');
 
-      if (!holdResponse.id) {
-        await updateDiamondAvailability(diamond.id, 'available', holdResponse.id);
+      if (holdResponse.id) {
+        await updateDiamondAvailability(diamond.id, 'available');
       }
 
       res.json({
