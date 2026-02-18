@@ -186,3 +186,69 @@ describe('mapNivodaItemToDiamond', () => {
     expect(result.status).toBe('active');
   });
 });
+
+describe('mapNivodaItemToDiamond — fancy color normalization', () => {
+  function mkFancyItem(f_color?: string, f_intensity?: string) {
+    return createMockItem({
+      diamond: {
+        ...createMockItem().diamond,
+        certificate: {
+          ...createMockItem().diamond.certificate,
+          f_color,
+          f_intensity,
+        },
+      },
+    });
+  }
+
+  it('normalizes noise value "EVEN" to undefined', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('EVEN'));
+    expect(result.fancyColor).toBeUndefined();
+  });
+
+  it('normalizes noise value "U-V" to undefined', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('U-V'));
+    expect(result.fancyColor).toBeUndefined();
+  });
+
+  it('normalizes "GREY" synonym to "Gray"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('GREY'));
+    expect(result.fancyColor).toBe('Gray');
+  });
+
+  it('normalizes compound color "GREEN YELLOW" to "Green-Yellow"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('GREEN YELLOW'));
+    expect(result.fancyColor).toBe('Green-Yellow');
+  });
+
+  it('normalizes simple color "PINK" to "Pink"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('PINK'));
+    expect(result.fancyColor).toBe('Pink');
+  });
+
+  it('normalizes already-hyphenated "BROWN-PINK" to "Brown-Pink"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('BROWN-PINK'));
+    expect(result.fancyColor).toBe('Brown-Pink');
+  });
+
+  it('normalizes intensity "FANCY VIVID" to "Fancy Vivid"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem(undefined, 'FANCY VIVID'));
+    expect(result.fancyIntensity).toBe('Fancy Vivid');
+  });
+
+  it('normalizes underscore intensity "FANCY_LIGHT" to "Fancy Light"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem(undefined, 'FANCY_LIGHT'));
+    expect(result.fancyIntensity).toBe('Fancy Light');
+  });
+
+  it('normalizes intensity "FAINT" to "Faint"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem(undefined, 'FAINT'));
+    expect(result.fancyIntensity).toBe('Faint');
+  });
+
+  it('returns undefined fancyColor and fancyIntensity when not set', () => {
+    const result = mapNivodaItemToDiamond(createMockItem());
+    expect(result.fancyColor).toBeUndefined();
+    expect(result.fancyIntensity).toBeUndefined();
+  });
+});
