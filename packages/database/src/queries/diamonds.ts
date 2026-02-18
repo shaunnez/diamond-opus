@@ -869,7 +869,7 @@ export async function getRelatedDiamonds(
     const anchorKey = field === 'fluorescence_intensity' ? 'fluorescenceIntensity'
       : field === 'certificate_lab' ? 'certificateLab'
       : field;
-    const anchorValue = (anchor as Record<string, unknown>)[anchorKey];
+    const anchorValue = (anchor as unknown as Record<string, unknown>)[anchorKey];
 
     // Skip if anchor has null/undefined for this field
     if (anchorValue == null) continue;

@@ -5,6 +5,7 @@ import { getDiamond } from '../api/diamonds';
 import { DiamondMedia } from '../components/diamonds/DiamondMedia';
 import { DiamondSpecs } from '../components/diamonds/DiamondSpecs';
 import { DiamondActions } from '../components/diamonds/DiamondActions';
+import { RelatedDiamonds } from '../components/diamonds/RelatedDiamonds';
 import { AvailabilityBadge, LabBadge, FeedBadge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
 import { formatNZD, formatCarats, formatMarkupRatio } from '../utils/format';
@@ -118,6 +119,8 @@ export function DiamondDetailPage() {
           </div>
         </div>
       </div>
+
+      <RelatedDiamonds anchorId={id!} />
     </div>
   );
 }
