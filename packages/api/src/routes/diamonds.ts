@@ -46,6 +46,16 @@ function toArray(value: string | string[] | undefined): string[] | undefined {
 }
 
 /**
+ * Splits a string or array value into an array without any case conversion.
+ * Use this for values that are stored as-is in the DB (e.g. availability statuses).
+ */
+function toStringArray(value: string | string[] | undefined): string[] | undefined {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value;
+  return value.includes(',') ? value.split(',').map(v => v.trim()) : [value];
+}
+
+/**
  * Converts long-form diamond filter values to the short codes expected by the Nivoda API.
  * For example, "Excellent" -> "EX", "Very Good" -> "VG", etc.
  * @param filter 
@@ -122,14 +132,17 @@ function getTradingAdapter(feedId: string): TradingAdapter {
  *         name: shape
  *         schema:
  *           type: string
+ *         description: Comma-separated shape values (e.g. ROUND,OVAL)
  *       - in: query
  *         name: carat_min
  *         schema:
  *           type: number
+ *           minimum: 0
  *       - in: query
  *         name: carat_max
  *         schema:
  *           type: number
+ *           minimum: 0
  *       - in: query
  *         name: color
  *         schema:
@@ -155,32 +168,203 @@ function getTradingAdapter(feedId: string): TradingAdapter {
  *       - in: query
  *         name: price_min
  *         schema:
- *           type: integer
+ *           type: number
+ *           minimum: 0
+ *         description: Min feed price in USD
  *       - in: query
  *         name: price_max
  *         schema:
+ *           type: number
+ *           minimum: 0
+ *         description: Max feed price in USD
+ *       - in: query
+ *         name: price_model_price_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *         description: Min model price in USD
+ *       - in: query
+ *         name: price_model_price_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *         description: Max model price in USD
+ *       - in: query
+ *         name: availability
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [available, on_hold, sold, unavailable]
+ *         description: Filter by availability status (comma-separated)
+ *       - in: query
+ *         name: rating_min
+ *         schema:
  *           type: integer
+ *           minimum: 1
+ *           maximum: 10
+ *       - in: query
+ *         name: rating_max
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 10
+ *       - in: query
+ *         name: fancy_color
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: fancy_intensity
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *       - in: query
+ *         name: fluorescence_intensity
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *       - in: query
+ *         name: polish
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *       - in: query
+ *         name: symmetry
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *       - in: query
+ *         name: lab
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *         description: Certificate lab (e.g. GIA, IGI)
+ *       - in: query
+ *         name: eye_clean
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: no_bgm
+ *         schema:
+ *           type: boolean
+ *         description: Exclude Brown/Green/Milky tinted diamonds
+ *       - in: query
+ *         name: ratio_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: ratio_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: table_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: table_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: depth_pct_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: depth_pct_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: crown_angle_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: crown_angle_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: pav_angle_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: pav_angle_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: length_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: length_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: width_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: width_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: depth_mm_min
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *       - in: query
+ *         name: depth_mm_max
+ *         schema:
+ *           type: number
+ *           minimum: 0
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
+ *           minimum: 1
  *           default: 1
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 50
- *           maximum: 100
+ *           minimum: 1
+ *           maximum: 1000
  *       - in: query
  *         name: sort_by
  *         schema:
  *           type: string
- *           enum: [created_at, feed_price, carats, color, clarity]
+ *           enum: [created_at, feed_price, carats, color, clarity, ratio, fancy_color, fluorescence_intensity, certificate_lab, price_model_price, rating]
+ *           default: created_at
  *       - in: query
  *         name: sort_order
  *         schema:
  *           type: string
  *           enum: [asc, desc]
+ *           default: desc
+ *       - in: query
+ *         name: fields
+ *         schema:
+ *           type: string
+ *           enum: [full, slim]
+ *           default: full
+ *         description: "slim returns card-view fields only (priceModelNzd, priceNzd, rating, etc.); full returns all fields"
  *     responses:
  *       200:
  *         description: List of diamonds
@@ -231,7 +415,7 @@ router.get(
         depthMeasurementMax: query.depth_mm_max,
         ratingMin: query.rating_min,
         ratingMax: query.rating_max,
-        availability: toArray(query.availability),
+        availability: toStringArray(query.availability),
         priceModelPriceMin: query.price_model_price_min,
         priceModelPriceMax: query.price_model_price_max,
         page: query.page,
