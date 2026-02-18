@@ -1,0 +1,355 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Diamond Platform API",
+    "version": "2.0.0",
+    "description": "API for diamond inventory management"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current environment (relative path)"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for authentication.\n\nIMPORTANT: When using API key authentication, HMAC authentication will NOT be attempted as a fallback.\nIf the API key is invalid, the request will be rejected immediately.\n\nUse either API key OR HMAC authentication, not both."
+      }
+    }
+  },
+  "paths": {
+    "/api/v2/diamonds": {
+      "get": {
+        "summary": "Search diamonds with filters",
+        "tags": [
+          "Diamonds"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "HmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "shape",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "carat_min",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "carat_max",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "color",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "clarity",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "cut",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "lab_grown",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "price_min",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "price_max",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "feed_price_cents",
+                "carats",
+                "color",
+                "clarity"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of diamonds"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v2/diamonds/{id}": {
+      "get": {
+        "summary": "Get diamond by ID",
+        "tags": [
+          "Diamonds"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "HmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Diamond details"
+          },
+          "404": {
+            "description": "Diamond not found"
+          }
+        }
+      }
+    },
+    "/api/v2/diamonds/{id}/availability": {
+      "post": {
+        "summary": "Check diamond availability",
+        "tags": [
+          "Diamonds"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "HmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Availability status"
+          },
+          "404": {
+            "description": "Diamond not found"
+          }
+        }
+      }
+    },
+    "/api/v2/diamonds/{id}/hold": {
+      "post": {
+        "summary": "Create hold on diamond",
+        "tags": [
+          "Diamonds"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "HmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hold created"
+          },
+          "404": {
+            "description": "Diamond not found"
+          },
+          "409": {
+            "description": "Diamond not available for hold"
+          }
+        }
+      }
+    },
+    "/api/v2/diamonds/{id}/purchase": {
+      "post": {
+        "summary": "Purchase diamond",
+        "tags": [
+          "Diamonds"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "HmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "destination_id"
+                ],
+                "properties": {
+                  "destination_id": {
+                    "type": "string"
+                  },
+                  "reference": {
+                    "type": "string"
+                  },
+                  "comments": {
+                    "type": "string"
+                  },
+                  "return_option": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Purchase created"
+          },
+          "400": {
+            "description": "Missing idempotency key"
+          },
+          "404": {
+            "description": "Diamond not found"
+          },
+          "409": {
+            "description": "Duplicate request or diamond not available"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}
