@@ -173,6 +173,24 @@ describe('diamondSearchSchema — price_model_price filters', () => {
   });
 });
 
+describe('diamondSearchSchema — fancy_colors filter', () => {
+  it('accepts a single fancy_colors string', () => {
+    const result = diamondSearchSchema.safeParse({ fancy_colors: 'Yellow' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts an array of fancy_colors', () => {
+    const result = diamondSearchSchema.safeParse({ fancy_colors: ['Yellow', 'Pink', 'Blue'] });
+    expect(result.success).toBe(true);
+  });
+
+  it('is optional', () => {
+    const result = diamondSearchSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.fancy_colors).toBeUndefined();
+  });
+});
+
 describe('diamondSearchSchema — coercion from strings (query param style)', () => {
   it('coerces string "0" to 0 for carat_min', () => {
     const result = diamondSearchSchema.safeParse({ carat_min: '0' });

@@ -172,6 +172,70 @@ describe('searchDiamonds — price_model_price filters', () => {
   });
 });
 
+describe('searchDiamonds — fancyColor boolean filter', () => {
+  it('adds IS NOT NULL condition when fancyColor is true', async () => {
+    mockQueryFn
+      .mockResolvedValueOnce(makeCountResult(0))
+      .mockResolvedValueOnce(makeDataResult());
+
+    await searchDiamonds({ fancyColor: true });
+
+    const countCall = mockQueryFn.mock.calls[0];
+    expect(countCall[0]).toContain('fancy_color IS NOT NULL');
+    // No extra param bound — static condition
+    expect(countCall[1]).not.toContainEqual(true);
+    expect(countCall[1]).not.toContainEqual(false);
+  });
+
+  it('adds IS NULL condition when fancyColor is false', async () => {
+    mockQueryFn
+      .mockResolvedValueOnce(makeCountResult(0))
+      .mockResolvedValueOnce(makeDataResult());
+
+    await searchDiamonds({ fancyColor: false });
+
+    const countCall = mockQueryFn.mock.calls[0];
+    expect(countCall[0]).toContain('fancy_color IS NULL');
+    expect(countCall[1]).not.toContainEqual(false);
+  });
+
+  it('does not add fancy_color condition when fancyColor is undefined', async () => {
+    mockQueryFn
+      .mockResolvedValueOnce(makeCountResult(0))
+      .mockResolvedValueOnce(makeDataResult());
+
+    await searchDiamonds({});
+
+    const countCall = mockQueryFn.mock.calls[0];
+    expect(countCall[0]).not.toContain('fancy_color');
+  });
+});
+
+describe('searchDiamonds — fancyColors array filter', () => {
+  it('adds fancy_color = ANY($n) when fancyColors array provided', async () => {
+    mockQueryFn
+      .mockResolvedValueOnce(makeCountResult(0))
+      .mockResolvedValueOnce(makeDataResult());
+
+    await searchDiamonds({ fancyColors: ['Yellow', 'Pink'] });
+
+    const countCall = mockQueryFn.mock.calls[0];
+    expect(countCall[0]).toContain('fancy_color = ANY(');
+    expect(countCall[1]).toContainEqual(['Yellow', 'Pink']);
+  });
+
+  it('does not add fancyColors filter when array is empty', async () => {
+    mockQueryFn
+      .mockResolvedValueOnce(makeCountResult(0))
+      .mockResolvedValueOnce(makeDataResult());
+
+    await searchDiamonds({ fancyColors: [] });
+
+    const countCall = mockQueryFn.mock.calls[0];
+    expect(countCall[0]).not.toContain('fancy_color = ANY(');
+  });
+});
+
 describe('searchDiamonds — pagination', () => {
   it('returns correct pagination shape', async () => {
     mockQueryFn
