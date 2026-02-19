@@ -56,21 +56,26 @@ function normalizeFancyColor(raw: string | undefined): string | undefined {
   // Synonyms
   if (upper === 'GREY') return 'Gray';
 
-  // Compound colors with space → hyphenated Title Case
+  // Compound colors with space → hyphenated Title Case.
+  // Reversed pairs (e.g. "ORANGE BROWN" / "BROWN ORANGE") are normalised to
+  // the alphabetically-first canonical form so the database and filter chips
+  // never hold duplicate entries for the same colour.
   const compoundMap: Record<string, string> = {
+    // Genuinely distinct grades (modifier + dominant differ in meaning)
     'GREEN YELLOW': 'Green-Yellow',
-    'ORANGE YELLOW': 'Orange-Yellow',
     'YELLOW GREEN': 'Yellow-Green',
+    'ORANGE YELLOW': 'Orange-Yellow',
     'YELLOW ORANGE': 'Yellow-Orange',
-    'BROWN ORANGE': 'Brown-Orange',
-    'BROWN PINK': 'Brown-Pink',
-    'BROWN YELLOW': 'Brown-Yellow',
     'GRAY BLUE': 'Gray-Blue',
-    'ORANGE BROWN': 'Orange-Brown',
-    'PINK BROWN': 'Pink-Brown',
+    // Canonical form (alphabetically first) + reversed alias → same value
+    'BROWN ORANGE': 'Brown-Orange',
+    'ORANGE BROWN': 'Brown-Orange',
+    'BROWN PINK': 'Brown-Pink',
+    'PINK BROWN': 'Brown-Pink',
+    'BROWN YELLOW': 'Brown-Yellow',
+    'YELLOW BROWN': 'Brown-Yellow',
     'PINK PURPLE': 'Pink-Purple',
-    'PURPLE PINK': 'Purple-Pink',
-    'YELLOW BROWN': 'Yellow-Brown',
+    'PURPLE PINK': 'Pink-Purple',
   };
   if (compoundMap[upper]) return compoundMap[upper];
 
@@ -93,22 +98,30 @@ function normalizeFancyIntensity(raw: string | undefined): string | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
 
+  // All separator variants (space, underscore, dash) map to the same
+  // Title-Case-with-spaces canonical string that the storefront filter uses.
   const intensityMap: Record<string, string> = {
     'FAINT': 'Faint',
     'VERY LIGHT': 'Very Light',
     'VERY_LIGHT': 'Very Light',
+    'VERY-LIGHT': 'Very Light',
     'LIGHT': 'Light',
     'FANCY LIGHT': 'Fancy Light',
     'FANCY_LIGHT': 'Fancy Light',
+    'FANCY-LIGHT': 'Fancy Light',
     'FANCY': 'Fancy',
     'FANCY INTENSE': 'Fancy Intense',
     'FANCY_INTENSE': 'Fancy Intense',
+    'FANCY-INTENSE': 'Fancy Intense',
     'FANCY VIVID': 'Fancy Vivid',
     'FANCY_VIVID': 'Fancy Vivid',
+    'FANCY-VIVID': 'Fancy Vivid',
     'FANCY DEEP': 'Fancy Deep',
     'FANCY_DEEP': 'Fancy Deep',
+    'FANCY-DEEP': 'Fancy Deep',
     'FANCY DARK': 'Fancy Dark',
     'FANCY_DARK': 'Fancy Dark',
+    'FANCY-DARK': 'Fancy Dark',
   };
 
   const upper = trimmed.toUpperCase();
@@ -141,6 +154,17 @@ export function mapNivodaItemToDiamond(
   const { diamond } = item;
   const { certificate } = diamond;
 
+  if (!certificate) {
+    throw new Error(`Diamond ${diamond.id}: missing certificate`);
+  }
+  if (!diamond.image) {
+    throw new Error(`Diamond ${diamond.id}: missing image`);
+  }
+  const resolvedVideo = diamond.video?.replace('/500/500', '/') ?? diamond.supplier_video_link;
+  if (!resolvedVideo) {
+    throw new Error(`Diamond ${diamond.id}: missing video`);
+  }
+
   const feedPrice = item.price / 100;
   const diamondPrice = item.diamond_price != null ? item.diamond_price / 100 : undefined;
   const carats = certificate.carats ?? undefined;
@@ -171,8 +195,8 @@ export function mapNivodaItemToDiamond(
     availability: mapAvailability(diamond.availability),
     rawAvailability: diamond.availability,
     holdId: diamond.HoldId ?? undefined,
-    imageUrl: diamond.image ?? undefined,
-    videoUrl: diamond.video?.replace('/500/500', '/') ?? diamond.supplier_video_link ?? undefined,
+    imageUrl: diamond.image,
+    videoUrl: resolvedVideo,
     certificateLab: certificate.lab,
     certificateNumber: certificate.certNumber,
     certificatePdfUrl: certificate.pdfUrl ?? undefined,
