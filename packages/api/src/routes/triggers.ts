@@ -118,7 +118,8 @@ interface SchedulerJobConfig {
  * Feed IDs like 'nivoda-natural' map directly to job keys.
  */
 function feedToJobKey(feed: string): string {
-  return feed;
+  // diamond-staging-s-niv-labgrown
+  return feed.replace('nivoda', 'niv');
 }
 
 function getSchedulerJobConfig(): SchedulerJobConfig | null {
@@ -145,8 +146,10 @@ async function triggerSchedulerJob(
   }
 
   // Derive the job name: prefix-{feedKey} for multi-job, or plain prefix for legacy
+  // diamond-staging-s-
+  // diamond-staging-s-niv-labgrown
   const jobName = feed
-    ? `${config.jobNamePrefix}-${feedToJobKey(feed)}`
+    ? `${config.jobNamePrefix}${feedToJobKey(feed)}`
     : config.jobNamePrefix;
 
   const credential = new DefaultAzureCredential();
