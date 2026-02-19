@@ -23,6 +23,7 @@ import {
   formatDateShort,
   formatDuration,
   formatLiveDuration,
+  formatNumber,
   truncateId,
 } from '../utils/formatters';
 
@@ -104,25 +105,16 @@ export function Runs() {
       key: 'records',
       header: 'Records',
       render: (run: RunWithStats) => {
-        if (run.status === 'completed' || run.status === 'failed') {
-          return (
-            <span className="text-sm text-stone-700">
-              {(run.totalRecordsProcessed ?? 0).toLocaleString()} records
-            </span>
-          );
+        const isFinished = run.status === 'completed' || run.status === 'failed';
+        if (isFinished || run.estimatedRecords === 0) {
+          return formatNumber(run.totalRecordsProcessed);
         }
-        const estimated = run.estimatedRecords ?? 0;
-        const processed = run.totalRecordsProcessed ?? 0;
-        const pct = estimated > 0 ? Math.round((processed / estimated) * 100) : 0;
         return (
           <div className="w-40 sm:w-32">
-            <RecordProgress processed={processed} total={estimated > 0 ? estimated : processed} />
-            {estimated === 0 && (
-              <span className="text-xs text-stone-500">{processed.toLocaleString()} records</span>
-            )}
-            {estimated > 0 && (
-              <span className="text-xs text-stone-500">{pct}%</span>
-            )}
+            <RecordProgress
+              processed={run.totalRecordsProcessed}
+              total={Math.max(run.estimatedRecords, run.totalRecordsProcessed)}
+            />
           </div>
         );
       },

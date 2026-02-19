@@ -329,7 +329,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
         COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_workers_actual,
         COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
-        COALESCE(SUM((wr.work_item_payload->>'estimatedRecords')::numeric), 0)::int as estimated_records,
+        COALESCE(SUM(COALESCE((wr.work_item_payload->>'estimatedRecords')::numeric, (wr.work_item_payload->>'totalRecords')::numeric, 0)), 0) as estimated_records,
         MAX(wr.completed_at) as last_worker_completed_at,
         pp_activity.last_activity as last_worker_activity_at
        FROM run_metadata rm
@@ -475,7 +475,7 @@ export async function getRunDetails(runId: string): Promise<{
         COALESCE(COUNT(*) FILTER (WHERE wr.status = 'completed'), 0) as completed_count,
         COALESCE(COUNT(*) FILTER (WHERE wr.status = 'failed'), 0) as failed_count,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
-        COALESCE(SUM((wr.work_item_payload->>'estimatedRecords')::numeric), 0)::int as estimated_records,
+        COALESCE(SUM(COALESCE((wr.work_item_payload->>'estimatedRecords')::numeric, (wr.work_item_payload->>'totalRecords')::numeric, 0)), 0) as estimated_records,
         MAX(wr.completed_at) as last_worker_completed_at,
         (SELECT MAX(pp.updated_at) FROM partition_progress pp
          WHERE pp.run_id = $1) as last_worker_activity_at
