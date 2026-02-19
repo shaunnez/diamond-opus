@@ -146,6 +146,7 @@ export const DIAMONDS_BY_QUERY = gql`
                 url
                 loupe360_url
                 type
+                display_index
               }
             }
             supplier {

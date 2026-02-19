@@ -14,7 +14,7 @@ import {
   Pagination,
   StatusBadge,
   RunTypeBadge,
-  WorkerProgress,
+  RecordProgress,
   PageLoader,
   Alert,
 } from '../components/ui';
@@ -23,7 +23,6 @@ import {
   formatDateShort,
   formatDuration,
   formatLiveDuration,
-  formatNumber,
   truncateId,
 } from '../utils/formatters';
 
@@ -102,22 +101,31 @@ export function Runs() {
       render: (run: RunWithStats) => <StatusBadge status={run.status} />,
     },
     {
-      key: 'workers',
-      header: 'Workers',
-      render: (run: RunWithStats) => (
-        <div className="w-40 sm:w-32">
-          <WorkerProgress
-            completed={run.completedWorkers}
-            failed={run.failedWorkers}
-            total={run.expectedWorkers}
-          />
-        </div>
-      ),
-    },
-    {
       key: 'records',
       header: 'Records',
-      render: (run: RunWithStats) => formatNumber(run.totalRecordsProcessed),
+      render: (run: RunWithStats) => {
+        if (run.status === 'completed' || run.status === 'failed') {
+          return (
+            <span className="text-sm text-stone-700">
+              {(run.totalRecordsProcessed ?? 0).toLocaleString()} records
+            </span>
+          );
+        }
+        const estimated = run.estimatedRecords ?? 0;
+        const processed = run.totalRecordsProcessed ?? 0;
+        const pct = estimated > 0 ? Math.round((processed / estimated) * 100) : 0;
+        return (
+          <div className="w-40 sm:w-32">
+            <RecordProgress processed={processed} total={estimated > 0 ? estimated : processed} />
+            {estimated === 0 && (
+              <span className="text-xs text-stone-500">{processed.toLocaleString()} records</span>
+            )}
+            {estimated > 0 && (
+              <span className="text-xs text-stone-500">{pct}%</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'duration',
