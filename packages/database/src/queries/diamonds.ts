@@ -33,6 +33,7 @@ interface DiamondRow {
   hold_id: string | null;
   image_url: string | null;
   video_url: string | null;
+  meta_images: unknown;
   certificate_lab: string | null;
   certificate_number: string | null;
   certificate_pdf_url: string | null;
@@ -95,6 +96,7 @@ function mapRowToDiamond(row: DiamondRow): Diamond {
     holdId: row.hold_id ?? undefined,
     imageUrl: row.image_url ?? undefined,
     videoUrl: row.video_url ?? undefined,
+    metaImages: Array.isArray(row.meta_images) ? row.meta_images as Array<{id: string; url: string; displayIndex: number}> : undefined,
     certificateLab: row.certificate_lab ?? undefined,
     certificateNumber: row.certificate_number ?? undefined,
     certificatePdfUrl: row.certificate_pdf_url ?? undefined,
@@ -604,6 +606,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
   const supplierLegalNames: (string | null)[] = [];
   const statuses: string[] = [];
   const sourceUpdatedAts: (Date | null)[] = [];
+  const metaImagesList: (string | null)[] = [];
 
   for (const d of diamonds) {
     feeds.push(d.feed);
@@ -660,6 +663,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
     supplierLegalNames.push(d.supplierLegalName ?? null);
     statuses.push(d.status);
     sourceUpdatedAts.push(d.sourceUpdatedAt ?? null);
+    metaImagesList.push(d.metaImages != null ? JSON.stringify(d.metaImages) : null);
   }
 
   // WHERE clause prevents no-op updates when nothing changed (reduces index churn)
@@ -677,7 +681,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         crown_angle, crown_height, pavilion_angle, pavilion_depth,
         girdle, culet_size, eye_clean, brown, green, milky,
         supplier_name, supplier_legal_name,
-        status, source_updated_at
+        status, source_updated_at,
+        meta_images
       )
       SELECT * FROM UNNEST(
         $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[],
@@ -691,7 +696,8 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         $39::numeric[], $40::numeric[], $41::numeric[], $42::numeric[],
         $43::text[], $44::text[], $45::boolean[], $46::text[], $47::text[], $48::text[],
         $49::text[], $50::text[],
-        $51::text[], $52::timestamptz[]
+        $51::text[], $52::timestamptz[],
+        $53::jsonb[]
       )
       ON CONFLICT (feed, supplier_stone_id) DO UPDATE SET
         offer_id = EXCLUDED.offer_id,
@@ -744,6 +750,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
         supplier_legal_name = EXCLUDED.supplier_legal_name,
         status = EXCLUDED.status,
         source_updated_at = EXCLUDED.source_updated_at,
+        meta_images = EXCLUDED.meta_images,
         updated_at = NOW()
       WHERE diamonds.source_updated_at IS DISTINCT FROM EXCLUDED.source_updated_at
          OR diamonds.feed_price IS DISTINCT FROM EXCLUDED.feed_price
@@ -764,6 +771,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       girdles, culetSizes, eyeCleans, browns, greens, milkys,
       supplierNames, supplierLegalNames,
       statuses, sourceUpdatedAts,
+      metaImagesList,
     ]
   );
 

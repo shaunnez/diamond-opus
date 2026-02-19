@@ -35,6 +35,7 @@ export interface RunMetadata {
 export interface RunWithStats extends RunMetadata {
   feed: string;
   totalRecordsProcessed: number;
+  estimatedRecords?: number;
   durationMs: number | null;
   status: 'running' | 'completed' | 'failed' | 'partial' | 'stalled';
 }
