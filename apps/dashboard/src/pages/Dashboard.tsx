@@ -73,7 +73,7 @@ export function Dashboard() {
   const recentRuns = dashboardData?.runs;
   const failedWorkers = dashboardData?.failedWorkers;
   const watermarks = useMemo<Record<Feed, Watermark | null | undefined>>(() => ({
-    "nivoda-labgrown": dashboardData?.watermarks['nivoda-labrown'] ?? null,
+    "nivoda-labgrown": dashboardData?.watermarks['nivoda-labgrown'] ?? null,
     "nivoda-natural": dashboardData?.watermarks['nivoda-natural'] ?? null,
     demo: dashboardData?.watermarks?.demo ?? null,
   }), [dashboardData?.watermarks]);
@@ -168,109 +168,6 @@ export function Dashboard() {
     <>
       <Header onRefresh={handleRefresh} />
       <PageContainer>
-        {/* Watermarks */}
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
-              <Bookmark className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
-                Watermarks (Azure Blob)
-              </p>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Controls when incremental runs start from, per feed
-              </p>
-            </div>
-          </div>
-          {FEEDS.map((feed) => {
-            const wm = watermarks[feed];
-            const wmDisplay = wm?.lastUpdatedAt
-              ? new Date(wm.lastUpdatedAt).toLocaleString()
-              : 'Not set';
-            return (
-              <Card key={feed}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-stone-900 dark:text-stone-100 capitalize">
-                    {feed}
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => openWatermarkEdit(feed)} icon={<Pencil className="w-3.5 h-3.5" />}>
-                    Edit
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Updated At</p>
-                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-                      {wmDisplay}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run ID</p>
-                    <p className="text-sm font-mono text-stone-900 dark:text-stone-100">
-                      {wm?.lastRunId ? truncateId(wm.lastRunId, 12) : 'Not set'}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run Completed At</p>
-                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-                      {wm?.lastRunCompletedAt
-                        ? new Date(wm.lastRunCompletedAt).toLocaleString()
-                        : 'Not set'}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Nivoda Configuration */}
-        {systemConfig && (
-          <div className="space-y-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
-                <Server className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
-                  Nivoda API Configuration
-                </p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Backend API endpoint and proxy routing status
-                </p>
-              </div>
-            </div>
-            <Card>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-                  <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">API Endpoint</p>
-                  <p className="text-sm font-mono text-stone-900 dark:text-stone-100 break-all">
-                    {systemConfig.nivoda.endpoint}
-                  </p>
-                </div>
-                <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-                  <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Proxy Status</p>
-                  <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-                    {systemConfig.nivoda.proxyEnabled ? (
-                      <span className="text-success-600 dark:text-success-400">✓ Enabled</span>
-                    ) : (
-                      <span className="text-stone-500 dark:text-stone-400">Direct</span>
-                    )}
-                  </p>
-                </div>
-                {systemConfig.nivoda.proxyEnabled && systemConfig.nivoda.proxyUrl && (
-                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
-                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Proxy URL</p>
-                    <p className="text-sm font-mono text-stone-900 dark:text-stone-100 break-all">
-                      {systemConfig.nivoda.proxyUrl}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -307,61 +204,7 @@ export function Dashboard() {
           />
         </div>
 
-        {/* Failed Workers Alert */}
-        {failedWorkers && failedWorkers.length > 0 && (
-          <div className="mb-8 bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/30 rounded-xl p-4 sm:p-5">
-            <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle className="w-5 h-5 text-error-600 dark:text-error-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-error-800 dark:text-error-400">
-                  {failedWorkers.length} Failed Worker{failedWorkers.length !== 1 ? 's' : ''}
-                </h3>
-                <p className="text-xs text-error-600 dark:text-error-500 mt-0.5">
-                  Recent worker failures that may need attention. Click a run to retry or force-consolidate.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {failedWorkers.slice(0, 5).map((fw: RecentFailedWorker) => (
-                <div
-                  key={fw.id}
-                  onClick={() => navigate(`/runs/${fw.runId}`)}
-                  className="flex items-start sm:items-center justify-between p-3 bg-white dark:bg-stone-800 rounded-lg border border-error-100 dark:border-error-500/20 hover:border-error-300 dark:hover:border-error-500/40 cursor-pointer transition-colors gap-2"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <XCircle className="w-3.5 h-3.5 text-error-500 flex-shrink-0" />
-                      <span className="font-mono text-xs text-stone-700 dark:text-stone-300">
-                        {truncateId(fw.runId, 8)}
-                      </span>
-                      <span className="text-xs px-1.5 py-0.5 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded">
-                        {fw.partitionId}
-                      </span>
-                    </div>
-                    {fw.errorMessage && (
-                      <p className="text-xs text-error-600 dark:text-error-500 mt-1 truncate max-w-md">
-                        {fw.errorMessage}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs text-stone-500 dark:text-stone-400 flex-shrink-0">
-                    {formatRelativeTime(fw.completedAt || fw.startedAt)}
-                  </span>
-                </div>
-              ))}
-              {failedWorkers.length > 5 && (
-                <button
-                  onClick={() => navigate('/runs?status=failed')}
-                  className="w-full text-center text-xs text-error-600 dark:text-error-400 hover:text-error-800 dark:hover:text-error-300 py-2 transition-colors"
-                >
-                  View all {failedWorkers.length} failures
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Recent Runs */}
           <div className="lg:col-span-2">
             <Card>
@@ -510,6 +353,168 @@ export function Dashboard() {
             </Card>
           </div>
         </div>
+
+            
+        {/* Failed Workers Alert */}
+        {failedWorkers && failedWorkers.length > 0 && (
+          <div className="mb-8 bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/30 rounded-xl p-4 sm:p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertTriangle className="w-5 h-5 text-error-600 dark:text-error-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-error-800 dark:text-error-400">
+                  {failedWorkers.length} Failed Worker{failedWorkers.length !== 1 ? 's' : ''}
+                </h3>
+                <p className="text-xs text-error-600 dark:text-error-500 mt-0.5">
+                  Recent worker failures that may need attention. Click a run to retry or force-consolidate.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {failedWorkers.slice(0, 5).map((fw: RecentFailedWorker) => (
+                <div
+                  key={fw.id}
+                  onClick={() => navigate(`/runs/${fw.runId}`)}
+                  className="flex items-start sm:items-center justify-between p-3 bg-white dark:bg-stone-800 rounded-lg border border-error-100 dark:border-error-500/20 hover:border-error-300 dark:hover:border-error-500/40 cursor-pointer transition-colors gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <XCircle className="w-3.5 h-3.5 text-error-500 flex-shrink-0" />
+                      <span className="font-mono text-xs text-stone-700 dark:text-stone-300">
+                        {truncateId(fw.runId, 8)}
+                      </span>
+                      <span className="text-xs px-1.5 py-0.5 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded">
+                        {fw.partitionId}
+                      </span>
+                    </div>
+                    {fw.errorMessage && (
+                      <p className="text-xs text-error-600 dark:text-error-500 mt-1 truncate max-w-md">
+                        {fw.errorMessage}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-stone-500 dark:text-stone-400 flex-shrink-0">
+                    {formatRelativeTime(fw.completedAt || fw.startedAt)}
+                  </span>
+                </div>
+              ))}
+              {failedWorkers.length > 5 && (
+                <button
+                  onClick={() => navigate('/runs?status=failed')}
+                  className="w-full text-center text-xs text-error-600 dark:text-error-400 hover:text-error-800 dark:hover:text-error-300 py-2 transition-colors"
+                >
+                  View all {failedWorkers.length} failures
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+
+        {/* Watermarks */}
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
+              <Bookmark className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                Watermarks (Azure Blob)
+              </p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Controls when incremental runs start from, per feed
+              </p>
+            </div>
+          </div>
+          {FEEDS.map((feed) => {
+            const wm = watermarks[feed];
+            const wmDisplay = wm?.lastUpdatedAt
+              ? new Date(wm.lastUpdatedAt).toLocaleString()
+              : 'Not set';
+            console.log('here', feed, wm, watermarks)
+            return (
+              <Card key={feed}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-stone-900 dark:text-stone-100 capitalize">
+                    {feed}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => openWatermarkEdit(feed)} icon={<Pencil className="w-3.5 h-3.5" />}>
+                    Edit
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Updated At</p>
+                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      {wmDisplay}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run ID</p>
+                    <p className="text-sm font-mono text-stone-900 dark:text-stone-100">
+                      {wm?.lastRunId ? truncateId(wm.lastRunId, 12) : 'Not set'}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Last Run Completed At</p>
+                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      {wm?.lastRunCompletedAt
+                        ? new Date(wm.lastRunCompletedAt).toLocaleString()
+                        : 'Not set'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Nivoda Configuration */}
+        {systemConfig && (
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
+                <Server className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                  Nivoda API Configuration
+                </p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Backend API endpoint and proxy routing status
+                </p>
+              </div>
+            </div>
+            <Card>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                  <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">API Endpoint</p>
+                  <p className="text-sm font-mono text-stone-900 dark:text-stone-100 break-all">
+                    {systemConfig.nivoda.endpoint}
+                  </p>
+                </div>
+                <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                  <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Proxy Status</p>
+                  <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                    {systemConfig.nivoda.proxyEnabled ? (
+                      <span className="text-success-600 dark:text-success-400">✓ Enabled</span>
+                    ) : (
+                      <span className="text-stone-500 dark:text-stone-400">Direct</span>
+                    )}
+                  </p>
+                </div>
+                {systemConfig.nivoda.proxyEnabled && systemConfig.nivoda.proxyUrl && (
+                  <div className="p-3 bg-stone-50 dark:bg-stone-700/50 rounded-lg">
+                    <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">Proxy URL</p>
+                    <p className="text-sm font-mono text-stone-900 dark:text-stone-100 break-all">
+                      {systemConfig.nivoda.proxyUrl}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
+
 
         {/* Watermark Edit Modal */}
         <Modal

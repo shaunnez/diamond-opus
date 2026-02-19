@@ -157,10 +157,12 @@ export function mapNivodaItemToDiamond(
   if (!certificate) {
     throw new Error(`Diamond ${diamond.id}: missing certificate`);
   }
-  if (!diamond.image) {
+  const resolvedImage = diamond.image ?? diamond.certificate.image;
+  if (!resolvedImage) {
     throw new Error(`Diamond ${diamond.id}: missing image`);
   }
-  const resolvedVideo = diamond.video?.replace('/500/500', '/') ?? diamond.supplier_video_link;
+  // ?.replace('/500/500', '/')
+  const resolvedVideo = diamond.video ?? diamond.certificate.v360?.url ?? diamond.supplier_video_link;
   if (!resolvedVideo) {
     throw new Error(`Diamond ${diamond.id}: missing video`);
   }
@@ -195,7 +197,7 @@ export function mapNivodaItemToDiamond(
     availability: mapAvailability(diamond.availability),
     rawAvailability: diamond.availability,
     holdId: diamond.HoldId ?? undefined,
-    imageUrl: diamond.image,
+    imageUrl: resolvedImage,
     videoUrl: resolvedVideo,
     metaImages: (certificate.product_images ?? [])
       .map(img => ({ id: img.id, url: img.url, displayIndex: img.display_index ?? 0 }))

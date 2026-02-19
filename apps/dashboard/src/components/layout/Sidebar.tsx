@@ -18,22 +18,27 @@ import {
   Moon,
   Sun,
   FileText,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Runs', href: '/runs', icon: PlayCircle },
-  { name: 'Consolidation', href: '/consolidation', icon: Layers },
   { name: 'Feeds', href: '/feeds', icon: Database },
-  { name: 'Query', href: '/query', icon: Search },
-  { name: 'Triggers', href: '/triggers', icon: Zap },
-  { name: 'Heatmap', href: '/heatmap', icon: BarChart3 },
-  { name: 'Holds', href: '/holds', icon: Hand },
-  { name: 'Orders', href: '/orders', icon: Package },
   { name: 'Price Models', href: '/pricing-rules', icon: DollarSign },
   { name: 'Rating Rules', href: '/rating-rules', icon: Star },
+  { name: 'Holds', href: '/holds', icon: Hand },
+  { name: 'Orders', href: '/orders', icon: Package },
+
+  { name: 'Query', href: '/query', icon: Search },
+  { name: 'Storefront', href: '/storefront', icon: Store },
+
+  { name: 'Runs', href: '/runs', icon: PlayCircle },
+  { name: 'Consolidation', href: '/consolidation', icon: Layers },
+  { name: 'Triggers', href: '/triggers', icon: Zap },
+  { name: 'Heatmap', href: '/heatmap', icon: BarChart3 },
+  
   { name: 'Error Logs', href: '/error-logs', icon: AlertTriangle },
   { name: 'API Docs', href: '/api-docs', icon: FileText },
 ];

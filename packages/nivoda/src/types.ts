@@ -58,6 +58,12 @@ export interface NivodaCertificate {
   country_of_origin?: string;
   product_images?: NivodaProductImage[];
   product_videos?: NivodaProductImage[];
+  image?: string;
+  video?: string;
+  v360?: {
+    id?: string;
+    url?: string;
+  }
 }
 
 export interface NivodaSupplier {
