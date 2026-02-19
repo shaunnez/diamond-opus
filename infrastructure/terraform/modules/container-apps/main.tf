@@ -892,7 +892,7 @@ resource "azurerm_container_app" "consolidator" {
 resource "azurerm_container_app_job" "scheduler" {
   for_each = var.enable_scheduler ? var.scheduler_feeds : {}
 
-  name                         = "${var.app_name_prefix}-scheduler-${each.key}"
+  name                         = "${var.app_name_prefix}-s-${each.key}"
   location                     = var.location
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = var.resource_group_name
