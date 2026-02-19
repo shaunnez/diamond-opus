@@ -307,6 +307,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
           feed: workItem.feed,
           runId: workItem.runId,
           traceId: workItem.traceId,
+          updatedTo: workItem.updatedTo,
         });
         notify({
           category: NotifyCategory.RUN_COMPLETED,
@@ -322,7 +323,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
             delayMinutes: AUTO_CONSOLIDATION_DELAY_MINUTES,
           });
           await sendConsolidate({
-            type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true,
+            type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true, updatedTo: workItem.updatedTo,
           }, AUTO_CONSOLIDATION_DELAY_MINUTES);
           notify({
             category: NotifyCategory.RUN_PARTIAL_SUCCESS,
@@ -377,7 +378,7 @@ async function handleWorkItem(workItem: WorkItemMessage): Promise<void> {
             delayMinutes: AUTO_CONSOLIDATION_DELAY_MINUTES,
           });
           await sendConsolidate({
-            type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true,
+            type: "CONSOLIDATE", feed: workItem.feed, runId: workItem.runId, traceId: workItem.traceId, force: true, updatedTo: workItem.updatedTo,
           }, AUTO_CONSOLIDATION_DELAY_MINUTES);
           notify({
             category: NotifyCategory.RUN_PARTIAL_SUCCESS,

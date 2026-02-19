@@ -256,7 +256,7 @@ async function processConsolidation(
   await completeRun(message.runId, now);
 
   const watermark: Watermark = {
-    lastUpdatedAt: now.toISOString(),
+    lastUpdatedAt: message.updatedTo ?? now.toISOString(),
     lastRunId: message.runId,
     lastRunCompletedAt: now.toISOString(),
   };

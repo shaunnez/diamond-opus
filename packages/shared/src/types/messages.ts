@@ -43,6 +43,8 @@ export interface ConsolidateMessage {
   traceId: string;
   /** Force consolidation even if workers failed */
   force?: boolean;
+  /** Scheduler's locked snapshot time — used as watermark lastUpdatedAt */
+  updatedTo?: string;
 }
 
 export type ServiceBusMessage = WorkItemMessage | WorkDoneMessage | ConsolidateMessage;
