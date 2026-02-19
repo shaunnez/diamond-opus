@@ -9,6 +9,7 @@ interface DiamondMediaProps {
   className?: string;
   size?: 'card' | 'detail';
   feed?: string;
+  metaImages?: Array<{ id: string; url: string; displayIndex: number }>;
 }
 
 // Demo feed fallback images based on shape
@@ -39,12 +40,15 @@ export function DiamondMedia({
   className = '',
   size = 'card',
   feed,
+  metaImages,
 }: DiamondMediaProps) {
   const [imgError, setImgError] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [showIframe, setShowIframe] = useState(false);
+  // selectedImageUrl: null means show the primary image/video; a string means show that product image
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   const containerClasses =
     size === 'detail'
@@ -65,73 +69,135 @@ export function DiamondMedia({
     return false;
   };
 
-  // For card size on search page: show iframe only after user interaction
-  // For detail page: show iframe immediately
-  if (videoUrl && !videoError && showIframe) {
-    return (
-      <div className={containerClasses}>
-        {!videoLoaded && <Skeleton />}
-        <iframe
-          src={isDesktop ? videoUrl.replace('/500/500', '/') : videoUrl}
-          title={alt}
-          className={`w-full h-full border-0 transition-opacity duration-300 ${size === 'detail' ? '' : 'h-[300px]'} ${
-            videoLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          allow="autoplay; fullscreen"
-          loading="lazy"
-          scrolling="no"
-          onLoad={() => setVideoLoaded(true)}
-          onError={() => setVideoError(true)}
-          style={{ overflow: 'hidden' }}
-        />
+  // Sort metaImages by displayIndex for consistent ordering
+  const sortedMetaImages = metaImages && metaImages.length > 0
+    ? [...metaImages].sort((a, b) => a.displayIndex - b.displayIndex)
+    : [];
 
-      </div>
-    );
-  }
+  // Render the main media slot. When a product image thumbnail is selected, override
+  // the primary image/video with the selected product image.
+  function renderMainMedia() {
+    // If a meta image thumbnail is selected, display it as the main image
+    if (selectedImageUrl !== null) {
+      return (
+        <div className={containerClasses}>
+          <img
+            src={selectedImageUrl}
+            alt={alt}
+            className="max-w-full max-h-full transform transition-opacity object-cover object-cover h-full opacity-100"
+            loading="lazy"
+          />
+        </div>
+      );
+    }
 
-  // Image fallback or initial view for cards with video
-  if (finalImageUrl && !imgError) {
+    // For card size on search page: show iframe only after user interaction
+    // For detail page: show iframe immediately
+    if (videoUrl && !videoError && showIframe) {
+      return (
+        <div className={containerClasses}>
+          {!videoLoaded && <Skeleton />}
+          <iframe
+            src={isDesktop ? videoUrl.replace('/500/500', '/') : videoUrl}
+            title={alt}
+            className={`w-full h-full border-0 transition-opacity duration-300 ${size === 'detail' ? '' : 'h-[300px]'} ${
+              videoLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            allow="autoplay; fullscreen"
+            loading="lazy"
+            scrolling="no"
+            onLoad={() => setVideoLoaded(true)}
+            onError={() => setVideoError(true)}
+            style={{ overflow: 'hidden' }}
+          />
+        </div>
+      );
+    }
+
+    // Image fallback or initial view for cards with video
+    if (finalImageUrl && !imgError) {
+      return (
+        <div
+          className={containerClasses}
+          onClick={handleInteraction}
+        >
+          {!imgLoaded && <Skeleton />}
+          <img
+            src={finalImageUrl}
+            alt={alt}
+            className={`max-w-full max-h-full transform transition-opacity object-cover  ${size === 'detail' ? 'object-cover h-full' : 'object-cover h-[300px]'} ${
+              imgLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            loading="lazy"
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+          />
+          {videoUrl && (
+            <a className="absolute h-full w-full z-10 flex items-center justify-center align-end"  onClick={handleInteraction}>
+              <span className=" bg-black opacity-50 w-full h-10 z-10 flex items-center justify-center">
+                <span className="text-center ">
+                  <p  className="text-white text-sm p-1" >Click v360</p>
+                </span>
+              </span>
+            </a>
+          )}
+        </div>
+      );
+    }
+
+    // Shape SVG placeholder
     return (
       <div
         className={containerClasses}
         onClick={handleInteraction}
       >
-        {!imgLoaded && <Skeleton />}
-        <img
-          src={finalImageUrl}
-          alt={alt}
-          className={`max-w-full max-h-full transform transition-opacity object-cover  ${size === 'detail' ? 'object-cover h-full' : 'object-cover h-[300px]'} ${
-            imgLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          loading="lazy"
-          onLoad={() => setImgLoaded(true)}
-          onError={() => setImgError(true)}
+        <ShapeSvg
+          shape={shape}
+          size={size === 'detail' ? 120 : 64}
+          className="text-warm-gray-400/50 h-[300px]"
         />
-        {videoUrl && (
-          <a className="absolute h-full w-full z-10 flex items-center justify-center align-end"  onClick={handleInteraction}>
-            <span className=" bg-black opacity-50 w-full h-10 z-10 flex items-center justify-center">
-              <span className="text-center ">
-                <p  className="text-white text-sm p-1" >Click v360</p>
-              </span>
-            </span>
-          </a>
-        )}
-
       </div>
     );
   }
 
-  // Shape SVG placeholder
+  // In card mode, render exactly as before (no thumbnail strip)
+  if (size !== 'detail') {
+    return renderMainMedia();
+  }
+
+  // Detail mode: render main media + optional thumbnail strip below
   return (
-    <div
-      className={containerClasses}
-      onClick={handleInteraction}
-    >
-      <ShapeSvg
-        shape={shape}
-        size={size === 'detail' ? 120 : 64}
-        className="text-warm-gray-400/50 h-[300px]"
-      />
+    <div className="flex flex-col gap-3">
+      {renderMainMedia()}
+
+      {sortedMetaImages.length > 0 && (
+        <div className="flex flex-row gap-2 overflow-x-auto py-1">
+          {sortedMetaImages.map((img) => {
+            const isActive = selectedImageUrl === img.url;
+            return (
+              <button
+                key={img.id}
+                type="button"
+                onClick={() => setSelectedImageUrl(isActive ? null : img.url)}
+                className={`flex-shrink-0 w-20 h-20 rounded overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-charcoal focus:ring-offset-1 ${
+                  isActive
+                    ? 'border-charcoal ring-2 ring-charcoal ring-offset-1'
+                    : 'border-border hover:border-warm-gray-400'
+                }`}
+                aria-label={`View product image ${img.displayIndex + 1}`}
+                aria-pressed={isActive}
+              >
+                <img
+                  src={img.url}
+                  alt={`${alt} — product image ${img.displayIndex + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
