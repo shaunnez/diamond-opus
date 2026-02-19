@@ -292,9 +292,9 @@ variable "scheduler_feeds" {
     feed            = string
   }))
   default = {
-    nivoda-natural  = { cron_expression = "0 */4 * * *", feed = "nivoda-natural" }
-    nivoda-labgrown = { cron_expression = "30 */4 * * *", feed = "nivoda-labgrown" }
-    demo            = { cron_expression = "0 */6 * * *", feed = "demo" }
+    niv-natural  = { cron_expression = "0 */4 * * *", feed = "nivoda-natural" }
+    niv-labgrown = { cron_expression = "30 */4 * * *", feed = "nivoda-labgrown" }
+    demo         = { cron_expression = "0 */6 * * *", feed = "demo" }
   }
 }
 
