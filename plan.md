@@ -1,318 +1,69 @@
-# Plan: Fancy Color Filters — Storefront, API, and Data Normalization
+# Implementation Plan
 
-## Summary
+## Phase 1: Dashboard Runs list page — Record % column
 
-Change the stone type filter from `[All, Natural, Lab, Fancy]` to `[All, Natural, Natural Fancy, Lab, Lab Fancy]`. When a fancy type is selected, hide the regular D-M color selector and show fancy color + fancy intensity chip selectors instead. Fix data normalization in the Nivoda mapper so fancy_color and fancy_intensity values are clean and consistent. Fix an existing DB query bug with the fancy_color boolean filter.
+**Goal:** Change the "Workers" column on the Runs list page to show % of records processed instead of worker completion count, since all workers finish at roughly the same time.
 
----
+### Files to change:
+1. **`packages/database/src/queries/analytics.ts`** — In `getRunsWithStats`, add `estimated_records` to the SQL query by summing `COALESCE(SUM((wr.work_item_payload->>'estimatedRecords')::numeric), 0)` across workers. Map to `estimatedRecords` in the response.
 
-## Part 1: Nivoda Mapper — Normalize `fancy_color` and `fancy_intensity`
+2. **`packages/api/src/routes/analytics.ts`** — Pass the new `estimatedRecords` field through in the response (verify it flows through).
 
-**File:** `packages/nivoda/src/mapper.ts`
+3. **`apps/dashboard/src/api/analytics.ts`** — Add `estimatedRecords?: number` to `RunWithStats` interface.
 
-The demo feed does NOT produce any fancy color data (confirmed — `mapDemoItemToDiamond` never sets `fancyColor`). All messy data comes from Nivoda's `f_color` and `f_intensity` fields passed through without normalization.
-
-### 1a. Add `normalizeFancyColor(raw: string | undefined): string | undefined`
-
-Logic:
-1. Return `undefined` for null, empty string, or invalid values (`"Even"`, `"U-V"`)
-2. Trim and normalize synonyms: `GREY` → `Gray`
-3. Normalize compound colors with space delimiters to hyphenated Title Case:
-   - `"GREEN YELLOW"` → `"Green-Yellow"`
-   - `"ORANGE YELLOW"` → `"Orange-Yellow"`
-   - `"YELLOW GREEN"` → `"Yellow-Green"`
-   - `"YELLOW ORANGE"` → `"Yellow-Orange"`
-4. Normalize adjective forms (keep space, Title Case):
-   - `"ORANGY BROWN"` → `"Orangy Brown"`
-   - `"ORANGY YELLOW"` → `"Orangy Yellow"`
-5. Title Case all remaining values: `"BLUE"` → `"Blue"`, `"yellow"` → `"Yellow"`, `"BROWN-PINK"` → `"Brown-Pink"`
-
-Expected normalized set of fancy colors:
-`Black, Blue, Brown, Brown-Orange, Brown-Pink, Brown-Yellow, Chameleon, Cognac, Gray, Gray-Blue, Green, Green-Yellow, Orange, Orange-Brown, Orange-Yellow, Orangy Brown, Orangy Yellow, Pink, Pink-Brown, Pink-Purple, Purple, Purple-Pink, White, Yellow, Yellow-Brown, Yellow-Green, Yellow-Orange`
-
-### 1b. Add `normalizeFancyIntensity(raw: string | undefined): string | undefined`
-
-Same pattern — Title Case, trim, normalize known abbreviations. Standard GIA fancy intensities:
-`Faint, Very Light, Light, Fancy Light, Fancy, Fancy Intense, Fancy Vivid, Fancy Deep, Fancy Dark`
-
-### 1c. Apply normalizers in `mapNivodaItemToDiamond()`
-
-Change lines 99-101:
-```typescript
-fancyColor: normalizeFancyColor(certificate.f_color) ?? undefined,
-fancyIntensity: normalizeFancyIntensity(certificate.f_intensity) ?? undefined,
-fancyOvertone: normalizeFancyColor(certificate.f_overtone) ?? undefined,  // reuse same normalizer
-```
-
-**Note:** Existing data in the DB won't be retroactively fixed. It will be cleaned on next consolidation run. This is acceptable.
+4. **`apps/dashboard/src/pages/Runs.tsx`** — Change the "Workers" column to show record percentage. For completed/failed runs show "100%" or the actual count. For running runs show `totalRecordsProcessed / estimatedRecords` as a `RecordProgress` bar with percentage text.
 
 ---
 
-## Part 2: Fix Database Query Bug — `fancyColor` Boolean Filter
+## Phase 2: Storefront filter sidebar — Cushion variants & new shapes
 
-**File:** `packages/database/src/queries/diamonds.ts` (lines 190-193)
+**Goal:** When user selects "Cushion", also filter by CUSHION B, CUSHION MODIFIED, CUSHION BRILLIANT. Add ROSE, OLD MINER, TRILLIANT, HEXAGONAL to the shape picker.
 
-**Current (broken):**
-```typescript
-if (params.fancyColor !== undefined) {
-  conditions.push(`fancy_color != $${paramIndex++}`);
-  values.push(params.fancyColor);  // pushes boolean true/false
-}
-```
-This compares a TEXT column against a boolean value using `!=`, which is nonsensical.
+### Files to change:
+1. **`apps/storefront/src/utils/shapes.ts`** — Add 4 new shapes (ROSE, OLD MINER, TRILLIANT, HEXAGONAL) with SVG paths. Add a `SHAPE_GROUPS` mapping so "CUSHION" expands to `['CUSHION', 'CUSHION B', 'CUSHION MODIFIED', 'CUSHION BRILLIANT']`.
 
-**Fixed:**
-```typescript
-if (params.fancyColor === true) {
-  conditions.push(`fancy_color IS NOT NULL AND fancy_color != ''`);
-} else if (params.fancyColor === false) {
-  conditions.push(`(fancy_color IS NULL OR fancy_color = '')`);
-}
-```
-No parameterized value needed — these are static SQL conditions.
+2. **`apps/storefront/src/hooks/useDiamondSearch.ts`** (or `api/diamonds.ts`) — When building the API query, expand "CUSHION" into all 4 cushion variants before sending to the API. The API will receive `shape=CUSHION,CUSHION B,CUSHION MODIFIED,CUSHION BRILLIANT`.
 
 ---
 
-## Part 3: Wire Up `fancy_colors` Array Filter in API
+## Phase 3: Nivoda product_images — GraphQL, types, consolidation
 
-The backend DB query already supports `fancyColors` as a string array (line 185-188 of `diamonds.ts`). But the API route and validator don't expose it. We need to wire it up.
+**Goal:** Retrieve `product_images` with `display_index` from Nivoda, store in raw table (happens automatically since full payload is stored as JSONB), consolidate into a new `meta_images` JSONB column on the `diamonds` table.
 
-### 3a. Validator
+### 3a. GraphQL query + types
+1. **`packages/nivoda/src/queries.ts`** — Add `display_index` to the `product_images` selection in `DIAMONDS_BY_QUERY` (line 144-149). Currently has `id, url, loupe360_url, type` — add `display_index`.
 
-**File:** `packages/api/src/validators/diamonds.ts`
+2. **`packages/nivoda/src/types.ts`** — Add `NivodaProductImage` interface with `{id, url, loupe360_url?, type?, display_index?: number}`. Add `product_images?: NivodaProductImage[]` and `product_videos?: ...` to `NivodaCertificate`.
 
-Add to schema:
-```typescript
-fancy_colors: z.union([z.string(), z.array(z.string())]).optional(),
-```
+### 3b. Database migration
+3. **`sql/migrations/010_meta_images.sql`** (new) — `ALTER TABLE diamonds ADD COLUMN meta_images JSONB;`
 
-### 3b. API Route
+4. **`sql/full_schema.sql`** — Add `meta_images JSONB` to the diamonds table definition.
 
-**File:** `packages/api/src/routes/diamonds.ts`
+### 3c. Shared types
+5. **`packages/shared/src/types/diamond.ts`** — Add `metaImages?: Array<{id: string; url: string; displayIndex: number}>` to `Diamond` interface.
 
-Add to payload mapping (around line 396):
-```typescript
-fancyColors: toArray(query.fancy_colors),
-```
+### 3d. Mapper
+6. **`packages/nivoda/src/mapper.ts`** — In `mapNivodaItemToDiamond`, extract `certificate.product_images`, map to `metaImages` array sorted by `display_index`.
 
-But `toArray` currently runs `longDiamondFilterToShort()` which maps "Excellent" → "EX" etc. Fancy color values should NOT go through that conversion. Need to use a version that doesn't apply the short mapping — likely just `toStringArray()` or add a `toRawArray()`.
-
-Check if `toStringArray` already exists (it does — used for `availability`). Use that instead of `toArray` for fancy colors since they shouldn't be case-converted.
-
-Actually, looking at the code: `toArray()` calls `longDiamondFilterToShort` which only maps known cut/polish/symmetry terms. It wouldn't corrupt "Blue" → something else. But to be safe, use a simple split without the mapping. We can use `toStringArray` which just splits without conversion.
-
----
-
-## Part 4: Storefront Types
-
-**File:** `apps/storefront/src/types/diamond.ts`
-
-### 4a. Update `StoneType`
-
-```typescript
-// Before:
-export type StoneType = 'all' | 'natural' | 'lab' | 'fancy';
-
-// After:
-export type StoneType = 'all' | 'natural' | 'natural_fancy' | 'lab' | 'lab_fancy';
-```
-
-### 4b. Add `fancy_colors` to `DiamondSearchParams`
-
-```typescript
-fancy_colors?: string[];  // specific fancy color values to filter by
-```
+### 3e. Database queries
+7. **`packages/database/src/queries/diamonds.ts`**:
+   - Add `meta_images` to `DiamondRow` interface
+   - Add `metaImages` mapping in `mapRowToDiamond` (parse JSONB)
+   - Add `metaImages` to `upsertDiamondsBatch` UNNEST arrays (as `jsonb[]`)
+   - Add `meta_images` to the INSERT/ON CONFLICT columns
 
 ---
 
-## Part 5: Storefront Hook — `useDiamondSearch`
+## Phase 4: Storefront — Display product images on diamond detail page
 
-**File:** `apps/storefront/src/hooks/useDiamondSearch.ts`
+**Goal:** Show product images after the primary image/video on the diamond detail page.
 
-### 5a. Add `fancy_colors` to `ARRAY_PARAMS`
+### Files to change:
+1. **`apps/storefront/src/types/diamond.ts`** — Add `metaImages?: Array<{id: string; url: string; displayIndex: number}>` to `Diamond` interface.
 
-```typescript
-const ARRAY_PARAMS = [
-  'shape', 'color', 'clarity', 'cut', 'polish', 'symmetry',
-  'fluorescence_intensity', 'lab', 'fancy_intensity', 'fancy_colors',
-] as const;
-```
+2. **`packages/api/src/routes/diamonds.ts`** — Verify the GET `/diamonds/:id` endpoint includes `meta_images` in the response. Since it uses `getDiamondById` which does `SELECT *`, it should be included automatically once the `DiamondRow` and `mapRowToDiamond` are updated.
 
-### 5b. Update `getStoneTypeFromURL`
+3. **`apps/storefront/src/components/diamonds/DiamondMedia.tsx`** — Accept optional `metaImages` prop. In `detail` mode, after the primary image/video, render a thumbnail row of product images that can be clicked to view larger.
 
-```typescript
-function getStoneTypeFromURL(params: URLSearchParams): StoneType {
-  const val = params.get('stone_type');
-  if (val === 'natural' || val === 'lab' || val === 'natural_fancy' || val === 'lab_fancy') return val;
-  return 'all';
-}
-```
-
-### 5c. Update `apiParams` logic
-
-```typescript
-if (stoneType === 'natural') {
-  params.lab_grown = false;
-  delete params.fancy_color;
-  delete params.fancy_intensity;
-  delete params.fancy_colors;
-} else if (stoneType === 'natural_fancy') {
-  params.lab_grown = false;
-  params.fancy_color = true;
-  delete params.color;  // ignore D-M color selections for fancy
-} else if (stoneType === 'lab') {
-  params.lab_grown = true;
-  delete params.fancy_color;
-  delete params.fancy_intensity;
-  delete params.fancy_colors;
-} else if (stoneType === 'lab_fancy') {
-  params.lab_grown = true;
-  params.fancy_color = true;
-  delete params.color;  // ignore D-M color selections for fancy
-} else {
-  // 'all'
-  delete params.lab_grown;
-}
-```
-
----
-
-## Part 6: Storefront API Client
-
-**File:** `apps/storefront/src/api/diamonds.ts`
-
-Add serialization for `fancy_colors`:
-```typescript
-if (params.fancy_colors?.length) query.fancy_colors = params.fancy_colors.join(',');
-```
-
----
-
-## Part 7: Storefront UI — StoneTypeFilter
-
-**File:** `apps/storefront/src/components/filters/StoneTypeFilter.tsx`
-
-Update options:
-```typescript
-const options: { value: StoneType; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'natural', label: 'Natural' },
-  { value: 'natural_fancy', label: 'Natural Fancy' },
-  { value: 'lab', label: 'Lab Grown' },
-  { value: 'lab_fancy', label: 'Lab Fancy' },
-];
-```
-
-Layout will need adjustment for 5 buttons — likely wrap to 2 rows or use smaller text. Current layout uses `flex-1` on each button, 5 buttons may be tight. Consider a 3+2 grid or reduce font/padding.
-
----
-
-## Part 8: Storefront UI — FilterPanel
-
-**File:** `apps/storefront/src/components/filters/FilterPanel.tsx`
-
-### 8a. Add constants
-
-```typescript
-const FANCY_COLORS = [
-  'Black', 'Blue', 'Brown', 'Chameleon', 'Cognac', 'Gray',
-  'Green', 'Orange', 'Pink', 'Purple', 'White', 'Yellow',
-  // Compound colors
-  'Brown-Orange', 'Brown-Pink', 'Brown-Yellow', 'Gray-Blue',
-  'Green-Yellow', 'Orange-Brown', 'Orange-Yellow',
-  'Pink-Brown', 'Pink-Purple', 'Purple-Pink',
-  'Yellow-Brown', 'Yellow-Green', 'Yellow-Orange',
-];
-
-const FANCY_INTENSITIES = [
-  'Faint', 'Very Light', 'Light', 'Fancy Light', 'Fancy',
-  'Fancy Intense', 'Fancy Vivid', 'Fancy Deep', 'Fancy Dark',
-];
-```
-
-### 8b. Conditional filter display
-
-Derive a boolean:
-```typescript
-const isFancy = stoneType === 'natural_fancy' || stoneType === 'lab_fancy';
-```
-
-- When `isFancy` is **true**: Hide the Color (D-M) `ChipSelect`, show Fancy Color and Fancy Intensity `ChipSelect` components instead
-- When `isFancy` is **false**: Show the normal Color (D-M) `ChipSelect`, hide fancy selectors
-
-```tsx
-{isFancy ? (
-  <>
-    <ChipSelect
-      label="Fancy Color"
-      options={FANCY_COLORS}
-      selected={filters.fancy_colors || []}
-      onChange={(fc) => update({ fancy_colors: fc.length ? fc : undefined })}
-    />
-    <ChipSelect
-      label="Fancy Intensity"
-      options={FANCY_INTENSITIES}
-      selected={filters.fancy_intensity || []}
-      onChange={(fi) => update({ fancy_intensity: fi.length ? fi : undefined })}
-    />
-  </>
-) : (
-  <ChipSelect
-    label="Color"
-    options={COLORS}
-    selected={filters.color || []}
-    onChange={(color) => update({ color: color.length ? color : undefined })}
-  />
-)}
-```
-
----
-
-## Part 9: Cleanup — `setStoneType` should clear conflicting filters
-
-**File:** `apps/storefront/src/hooks/useDiamondSearch.ts`
-
-When switching stone type, clear filters that belong to the other mode to prevent stale URL params:
-
-```typescript
-const setStoneType = useCallback(
-  (type: StoneType) => {
-    const newFilters = { ...filters };
-    const isFancy = type === 'natural_fancy' || type === 'lab_fancy';
-    if (isFancy) {
-      delete newFilters.color;  // clear D-M colors
-    } else {
-      delete newFilters.fancy_colors;     // clear fancy color selections
-      delete newFilters.fancy_intensity;  // clear fancy intensity selections
-    }
-    const urlParams = filtersToURLParams(newFilters);
-    if (type !== 'all') urlParams.stone_type = type;
-    setSearchParams(urlParams, { replace: true });
-  },
-  [setSearchParams, filters]
-);
-```
-
----
-
-## Files Changed (summary)
-
-| File | Change |
-|------|--------|
-| `packages/nivoda/src/mapper.ts` | Add `normalizeFancyColor()`, `normalizeFancyIntensity()`, apply to mapping |
-| `packages/database/src/queries/diamonds.ts` | Fix `fancyColor` boolean filter (IS NOT NULL instead of != boolean) |
-| `packages/api/src/validators/diamonds.ts` | Add `fancy_colors` param |
-| `packages/api/src/routes/diamonds.ts` | Wire `fancy_colors` → `fancyColors` in payload |
-| `apps/storefront/src/types/diamond.ts` | Update `StoneType`, add `fancy_colors` to search params |
-| `apps/storefront/src/hooks/useDiamondSearch.ts` | Update stone type logic, add fancy_colors, clear conflicting filters |
-| `apps/storefront/src/api/diamonds.ts` | Serialize `fancy_colors` |
-| `apps/storefront/src/components/filters/StoneTypeFilter.tsx` | 5 options layout |
-| `apps/storefront/src/components/filters/FilterPanel.tsx` | Fancy color/intensity chips, conditional display |
-
----
-
-## Out of scope
-
-- Retroactive DB cleanup of existing fancy_color values (will be fixed on next consolidation)
-- Dashboard changes (dashboard uses different filter system)
-- Adding fancy colors to demo feed seed data
+4. **`apps/storefront/src/pages/DiamondDetailPage.tsx`** — Pass `diamond.metaImages` to `DiamondMedia`.
