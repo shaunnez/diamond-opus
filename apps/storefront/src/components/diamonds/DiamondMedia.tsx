@@ -133,7 +133,7 @@ export function DiamondMedia({
             onError={() => setImgError(true)}
           />
           {videoUrl && (
-            <a className="absolute h-full w-full z-10 flex items-center justify-center align-end"  onClick={handleInteraction}>
+            <a className="absolute h-full w-full z-10 flex items-end justify-center" onClick={handleInteraction}>
               <span className=" bg-black opacity-50 w-full h-10 z-10 flex items-center justify-center">
                 <span className="text-center ">
                   <p  className="text-white text-sm p-1" >Click v360</p>
