@@ -73,7 +73,8 @@ export function Dashboard() {
   const recentRuns = dashboardData?.runs;
   const failedWorkers = dashboardData?.failedWorkers;
   const watermarks = useMemo<Record<Feed, Watermark | null | undefined>>(() => ({
-    nivoda: dashboardData?.watermarks?.nivoda ?? null,
+    "nivoda-labgrown": dashboardData?.watermarks['nivoda-labrown'] ?? null,
+    "nivoda-natural": dashboardData?.watermarks['nivoda-natural'] ?? null,
     demo: dashboardData?.watermarks?.demo ?? null,
   }), [dashboardData?.watermarks]);
 
@@ -161,7 +162,7 @@ export function Dashboard() {
   }
 
   // Use nivoda watermark for the "Last Sync" stat card
-  const primaryWatermark = watermarks.nivoda;
+  const primaryWatermark = watermarks['nivoda-natural'];
 
   return (
     <>

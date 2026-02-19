@@ -56,7 +56,7 @@ export function DiamondMedia({
   const finalImageUrl = imageUrl || (feed === 'demo' ? DEMO_IMAGES[normalizedShape] : undefined);
   const isDesktop = window.innerWidth >= 1024;
 
-  const handleInteraction = (e) => {
+  const handleInteraction = (e: any) => {
     e.preventDefault();
     e.stopPropagation();
     if (videoUrl && !videoError) {
