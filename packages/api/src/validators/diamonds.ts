@@ -23,6 +23,7 @@ export const diamondSearchSchema = z.object({
   price_max: z.coerce.number().min(0).optional(),
   fancy_color: booleanQueryParam,
   fancy_intensity: z.union([z.string(), z.array(z.string())]).optional(),
+  fancy_colors: z.union([z.string(), z.array(z.string())]).optional(),
   fluorescence_intensity: z.union([z.string(), z.array(z.string())]).optional(),
   polish: z.union([z.string(), z.array(z.string())]).optional(),
   symmetry: z.union([z.string(), z.array(z.string())]).optional(),

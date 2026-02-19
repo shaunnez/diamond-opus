@@ -187,9 +187,10 @@ export async function searchDiamonds(
     values.push(params.fancyColors);
   }
 
-  if (params.fancyColor !== undefined) {
-    conditions.push(`fancy_color != $${paramIndex++}`);
-    values.push(params.fancyColor);
+  if (params.fancyColor === true) {
+    conditions.push(`fancy_color IS NOT NULL AND fancy_color != ''`);
+  } else if (params.fancyColor === false) {
+    conditions.push(`(fancy_color IS NULL OR fancy_color = '')`);
   }
 
   if (params.fancyIntensities && params.fancyIntensities.length > 0) {

@@ -26,6 +26,20 @@ const SYMMETRY = ['Excellent', 'Very Good', 'Good', 'Fair', 'Poor'];
 const FLUORESCENCE = ['None', 'Faint', 'Medium', 'Strong', 'Very Strong'];
 const LABS = ['GIA', 'AGS', 'IGI', 'HRD', 'GCAL'];
 
+const FANCY_COLORS = [
+  'Black', 'Blue', 'Brown', 'Chameleon', 'Cognac', 'Gray',
+  'Green', 'Orange', 'Pink', 'Purple', 'White', 'Yellow',
+  'Brown-Orange', 'Brown-Pink', 'Brown-Yellow', 'Gray-Blue',
+  'Green-Yellow', 'Orange-Brown', 'Orange-Yellow',
+  'Pink-Brown', 'Pink-Purple', 'Purple-Pink',
+  'Yellow-Brown', 'Yellow-Green', 'Yellow-Orange',
+];
+
+const FANCY_INTENSITIES = [
+  'Faint', 'Very Light', 'Light', 'Fancy Light', 'Fancy',
+  'Fancy Intense', 'Fancy Vivid', 'Fancy Deep', 'Fancy Dark',
+];
+
 export function FilterPanel({
   filters,
   stoneType,
@@ -40,6 +54,8 @@ export function FilterPanel({
   const update = (partial: Partial<DiamondSearchParams>) => {
     onFiltersChange({ ...filters, ...partial, page: 1 });
   };
+
+  const isFancy = stoneType === 'natural_fancy' || stoneType === 'lab_fancy';
 
   const content = (
     <div className="space-y-6">
@@ -74,13 +90,30 @@ export function FilterPanel({
         formatValue={(v) => formatNZD(v)}
       />
 
-      {/* Color */}
-      <ChipSelect
-        label="Color"
-        options={COLORS}
-        selected={filters.color || []}
-        onChange={(color) => update({ color: color.length ? color : undefined })}
-      />
+      {/* Color / Fancy Color */}
+      {isFancy ? (
+        <>
+          <ChipSelect
+            label="Fancy Color"
+            options={FANCY_COLORS}
+            selected={filters.fancy_colors || []}
+            onChange={(fc) => update({ fancy_colors: fc.length ? fc : undefined })}
+          />
+          <ChipSelect
+            label="Fancy Intensity"
+            options={FANCY_INTENSITIES}
+            selected={filters.fancy_intensity || []}
+            onChange={(fi) => update({ fancy_intensity: fi.length ? fi : undefined })}
+          />
+        </>
+      ) : (
+        <ChipSelect
+          label="Color"
+          options={COLORS}
+          selected={filters.color || []}
+          onChange={(color) => update({ color: color.length ? color : undefined })}
+        />
+      )}
 
       {/* Clarity */}
       <ChipSelect
