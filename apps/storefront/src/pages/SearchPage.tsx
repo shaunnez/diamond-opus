@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SlidersHorizontal, ArrowUpDown, Database } from 'lucide-react';
+import { SlidersHorizontal, ArrowUpDown } from 'lucide-react';
 import { FilterPanel } from '../components/filters/FilterPanel';
 import { DiamondGrid } from '../components/diamonds/DiamondGrid';
 import { Pagination } from '../components/ui/Pagination';
@@ -17,24 +17,14 @@ const SORT_OPTIONS = [
   { label: 'Clarity', value: 'clarity', order: 'asc' as const },
 ];
 
-const FEED_OPTIONS = [
-  { label: 'All Feeds', value: 'all' },
-  { label: 'Nivoda Natural', value: 'nivoda-natural' },
-  { label: 'Nivoda Labgrown', value: 'nivoda-labgrown' },
-  { label: 'Demo', value: 'demo' },
-];
-
 export function SearchPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [feedOpen, setFeedOpen] = useState(false);
 
   const {
     filters,
     stoneType,
-    selectedFeed,
     setFilters,
-    setFeed,
     setStoneType,
     resetFilters,
     setPage,
@@ -48,8 +38,6 @@ export function SearchPage() {
   const currentSort = SORT_OPTIONS.find(
     (s) => s.value === (filters.sort_by || 'created_at') && s.order === (filters.sort_order || 'desc')
   );
-
-  const currentFeed = FEED_OPTIONS.find((f) => f.value === selectedFeed);
 
   return (
     <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -99,40 +87,6 @@ export function SearchPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Feed selector */}
-              <div className="relative">
-                <button
-                  onClick={() => setFeedOpen(!feedOpen)}
-                  className="flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-white text-warm-gray-600 hover:text-charcoal transition-colors"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  {currentFeed?.label || 'Feed'}
-                </button>
-                {feedOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setFeedOpen(false)} />
-                    <div className="absolute right-0 top-full mt-1 bg-white border border-border shadow-card-hover z-20 min-w-[140px] animate-fade-in">
-                      {FEED_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => {
-                            setFeed(opt.value);
-                            setFeedOpen(false);
-                          }}
-                          className={`block w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
-                            selectedFeed === opt.value
-                              ? 'bg-cream text-charcoal'
-                              : 'text-warm-gray-500 hover:bg-cream hover:text-charcoal'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
               {/* Sort dropdown */}
               <div className="relative">
                 <button
