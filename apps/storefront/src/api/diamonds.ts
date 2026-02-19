@@ -6,12 +6,16 @@ import type {
   HoldResponse,
   AvailabilityResponse,
 } from '../types/diamond';
+import { SHAPE_GROUPS } from '../utils/shapes';
 
 export async function searchDiamonds(params: DiamondSearchParams): Promise<DiamondSearchResponse> {
   const query: Record<string, string> = {};
 
   if (params.feed) query.feed = params.feed;
-  if (params.shape?.length) query.shape = params.shape.join(',');
+  if (params.shape?.length) {
+    const expandedShapes = params.shape.flatMap(s => SHAPE_GROUPS[s] ?? [s]);
+    query.shape = expandedShapes.join(',');
+  }
   if (params.carat_min !== undefined) query.carat_min = String(params.carat_min);
   if (params.carat_max !== undefined) query.carat_max = String(params.carat_max);
   if (params.color?.length) query.color = params.color.join(',');

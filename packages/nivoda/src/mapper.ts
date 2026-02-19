@@ -197,6 +197,9 @@ export function mapNivodaItemToDiamond(
     holdId: diamond.HoldId ?? undefined,
     imageUrl: diamond.image,
     videoUrl: resolvedVideo,
+    metaImages: (certificate.product_images ?? [])
+      .map(img => ({ id: img.id, url: img.url, displayIndex: img.display_index ?? 0 }))
+      .sort((a, b) => a.displayIndex - b.displayIndex),
     certificateLab: certificate.lab,
     certificateNumber: certificate.certNumber,
     certificatePdfUrl: certificate.pdfUrl ?? undefined,

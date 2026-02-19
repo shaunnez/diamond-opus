@@ -1,3 +1,11 @@
+export interface NivodaProductImage {
+  id: string;
+  url: string;
+  loupe360_url?: string;
+  type?: string;
+  display_index?: number;
+}
+
 export interface NivodaDeliveryTime {
   express_timeline_applicable: boolean;
   min_business_days: number;
@@ -48,6 +56,8 @@ export interface NivodaCertificate {
   starLength?: number;
   lowerGirdle?: number;
   country_of_origin?: string;
+  product_images?: NivodaProductImage[];
+  product_videos?: NivodaProductImage[];
 }
 
 export interface NivodaSupplier {

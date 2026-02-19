@@ -61,6 +61,7 @@ export function DiamondDetailPage() {
             size="detail"
             className="w-full aspect-square lg:aspect-[4/3]"
             feed={diamond.feed}
+            metaImages={diamond.metaImages}
           />
         </div>
 

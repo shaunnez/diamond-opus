@@ -37,6 +37,7 @@ export type RunStatus = 'running' | 'completed' | 'failed' | 'partial' | 'stalle
 
 export interface RunWithStats extends RunMetadata {
   totalRecordsProcessed: number;
+  estimatedRecords: number;
   durationMs: number | null;
   status: RunStatus;
 }
@@ -318,6 +319,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
       started_at: Date;
       completed_at: Date | null;
       total_records: string;
+      estimated_records: string;
       last_worker_completed_at: Date | null;
       last_worker_activity_at: Date | null;
     }>(
@@ -327,6 +329,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
         COUNT(*) FILTER (WHERE wr.status = 'completed') as completed_workers_actual,
         COUNT(*) FILTER (WHERE wr.status = 'failed') as failed_workers_actual,
         COALESCE(SUM(wr.records_processed), 0) as total_records,
+        COALESCE(SUM((wr.work_item_payload->>'estimatedRecords')::numeric), 0)::int as estimated_records,
         MAX(wr.completed_at) as last_worker_completed_at,
         pp_activity.last_activity as last_worker_activity_at
        FROM run_metadata rm
@@ -358,6 +361,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
     startedAt: row.started_at,
     completedAt: row.completed_at ?? undefined,
     totalRecordsProcessed: parseInt(row.total_records, 10),
+    estimatedRecords: parseInt(row.estimated_records, 10),
     durationMs: row.completed_at
       ? row.completed_at.getTime() - row.started_at.getTime()
       : row.last_worker_completed_at

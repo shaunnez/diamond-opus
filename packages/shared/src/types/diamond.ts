@@ -60,6 +60,7 @@ export interface Diamond {
   holdId?: string;
   imageUrl?: string;
   videoUrl?: string;
+  metaImages?: Array<{ id: string; url: string; displayIndex: number }>;
   certificateLab?: string;
   certificateNumber?: string;
   certificatePdfUrl?: string;

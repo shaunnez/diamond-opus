@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS "public"."diamonds" (
     "hold_id" "text",
     "image_url" "text",
     "video_url" "text",
+    "meta_images" "jsonb",
     "certificate_lab" "text",
     "certificate_number" "text",
     "certificate_pdf_url" "text",
