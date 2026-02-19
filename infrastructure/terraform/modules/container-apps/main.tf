@@ -123,8 +123,9 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "AZURE_SCHEDULER_JOB_NAME_PREFIX"
-        value = "${var.app_name_prefix}-scheduler"
+        value = "${var.app_name_prefix}-s-"
       }
+
 
       env {
         name  = "CONTAINER_REGISTRY_SERVER"

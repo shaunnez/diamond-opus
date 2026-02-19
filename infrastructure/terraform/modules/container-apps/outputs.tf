@@ -44,10 +44,17 @@ output "consolidator_name" {
   value       = azurerm_container_app.consolidator.name
 }
 
-output "scheduler_job_name" {
-  description = "Name of the scheduler job (null if scheduler is disabled)"
-  value       = var.enable_scheduler ? azurerm_container_app_job.scheduler[0].name : null
+
+output "scheduler_job_names" {
+  description = "Map of scheduler job names by key"
+  value       = { for k, job in azurerm_container_app_job.scheduler : k => job.name }
 }
+
+output "scheduler_job_name_prefix" {
+  description = "Prefix for scheduler job names (empty if scheduler disabled)"
+  value       = var.enable_scheduler ? "${var.app_name_prefix}-s-" : ""
+}
+
 
 output "demo_feed_api_fqdn" {
   description = "Fully qualified domain name of the demo feed API (internal)"
