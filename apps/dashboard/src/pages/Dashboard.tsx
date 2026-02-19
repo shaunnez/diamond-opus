@@ -44,7 +44,7 @@ import {
   truncateId,
 } from '../utils/formatters';
 
-const FEEDS = ['nivoda', 'demo'] as const;
+const FEEDS = ['nivoda-natural', 'nivoda-labgrown', 'demo'] as const;
 type Feed = typeof FEEDS[number];
 
 export function Dashboard() {
@@ -52,7 +52,7 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [editWatermark, setEditWatermark] = useState(false);
-  const [editingFeed, setEditingFeed] = useState<Feed>('nivoda');
+  const [editingFeed, setEditingFeed] = useState<Feed>('nivoda-natural');
   const [watermarkDate, setWatermarkDate] = useState('');
 
   // Single combined query replaces 5 separate API calls

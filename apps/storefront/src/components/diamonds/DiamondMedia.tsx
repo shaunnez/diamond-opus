@@ -44,7 +44,7 @@ export function DiamondMedia({
   const [videoError, setVideoError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [showIframe, setShowIframe] = useState(size === 'detail');
+  const [showIframe, setShowIframe] = useState(false);
 
   const containerClasses =
     size === 'detail'
@@ -56,10 +56,13 @@ export function DiamondMedia({
   const finalImageUrl = imageUrl || (feed === 'demo' ? DEMO_IMAGES[normalizedShape] : undefined);
   const isDesktop = window.innerWidth >= 1024;
 
-  const handleInteraction = () => {
-    if (size === 'card' && videoUrl && !videoError) {
+  const handleInteraction = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (videoUrl && !videoError) {
       setShowIframe(true);
     }
+    return false;
   };
 
   // For card size on search page: show iframe only after user interaction
@@ -71,7 +74,7 @@ export function DiamondMedia({
         <iframe
           src={isDesktop ? videoUrl.replace('/500/500', '/') : videoUrl}
           title={alt}
-          className={`w-full h-full border-0 transition-opacity duration-300 ${
+          className={`w-full h-full border-0 transition-opacity duration-300 ${size === 'detail' ? '' : 'h-[300px]'} ${
             videoLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           allow="autoplay; fullscreen"
@@ -91,20 +94,29 @@ export function DiamondMedia({
     return (
       <div
         className={containerClasses}
-        onMouseEnter={handleInteraction}
         onClick={handleInteraction}
       >
         {!imgLoaded && <Skeleton />}
         <img
           src={finalImageUrl}
           alt={alt}
-          className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
+          className={`max-w-full max-h-full transform transition-opacity object-cover  ${size === 'detail' ? 'object-cover h-full' : 'object-cover h-[300px]'} ${
             imgLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           loading="lazy"
           onLoad={() => setImgLoaded(true)}
           onError={() => setImgError(true)}
         />
+        {videoUrl && (
+          <a className="absolute h-full w-full z-10 flex items-center justify-center align-middle"  onClick={handleInteraction}>
+            <span className=" bg-black opacity-50 w-fullh-10 z-10 flex w-full items-center justify-center">
+              <span className="text-center ">
+                <p  className="text-white text-sm p-1" >Click v360</p>
+              </span>
+            </span>
+          </a>
+        )}
+
       </div>
     );
   }
@@ -113,13 +125,12 @@ export function DiamondMedia({
   return (
     <div
       className={containerClasses}
-      onMouseEnter={handleInteraction}
       onClick={handleInteraction}
     >
       <ShapeSvg
         shape={shape}
         size={size === 'detail' ? 120 : 64}
-        className="text-warm-gray-400/50"
+        className="text-warm-gray-400/50 h-[300px]"
       />
     </div>
   );

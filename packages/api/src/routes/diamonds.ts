@@ -111,8 +111,9 @@ function toSlim(diamond: Diamond): Partial<Diamond> {
  */
 function getTradingAdapter(feedId: string): TradingAdapter {
   switch (feedId) {
-    case 'nivoda':
-      return new NivodaFeedAdapter();
+    case 'nivoda-natural':
+    case 'nivoda-labgrown':
+      return new NivodaFeedAdapter({ feedVariant: feedId === 'nivoda-labgrown' ? 'labgrown' : 'natural' });
     case 'demo':
       return new DemoFeedAdapter();
     default:

@@ -9,7 +9,9 @@ import {
   optionalEnv,
 } from "@diamond/shared";
 import { NivodaFeedAdapter } from "@diamond/nivoda";
+import { DemoFeedAdapter } from "@diamond/demo-feed";
 import {
+  FeedRegistry,
   scanHeatmap,
   type FeedQuery,
   type HeatmapConfig,
@@ -18,6 +20,14 @@ import { BlobServiceClient } from "@azure/storage-blob";
 
 const router = Router();
 const logger = createServiceLogger('api', { component: 'heatmap' });
+
+function createHeatmapRegistry(): FeedRegistry {
+  const registry = new FeedRegistry();
+  registry.register(new NivodaFeedAdapter({ feedVariant: 'natural' }));
+  registry.register(new NivodaFeedAdapter({ feedVariant: 'labgrown' }));
+  registry.register(new DemoFeedAdapter());
+  return registry;
+}
 
 // ============================================================================
 // Azure Blob Storage helpers for heatmap history
@@ -254,12 +264,13 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = req.body as RunHeatmapBody;
-      const feed = body.feed ?? "nivoda";
+      const feed = body.feed ?? "nivoda-natural";
 
       const log = logger.child({ component: "heatmap-api" });
       log.info("Starting heatmap scan via API", { body, feed });
 
-      const adapter = new NivodaFeedAdapter();
+      const registry = createHeatmapRegistry();
+      const adapter = registry.get(feed);
       await adapter.initialize();
 
       // Build base query with full date range for ad-hoc scans
@@ -360,12 +371,13 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = req.body as RunHeatmapBody;
-      const feed = body.feed ?? "nivoda";
+      const feed = body.feed ?? "nivoda-natural";
 
       const log = logger.child({ component: "heatmap-preview" });
       log.info("Starting heatmap preview", { body, feed });
 
-      const adapter = new NivodaFeedAdapter();
+      const registry = createHeatmapRegistry();
+      const adapter = registry.get(feed);
       await adapter.initialize();
 
       // Build base query with full date range for ad-hoc scans

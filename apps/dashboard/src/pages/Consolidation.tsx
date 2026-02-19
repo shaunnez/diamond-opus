@@ -76,14 +76,15 @@ function canResume(run: RunConsolidationStatus): boolean {
 }
 
 const FEED_OPTIONS: { value: AnalyticsFeed; label: string }[] = [
-  { value: 'nivoda', label: 'Nivoda' },
+  { value: 'nivoda-natural', label: 'Nivoda Natural' },
+  { value: 'nivoda-labgrown', label: 'Nivoda Labgrown' },
   { value: 'demo', label: 'Demo' },
 ];
 
 export function Consolidation() {
   const queryClient = useQueryClient();
   const [resumeRunId, setResumeRunId] = useState<string | null>(null);
-  const [feed, setFeed] = useState<AnalyticsFeed>('nivoda');
+  const [feed, setFeed] = useState<AnalyticsFeed>('nivoda-natural');
 
   const {
     data: stats,

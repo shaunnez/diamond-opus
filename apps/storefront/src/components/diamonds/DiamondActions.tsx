@@ -19,7 +19,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
 
   const actions = useDiamondActions(diamond.id);
   const isDemo = diamond.feed === 'demo';
-  const isNivoda = diamond.feed === 'nivoda';
+  const isNivoda = diamond.feed?.startsWith('nivoda') ?? false;
   const isAvailable = diamond.availability === 'available';
   const isOnHold = diamond.availability === 'on_hold';
   const supportsAvailabilityCheck = isDemo || isNivoda;

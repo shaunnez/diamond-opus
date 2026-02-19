@@ -122,7 +122,7 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name  = "AZURE_SCHEDULER_JOB_NAME"
+        name  = "AZURE_SCHEDULER_JOB_NAME_PREFIX"
         value = "${var.app_name_prefix}-scheduler"
       }
 
@@ -887,23 +887,21 @@ resource "azurerm_container_app" "consolidator" {
   tags = var.tags
 }
 
-# Scheduler as a Container Apps Job (runs on-demand or scheduled)
-# Set enable_scheduler = false to disable the cron schedule (manual trigger only)
+# Scheduler as Container Apps Jobs (one per feed, runs on-demand or scheduled)
+# Set enable_scheduler = false to disable all cron schedules (manual trigger only)
 resource "azurerm_container_app_job" "scheduler" {
-  count = var.enable_scheduler ? 1 : 0
+  for_each = var.enable_scheduler ? var.scheduler_feeds : {}
 
-  name                         = "${var.app_name_prefix}-scheduler"
+  name                         = "${var.app_name_prefix}-scheduler-${each.key}"
   location                     = var.location
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = var.resource_group_name
 
-  # trigger_type               = "Schedule"
   replica_timeout_in_seconds = 1800
   replica_retry_limit        = 1
 
-  # Schedule-based trigger (runs daily at 2 AM UTC)
   schedule_trigger_config {
-    cron_expression          = var.scheduler_cron_expression
+    cron_expression          = each.value.cron_expression
     parallelism              = var.scheduler_parallelism
     replica_completion_count = 1
   }
@@ -918,6 +916,11 @@ resource "azurerm_container_app_job" "scheduler" {
       env {
         name  = "SERVICE_NAME"
         value = "scheduler"
+      }
+
+      env {
+        name  = "FEED"
+        value = each.value.feed
       }
 
       env {
@@ -1356,11 +1359,11 @@ resource "azurerm_container_app" "storefront" {
   depends_on = [azurerm_container_app.api]
 }
 
-# Grant API managed identity permission to trigger the scheduler job
+# Grant API managed identity permission to trigger each scheduler job
 resource "azurerm_role_assignment" "api_scheduler_job_operator" {
-  count = var.enable_scheduler ? 1 : 0
+  for_each = var.enable_scheduler ? var.scheduler_feeds : {}
 
-  scope                = azurerm_container_app_job.scheduler[0].id
+  scope                = azurerm_container_app_job.scheduler[each.key].id
   role_definition_name = "Container Apps Jobs Operator"
   principal_id         = azurerm_container_app.api.identity[0].principal_id
 }

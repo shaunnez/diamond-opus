@@ -12,8 +12,13 @@ import { DemoFeedAdapter } from '@diamond/demo-feed';
 export function createFeedRegistry(): FeedRegistry {
   const registry = new FeedRegistry();
 
-  // Register Nivoda feed with worker-specific config (desync delay enabled)
+  // Register Nivoda feed variants with worker-specific config (desync delay enabled)
   registry.register(new NivodaFeedAdapter({
+    feedVariant: 'natural',
+    enableDesyncDelay: true,
+  }));
+  registry.register(new NivodaFeedAdapter({
+    feedVariant: 'labgrown',
     enableDesyncDelay: true,
   }));
 

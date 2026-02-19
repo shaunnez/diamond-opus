@@ -17,7 +17,7 @@ export function DiamondCard({ diamond }: DiamondCardProps) {
   return (
     <button
       onClick={() => navigate(`/diamonds/${diamond.id}`)}
-      className="bg-white border border-border text-left group hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 flex flex-col w-full"
+      className="min-height-400 bg-white border border-border text-left group hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 flex flex-col w-full "
     >
       {/* Media */}
       <DiamondMedia

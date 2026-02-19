@@ -19,7 +19,8 @@ const SORT_OPTIONS = [
 
 const FEED_OPTIONS = [
   { label: 'All Feeds', value: 'all' },
-  { label: 'Nivoda', value: 'nivoda' },
+  { label: 'Nivoda Natural', value: 'nivoda-natural' },
+  { label: 'Nivoda Labgrown', value: 'nivoda-labgrown' },
   { label: 'Demo', value: 'demo' },
 ];
 

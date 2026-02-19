@@ -29,7 +29,7 @@ interface WorkerRunRow {
 function mapRowToRunMetadata(row: RunMetadataRow): RunMetadata {
   return {
     runId: row.run_id,
-    feed: row.feed ?? 'nivoda',
+    feed: row.feed ?? 'nivoda-natural',
     runType: row.run_type as RunType,
     expectedWorkers: row.expected_workers,
     completedWorkers: 0, // Computed from partition_progress by callers
@@ -60,7 +60,7 @@ export async function createRunMetadata(
   runType: RunType,
   expectedWorkers: number,
   watermarkBefore?: Date,
-  feed: string = 'nivoda',
+  feed: string = 'nivoda-natural',
 ): Promise<RunMetadata> {
   const result = await query<RunMetadataRow>(
     `INSERT INTO run_metadata (feed, run_type, expected_workers, watermark_before)

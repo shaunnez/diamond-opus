@@ -12,8 +12,13 @@ import { DemoFeedAdapter } from '@diamond/demo-feed';
 export function createFeedRegistry(): FeedRegistry {
   const registry = new FeedRegistry();
 
-  // Register Nivoda feed
+  // Register Nivoda feed variants (natural + labgrown)
   registry.register(new NivodaFeedAdapter({
+    feedVariant: 'natural',
+    enableDesyncDelay: false,
+  }));
+  registry.register(new NivodaFeedAdapter({
+    feedVariant: 'labgrown',
     enableDesyncDelay: false,
   }));
 

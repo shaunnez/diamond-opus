@@ -192,7 +192,8 @@ export function Runs() {
                 onChange={(e) => handleFilterChange('feed', e.target.value)}
                 options={[
                   { value: '', label: 'All Feeds' },
-                  { value: 'nivoda', label: 'Nivoda' },
+                  { value: 'nivoda-natural', label: 'Nivoda Natural' },
+                  { value: 'nivoda-labgrown', label: 'Nivoda Labgrown' },
                   { value: 'demo', label: 'Demo' },
                 ]}
               />

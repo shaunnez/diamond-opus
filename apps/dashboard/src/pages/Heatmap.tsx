@@ -43,7 +43,7 @@ function formatPrice(price: number): string {
 
 export function Heatmap() {
   const { addToast } = useToast();
-  const [feed, setFeed] = useState('nivoda');
+  const [feed, setFeed] = useState('nivoda-natural');
   const [minPrice, setMinPrice] = useState('0');
   const [maxPrice, setMaxPrice] = useState('50000');
   const [maxWorkers, setMaxWorkers] = useState('10');
@@ -165,7 +165,8 @@ export function Heatmap() {
                     value={feed}
                     onChange={(e) => setFeed(e.target.value)}
                     options={[
-                      { value: 'nivoda', label: 'Nivoda' },
+                      { value: 'nivoda-natural', label: 'Nivoda Natural' },
+                      { value: 'nivoda-labgrown', label: 'Nivoda Labgrown' },
                       { value: 'demo', label: 'Demo' },
                     ]}
                   />

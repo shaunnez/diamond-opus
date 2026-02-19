@@ -263,13 +263,13 @@ variable "nivoda_proxy_timeout_ms" {
 # ============================================
 
 variable "scheduler_cron_expression" {
-  description = "Cron expression for scheduler job (e.g., '0 2 * * *' for 2 AM daily)"
+  description = "Cron expression for scheduler job (e.g., '0 2 * * *' for 2 AM daily). Used as default when scheduler_feeds is not set."
   type        = string
   default     = "0 */4 * * *"
 }
 
 variable "enable_scheduler" {
-  description = "Whether to create the scheduled cron job for the scheduler"
+  description = "Whether to create the scheduled cron jobs for the scheduler"
   type        = bool
   default     = true
 }
@@ -282,6 +282,19 @@ variable "scheduler_parallelism" {
   validation {
     condition     = var.scheduler_parallelism >= 1
     error_message = "scheduler_parallelism must be >= 1"
+  }
+}
+
+variable "scheduler_feeds" {
+  description = "Map of feed scheduler jobs. Each key becomes a suffix on the job name, with its own cron and FEED env var."
+  type = map(object({
+    cron_expression = string
+    feed            = string
+  }))
+  default = {
+    nivoda-natural  = { cron_expression = "0 */4 * * *", feed = "nivoda-natural" }
+    nivoda-labgrown = { cron_expression = "30 */4 * * *", feed = "nivoda-labgrown" }
+    demo            = { cron_expression = "0 */6 * * *", feed = "demo" }
   }
 }
 

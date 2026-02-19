@@ -38,7 +38,7 @@ export const tableParamSchema = z.object({
 export type TableParams = z.infer<typeof tableParamSchema>;
 
 export const consolidationQuerySchema = z.object({
-  feed: z.enum(['nivoda', 'demo']).default('nivoda'),
+  feed: z.enum(['nivoda-natural', 'nivoda-labgrown', 'demo']).default('nivoda-natural'),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 

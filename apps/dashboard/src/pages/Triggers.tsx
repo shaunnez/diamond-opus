@@ -23,7 +23,7 @@ export function Triggers() {
 
   // Scheduler state
   const [schedulerRunType, setSchedulerRunType] = useState<'full' | 'incremental'>('incremental');
-  const [schedulerFeed, setSchedulerFeed] = useState<string>('nivoda');
+  const [schedulerFeed, setSchedulerFeed] = useState<string>('nivoda-natural');
   const [showSchedulerModal, setShowSchedulerModal] = useState(false);
 
   // Consolidation state
@@ -181,7 +181,8 @@ export function Triggers() {
                     value={schedulerFeed}
                     onChange={(e) => setSchedulerFeed(e.target.value)}
                     options={[
-                      { value: 'nivoda', label: 'Nivoda' },
+                      { value: 'nivoda-natural', label: 'Nivoda Natural' },
+                      { value: 'nivoda-labgrown', label: 'Nivoda Labgrown' },
                       { value: 'demo', label: 'Demo Feed' },
                     ]}
                   />

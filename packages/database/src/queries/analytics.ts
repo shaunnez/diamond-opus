@@ -6,10 +6,11 @@ import { query } from '../client.js';
 // ============================================================================
 
 /** Feed identifiers supported by consolidation analytics */
-export type AnalyticsFeed = 'nivoda' | 'demo';
+export type AnalyticsFeed = 'nivoda-natural' | 'nivoda-labgrown' | 'demo';
 
 const RAW_TABLE_BY_FEED: Record<AnalyticsFeed, string> = {
-  nivoda: 'raw_diamonds_nivoda',
+  'nivoda-natural': 'raw_diamonds_nivoda',
+  'nivoda-labgrown': 'raw_diamonds_nivoda',
   demo: 'raw_diamonds_demo',
 };
 
@@ -200,7 +201,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   const lastSuccessfulRun = lastSuccessfulRunRow
     ? {
         runId: lastSuccessfulRunRow.run_id,
-        feed: lastSuccessfulRunRow.feed ?? 'nivoda',
+        feed: lastSuccessfulRunRow.feed ?? 'nivoda-natural',
         runType: lastSuccessfulRunRow.run_type as RunType,
         expectedWorkers: lastSuccessfulRunRow.expected_workers,
         completedWorkers: lastSuccessfulRunRow.completed_workers,
@@ -347,7 +348,7 @@ export async function getRunsWithStats(filters: RunsFilter = {}): Promise<{
   const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
   const runs = dataResult.rows.map((row) => ({
     runId: row.run_id,
-    feed: row.feed ?? 'nivoda',
+    feed: row.feed ?? 'nivoda-natural',
     runType: row.run_type as RunType,
     expectedWorkers: row.expected_workers,
     completedWorkers: parseInt(row.completed_workers_actual, 10),
@@ -487,7 +488,7 @@ export async function getRunDetails(runId: string): Promise<{
 
   const run: RunWithStats = {
     runId: runRow.run_id,
-    feed: runRow.feed ?? 'nivoda',
+    feed: runRow.feed ?? 'nivoda-natural',
     runType: runRow.run_type as RunType,
     expectedWorkers: runRow.expected_workers,
     completedWorkers: parseInt(stats.completed_count, 10),
@@ -636,7 +637,7 @@ export async function getFeedStats(): Promise<FeedStats[]> {
 // Consolidation Progress
 // ============================================================================
 
-export async function getConsolidationProgress(runId: string, feed: AnalyticsFeed = 'nivoda'): Promise<ConsolidationProgress | null> {
+export async function getConsolidationProgress(runId: string, feed: AnalyticsFeed = 'nivoda-natural'): Promise<ConsolidationProgress | null> {
   const rawTable = resolveRawTable(feed);
   const result = await query<{
     total_raw: string;
@@ -677,7 +678,7 @@ export async function getConsolidationProgress(runId: string, feed: AnalyticsFee
   };
 }
 
-export async function getOverallConsolidationStats(feed: AnalyticsFeed = 'nivoda'): Promise<{
+export async function getOverallConsolidationStats(feed: AnalyticsFeed = 'nivoda-natural'): Promise<{
   totalRaw: number;
   totalConsolidated: number;
   totalPending: number;
@@ -713,7 +714,7 @@ export async function getOverallConsolidationStats(feed: AnalyticsFeed = 'nivoda
 // Consolidation Status per Run (for dashboard)
 // ============================================================================
 
-export async function getRunsConsolidationStatus(limit = 10, feed: AnalyticsFeed = 'nivoda'): Promise<RunConsolidationStatus[]> {
+export async function getRunsConsolidationStatus(limit = 10, feed: AnalyticsFeed = 'nivoda-natural'): Promise<RunConsolidationStatus[]> {
   const rawTable = resolveRawTable(feed);
   const result = await query<{
     run_id: string;

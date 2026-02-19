@@ -22,8 +22,12 @@ import {
 } from '../analytics.js';
 
 describe('resolveRawTable', () => {
-  it('returns raw_diamonds_nivoda for nivoda feed', () => {
-    expect(resolveRawTable('nivoda')).toBe('raw_diamonds_nivoda');
+  it('returns raw_diamonds_nivoda for nivoda-natural feed', () => {
+    expect(resolveRawTable('nivoda-natural')).toBe('raw_diamonds_nivoda');
+  });
+
+  it('returns raw_diamonds_nivoda for nivoda-labgrown feed', () => {
+    expect(resolveRawTable('nivoda-labgrown')).toBe('raw_diamonds_nivoda');
   });
 
   it('returns raw_diamonds_demo for demo feed', () => {
@@ -36,8 +40,12 @@ describe('resolveRawTable', () => {
 });
 
 describe('isValidAnalyticsFeed', () => {
-  it('returns true for nivoda', () => {
-    expect(isValidAnalyticsFeed('nivoda')).toBe(true);
+  it('returns true for nivoda-natural', () => {
+    expect(isValidAnalyticsFeed('nivoda-natural')).toBe(true);
+  });
+
+  it('returns true for nivoda-labgrown', () => {
+    expect(isValidAnalyticsFeed('nivoda-labgrown')).toBe(true);
   });
 
   it('returns true for demo', () => {
@@ -185,7 +193,7 @@ describe('getRunsConsolidationStatus', () => {
     expect(sql).toContain('rm.feed = $1');
     // Params: [feed, limit]
     const params = mockQueryFn.mock.calls[0][1] as unknown[];
-    expect(params[0]).toBe('nivoda');
+    expect(params[0]).toBe('nivoda-natural');
     expect(params[1]).toBe(10);
   });
 
@@ -225,7 +233,7 @@ describe('getRunsConsolidationStatus', () => {
       }],
     });
 
-    const result = await getRunsConsolidationStatus(10, 'nivoda');
+    const result = await getRunsConsolidationStatus(10, 'nivoda-natural');
 
     expect(result).toHaveLength(1);
     expect(result[0].runId).toBe('run-1');

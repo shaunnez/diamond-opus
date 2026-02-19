@@ -13,6 +13,8 @@ export interface FeedQuery {
   shapes?: string[];
   /** Carat/size range */
   sizeRange?: { from: number; to: number };
+  /** Whether to filter for lab-grown diamonds (true) or natural (false/undefined) */
+  labgrown?: boolean;
 }
 
 export interface FeedSearchOptions {

@@ -9,8 +9,9 @@ import { DemoFeedAdapter } from '@diamond/demo-feed';
 export function createFeedRegistry(): FeedRegistry {
   const registry = new FeedRegistry();
 
-  // Register Nivoda feed (no rate limiter or desync needed for consolidator)
-  registry.register(new NivodaFeedAdapter());
+  // Register Nivoda feed variants (no rate limiter or desync needed for consolidator)
+  registry.register(new NivodaFeedAdapter({ feedVariant: 'natural' }));
+  registry.register(new NivodaFeedAdapter({ feedVariant: 'labgrown' }));
 
   // Register Demo feed
   registry.register(new DemoFeedAdapter());

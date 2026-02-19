@@ -67,7 +67,7 @@ See README.md for detailed local development setup.
 
 ## Pipeline in 8 lines
 
-1. Scheduler chooses a feed via `FEED` env, defaults to `nivoda`.
+1. Scheduler chooses a feed via `FEED` env, defaults to `nivoda-natural`. Nivoda has two variants: `nivoda-natural` and `nivoda-labgrown`, each with independent watermarks and heatmap partitioning but sharing `raw_diamonds_nivoda`.
 2. Scheduler loads watermark from Azure Blob for that feed.
 3. Scheduler fixes `updatedTo` at run start and computes `updatedFrom` based on run type.
 4. Scheduler runs heatmap partitioning using feed adapter `getCount` and creates one work item message per partition.
@@ -308,7 +308,7 @@ SLACK_WEBHOOK_OPS        # Webhook URL for ops events (#ops channel)
 - `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_SERVICE_BUS_CONNECTION_STRING`
 
 **Optional:**
-- `FEED` - Feed to use (default: `nivoda`)
+- `FEED` - Feed to use (default: `nivoda-natural`). Valid values: `nivoda-natural`, `nivoda-labgrown`, `demo`
 - See `.env.example` and README.md for full list
 
 ## When you are unsure

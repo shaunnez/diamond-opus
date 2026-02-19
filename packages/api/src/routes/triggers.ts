@@ -110,29 +110,44 @@ async function sendConsolidateMessage(
 interface SchedulerJobConfig {
   subscriptionId: string;
   resourceGroupName: string;
-  jobName: string;
+  jobNamePrefix: string;
+}
+
+/**
+ * Maps a feed ID to the scheduler job key (suffix used in Azure job name).
+ * Feed IDs like 'nivoda-natural' map directly to job keys.
+ */
+function feedToJobKey(feed: string): string {
+  return feed;
 }
 
 function getSchedulerJobConfig(): SchedulerJobConfig | null {
   const subscriptionId = optionalEnv("AZURE_SUBSCRIPTION_ID", "");
   const resourceGroupName = optionalEnv("AZURE_RESOURCE_GROUP", "");
-  const jobName = optionalEnv("AZURE_SCHEDULER_JOB_NAME", "");
+  // Support both new prefix-based and legacy single-job naming
+  const jobNamePrefix = optionalEnv("AZURE_SCHEDULER_JOB_NAME_PREFIX", "")
+    || optionalEnv("AZURE_SCHEDULER_JOB_NAME", "");
 
-  if (!subscriptionId || !resourceGroupName || !jobName) {
+  if (!subscriptionId || !resourceGroupName || !jobNamePrefix) {
     return null;
   }
 
-  return { subscriptionId, resourceGroupName, jobName };
+  return { subscriptionId, resourceGroupName, jobNamePrefix };
 }
 
 async function triggerSchedulerJob(
   runType: "full" | "incremental",
   feed?: string,
-): Promise<{ executionName: string }> {
+): Promise<{ executionName: string; jobName: string }> {
   const config = getSchedulerJobConfig();
   if (!config) {
     throw new Error("Azure Container Apps Job not configured");
   }
+
+  // Derive the job name: prefix-{feedKey} for multi-job, or plain prefix for legacy
+  const jobName = feed
+    ? `${config.jobNamePrefix}-${feedToJobKey(feed)}`
+    : config.jobNamePrefix;
 
   const credential = new DefaultAzureCredential();
   const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
@@ -141,7 +156,7 @@ async function triggerSchedulerJob(
   // When beginStart() is called with a template override, it replaces the
   // entire container spec - including env vars. Without this, env vars like
   // AZURE_STORAGE_CONNECTION_STRING are lost, causing the scheduler to fail.
-  const job = await client.jobs.get(config.resourceGroupName, config.jobName);
+  const job = await client.jobs.get(config.resourceGroupName, jobName);
   const existingContainers = job.template?.containers ?? [];
 
   // Merge RUN_TYPE and optionally FEED into the existing container's env vars
@@ -172,7 +187,7 @@ async function triggerSchedulerJob(
 
   const poller = await client.jobs.beginStart(
     config.resourceGroupName,
-    config.jobName,
+    jobName,
     {
       template: { containers },
     },
@@ -183,7 +198,8 @@ async function triggerSchedulerJob(
   const result = poller.getOperationState().result;
 
   return {
-    executionName: result?.name || `${config.jobName}-${Date.now()}`,
+    executionName: result?.name || `${jobName}-${Date.now()}`,
+    jobName,
   };
 }
 
@@ -267,7 +283,7 @@ router.post(
             feed: body.feed,
             status: "started",
             execution_name: result.executionName,
-            job_name: jobConfig.jobName,
+            job_name: result.jobName,
           },
         });
       } catch (azureError) {

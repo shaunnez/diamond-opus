@@ -23,7 +23,6 @@ import { BlobServiceClient } from '@azure/storage-blob';
 import {
   optionalEnv,
   BLOB_CONTAINERS,
-  WATERMARK_BLOB_NAME,
   type Watermark,
 } from '@diamond/shared';
 import { validateQuery, validateParams, validateBody, badRequest, notFound } from '../middleware/index.js';
@@ -86,13 +85,14 @@ router.get('/summary', async (_req: Request, res: Response, next: NextFunction) 
 // Watermark (Azure Blob Storage)
 // ============================================================================
 
-const VALID_WATERMARK_FEEDS = ['nivoda', 'demo'] as const;
+const VALID_WATERMARK_FEEDS = ['nivoda-natural', 'nivoda-labgrown', 'demo'] as const;
 
 function resolveWatermarkBlobName(feed?: string): string {
   if (feed && VALID_WATERMARK_FEEDS.includes(feed as typeof VALID_WATERMARK_FEEDS[number])) {
     return `${feed}.json`;
   }
-  return WATERMARK_BLOB_NAME;
+  // Legacy fallback for 'nivoda' -> 'nivoda-natural'
+  return 'nivoda-natural.json';
 }
 
 let blobServiceClient: BlobServiceClient | null = null;

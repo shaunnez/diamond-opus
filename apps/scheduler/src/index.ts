@@ -61,7 +61,7 @@ async function run(): Promise<void> {
   const log = logger.withContext({ traceId });
 
   // Determine which feed to run
-  const feedId = process.env.FEED ?? 'nivoda';
+  const feedId = process.env.FEED ?? 'nivoda-natural';
   log.info("Feed selected", { feedId });
 
   // Resolve feed adapter from registry

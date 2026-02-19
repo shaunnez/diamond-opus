@@ -2,7 +2,6 @@ import {
   DIAMOND_SHAPES,
   WORKER_PAGE_SIZE,
   NIVODA_MAX_LIMIT,
-  WATERMARK_BLOB_NAME,
   type Diamond,
 } from '@diamond/shared';
 import type {
@@ -29,7 +28,7 @@ import type { NivodaQuery, NivodaItem } from './types.js';
  * Converts a generic FeedQuery into a Nivoda-specific query.
  */
 function toNivodaQuery(query: FeedQuery): NivodaQuery {
-  const nivodaQuery = {
+  const nivodaQuery: NivodaQuery = {
     shapes: query.shapes ? [...query.shapes] : [...DIAMOND_SHAPES],
     sizes: query.sizeRange
       ? { from: query.sizeRange.from, to: query.sizeRange.to }
@@ -40,13 +39,20 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
     updated: query.updatedRange
       ? { from: query.updatedRange.from, to: query.updatedRange.to }
       : undefined,
+    labgrown: query.labgrown,
     has_image: true,
     has_v360: true,
     availability: ['AVAILABLE'],
     excludeFairPoorCuts: true,
     hide_memo: true
   };
-  return nivodaQuery
+  return nivodaQuery;
+}
+
+export type NivodaFeedVariant = 'natural' | 'labgrown';
+
+export interface NivodaFeedVariantConfig extends NivodaAdapterConfig {
+  feedVariant?: NivodaFeedVariant;
 }
 
 /**
@@ -54,19 +60,28 @@ function toNivodaQuery(query: FeedQuery): NivodaQuery {
  *
  * Wraps the existing NivodaAdapter to conform to the generic FeedAdapter interface
  * while preserving all existing behavior (token caching, rate limiting, etc.).
+ *
+ * Supports two variants: 'natural' (default) and 'labgrown'.
+ * Both variants share the same raw table (`raw_diamonds_nivoda`) but have
+ * independent feed IDs, watermarks, and heatmap partitioning.
  */
 export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
-  readonly feedId = 'nivoda';
+  readonly feedId: string;
   readonly rawTableName = 'raw_diamonds_nivoda';
-  readonly watermarkBlobName = WATERMARK_BLOB_NAME;
+  readonly watermarkBlobName: string;
   readonly maxPageSize = NIVODA_MAX_LIMIT;
   readonly workerPageSize = WORKER_PAGE_SIZE;
   readonly heatmapConfig: HeatmapConfigOverrides = {};
 
   private adapter: NivodaAdapter | null = null;
   private adapterConfig?: NivodaAdapterConfig;
+  private readonly labgrown: boolean;
 
-  constructor(config?: NivodaAdapterConfig) {
+  constructor(config?: NivodaFeedVariantConfig) {
+    const variant = config?.feedVariant ?? 'natural';
+    this.feedId = `nivoda-${variant}`;
+    this.watermarkBlobName = `nivoda-${variant}.json`;
+    this.labgrown = variant === 'labgrown';
     this.adapterConfig = config;
   }
 
@@ -96,6 +111,7 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
       shapes: [...DIAMOND_SHAPES],
       sizeRange: { from: 0.4, to: 15.01 },
       updatedRange: { from: updatedFrom, to: updatedTo },
+      labgrown: this.labgrown,
     };
   }
 
@@ -126,7 +142,8 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
   }
 
   mapRawToDiamond(payload: Record<string, unknown>): MappedDiamond {
-    return mapRawPayloadToDiamond(payload);
+    const diamond = mapRawPayloadToDiamond(payload);
+    return { ...diamond, feed: this.feedId };
   }
 
   async initialize(): Promise<void> {

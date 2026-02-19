@@ -97,7 +97,7 @@ export interface ConsolidationStats {
   progressPercent: number;
 }
 
-export type AnalyticsFeed = 'nivoda' | 'demo';
+export type AnalyticsFeed = 'nivoda-natural' | 'nivoda-labgrown' | 'demo';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -164,17 +164,17 @@ export async function getFeedStats(): Promise<FeedStats[]> {
   return response.data.data;
 }
 
-export async function getConsolidationStats(feed: AnalyticsFeed = 'nivoda'): Promise<ConsolidationStats> {
+export async function getConsolidationStats(feed: AnalyticsFeed = 'nivoda-natural'): Promise<ConsolidationStats> {
   const response = await api.get<{ data: ConsolidationStats }>(`/analytics/consolidation?feed=${feed}`);
   return response.data.data;
 }
 
-export async function getConsolidationProgress(runId: string, feed: AnalyticsFeed = 'nivoda'): Promise<ConsolidationProgress> {
+export async function getConsolidationProgress(runId: string, feed: AnalyticsFeed = 'nivoda-natural'): Promise<ConsolidationProgress> {
   const response = await api.get<{ data: ConsolidationProgress }>(`/analytics/consolidation/${runId}?feed=${feed}`);
   return response.data.data;
 }
 
-export async function getConsolidationStatus(limit = 10, feed: AnalyticsFeed = 'nivoda'): Promise<RunConsolidationStatus[]> {
+export async function getConsolidationStatus(limit = 10, feed: AnalyticsFeed = 'nivoda-natural'): Promise<RunConsolidationStatus[]> {
   const response = await api.get<{ data: RunConsolidationStatus[] }>(`/analytics/consolidation/status?feed=${feed}&limit=${limit}`);
   return response.data.data;
 }
