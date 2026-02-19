@@ -701,7 +701,9 @@ export async function getOverallConsolidationStats(feed: AnalyticsFeed = 'nivoda
       COUNT(*) as total_raw,
       COUNT(*) FILTER (WHERE consolidated = true) as consolidated_count,
       COUNT(*) FILTER (WHERE consolidated = false) as pending_count
-     FROM ${rawTable}`
+     FROM ${rawTable}
+     WHERE run_id IN (SELECT run_id FROM run_metadata WHERE feed = $1)`,
+    [feed]
   );
 
   const row = result.rows[0]!;
