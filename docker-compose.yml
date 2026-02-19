@@ -149,6 +149,43 @@ services:
       timeout: 3s
       retries: 10
 
+  storefront:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.storefront
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_URL: "http://api:3000"
+    ports:
+      - "8081:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    depends_on:
+      api:
+        condition: service_healthy
+      storefront:
+        condition: service_healthy
+    environment:
+      API_URL: "http://api:3000"
+      STOREFRONT_URL: "http://storefront:80"
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   scheduler:
     build:
       context: .
