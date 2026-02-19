@@ -94,6 +94,8 @@ describe('mapNivodaItemToDiamond', () => {
         id: 'diamond-456',
         availability: 'Available',
         NivodaStockId: 'NIVODA-789',
+        image: 'https://example.com/image.jpg',
+        video: 'https://example.com/video.mp4',
         certificate: {
           id: 'cert-111',
           lab: 'GIA',
@@ -111,8 +113,6 @@ describe('mapNivodaItemToDiamond', () => {
     expect(result.cut).toBeUndefined();
     expect(result.polish).toBeUndefined();
     expect(result.symmetry).toBeUndefined();
-    expect(result.imageUrl).toBeUndefined();
-    expect(result.videoUrl).toBeUndefined();
     expect(result.supplierName).toBeUndefined();
   });
 
@@ -250,5 +250,87 @@ describe('mapNivodaItemToDiamond — fancy color normalization', () => {
     const result = mapNivodaItemToDiamond(createMockItem());
     expect(result.fancyColor).toBeUndefined();
     expect(result.fancyIntensity).toBeUndefined();
+  });
+
+  it('normalises "ORANGE BROWN" (reversed) to canonical "Brown-Orange"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('ORANGE BROWN'));
+    expect(result.fancyColor).toBe('Brown-Orange');
+  });
+
+  it('normalises "PINK BROWN" (reversed) to canonical "Brown-Pink"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('PINK BROWN'));
+    expect(result.fancyColor).toBe('Brown-Pink');
+  });
+
+  it('normalises "YELLOW BROWN" (reversed) to canonical "Brown-Yellow"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('YELLOW BROWN'));
+    expect(result.fancyColor).toBe('Brown-Yellow');
+  });
+
+  it('normalises "PURPLE PINK" (reversed) to canonical "Pink-Purple"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem('PURPLE PINK'));
+    expect(result.fancyColor).toBe('Pink-Purple');
+  });
+
+  it('keeps genuinely distinct compound colours separate', () => {
+    expect(mapNivodaItemToDiamond(mkFancyItem('GREEN YELLOW')).fancyColor).toBe('Green-Yellow');
+    expect(mapNivodaItemToDiamond(mkFancyItem('YELLOW GREEN')).fancyColor).toBe('Yellow-Green');
+  });
+
+  it('normalises dash-separated intensity "FANCY-VIVID" to "Fancy Vivid"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem(undefined, 'FANCY-VIVID'));
+    expect(result.fancyIntensity).toBe('Fancy Vivid');
+  });
+
+  it('normalises dash-separated intensity "VERY-LIGHT" to "Very Light"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem(undefined, 'VERY-LIGHT'));
+    expect(result.fancyIntensity).toBe('Very Light');
+  });
+
+  it('normalises dash-separated intensity "FANCY-INTENSE" to "Fancy Intense"', () => {
+    const result = mapNivodaItemToDiamond(mkFancyItem(undefined, 'FANCY-INTENSE'));
+    expect(result.fancyIntensity).toBe('Fancy Intense');
+  });
+});
+
+describe('mapNivodaItemToDiamond — required field guards', () => {
+  it('throws when certificate is missing', () => {
+    const item = createMockItem({
+      diamond: {
+        ...createMockItem().diamond,
+        certificate: undefined as unknown as typeof createMockItem.prototype,
+      },
+    });
+    expect(() => mapNivodaItemToDiamond(item)).toThrow('missing certificate');
+  });
+
+  it('throws when image is missing', () => {
+    const item = createMockItem({
+      diamond: { ...createMockItem().diamond, image: undefined },
+    });
+    expect(() => mapNivodaItemToDiamond(item)).toThrow('missing image');
+  });
+
+  it('throws when both video and supplier_video_link are missing', () => {
+    const item = createMockItem({
+      diamond: {
+        ...createMockItem().diamond,
+        video: undefined,
+        supplier_video_link: undefined,
+      },
+    });
+    expect(() => mapNivodaItemToDiamond(item)).toThrow('missing video');
+  });
+
+  it('accepts supplier_video_link as a fallback for video', () => {
+    const item = createMockItem({
+      diamond: {
+        ...createMockItem().diamond,
+        video: undefined,
+        supplier_video_link: 'https://example.com/supplier-video.mp4',
+      },
+    });
+    const result = mapNivodaItemToDiamond(item);
+    expect(result.videoUrl).toBe('https://example.com/supplier-video.mp4');
   });
 });

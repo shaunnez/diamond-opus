@@ -30,9 +30,8 @@ const FANCY_COLORS = [
   'Black', 'Blue', 'Brown', 'Chameleon', 'Cognac', 'Gray',
   'Green', 'Orange', 'Pink', 'Purple', 'White', 'Yellow',
   'Brown-Orange', 'Brown-Pink', 'Brown-Yellow', 'Gray-Blue',
-  'Green-Yellow', 'Orange-Brown', 'Orange-Yellow',
-  'Pink-Brown', 'Pink-Purple', 'Purple-Pink',
-  'Yellow-Brown', 'Yellow-Green', 'Yellow-Orange',
+  'Green-Yellow', 'Orange-Yellow', 'Pink-Purple',
+  'Yellow-Green', 'Yellow-Orange',
 ];
 
 const FANCY_INTENSITIES = [
