@@ -771,6 +771,7 @@ export async function upsertDiamondsBatch(diamonds: DiamondInput[]): Promise<num
       girdles, culetSizes, eyeCleans, browns, greens, milkys,
       supplierNames, supplierLegalNames,
       statuses, sourceUpdatedAts,
+      metaImagesList,
     ]
   );
 
