@@ -17,6 +17,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(null);
+  const [checkoutPending, setCheckoutPending] = useState(false);
 
   const actions = useDiamondActions(diamond.id);
   const isDemo = diamond.feed === 'demo';
@@ -52,11 +53,13 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
   const handlePurchase = async () => {
     clearMessages();
     setPurchaseModalOpen(false);
+    setCheckoutPending(true);
     try {
       const { checkoutUrl } = await createCheckout(diamond.id);
       window.location.href = checkoutUrl;
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to start checkout');
+      setCheckoutPending(false);
     }
   };
 
@@ -90,7 +93,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
 
   const isActing =
     actions.hold.isPending ||
-    actions.purchase.isPending ||
+    checkoutPending ||
     actions.cancelHold.isPending ||
     actions.checkAvailability.isPending;
 
@@ -157,7 +160,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
             disabled={isActing}
             className="flex items-center justify-center gap-2 flex-1"
           >
-            {actions.purchase.isPending ? (
+            {checkoutPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <ShoppingCart className="w-4 h-4" />

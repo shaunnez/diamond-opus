@@ -221,6 +221,24 @@ variable "slack_webhook_ops" {
   default     = ""
 }
 
+# ============================================
+# STRIPE PAYMENTS
+# ============================================
+
+variable "stripe_secret_key" {
+  description = "Stripe secret API key (sk_live_... or sk_test_...)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook signing secret (whsec_...) for verifying webhook payloads"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 
 
 # ============================================

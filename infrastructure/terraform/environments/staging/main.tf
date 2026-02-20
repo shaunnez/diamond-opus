@@ -118,6 +118,9 @@ module "container_apps" {
   slack_webhook_pipeline = var.slack_webhook_pipeline
   slack_webhook_ops      = var.slack_webhook_ops
 
+  stripe_secret_key     = var.stripe_secret_key
+  stripe_webhook_secret = var.stripe_webhook_secret
+
   # Scheduler configuration
   scheduler_cron_expression = var.scheduler_cron_expression
   enable_scheduler          = var.enable_scheduler
