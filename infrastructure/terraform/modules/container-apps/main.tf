@@ -225,7 +225,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "STOREFRONT_URL"
-        value = "https://${azurerm_container_app.storefront.ingress[0].fqdn}"
+        value = var.storefront_url
       }
     }
   }
@@ -1278,7 +1278,7 @@ resource "azurerm_container_app" "dashboard" {
 
       env {
         name  = "STOREFRONT_URL"
-        value = "https://${azurerm_container_app.storefront.ingress[0].fqdn}"
+        value = var.storefront_url
       }
 
       env {
