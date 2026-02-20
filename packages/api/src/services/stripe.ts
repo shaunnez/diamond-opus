@@ -1,8 +1,15 @@
 import Stripe from 'stripe';
 
-const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2026-01-28.clover',
-});
+let _stripeClient: Stripe | null = null;
+
+function getStripeClient(): Stripe {
+  if (!_stripeClient) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error('STRIPE_SECRET_KEY is not set');
+    _stripeClient = new Stripe(key, { apiVersion: '2026-01-28.clover' });
+  }
+  return _stripeClient;
+}
 
 export interface CreateCheckoutSessionParams {
   orderNumber: string;
@@ -18,7 +25,7 @@ export interface CreateCheckoutSessionParams {
 export async function createCheckoutSession(
   params: CreateCheckoutSessionParams
 ): Promise<Stripe.Checkout.Session> {
-  return stripeClient.checkout.sessions.create({
+  return getStripeClient().checkout.sessions.create({
     mode: 'payment',
     currency: params.currency,
     client_reference_id: params.orderNumber,
@@ -49,5 +56,5 @@ export function constructWebhookEvent(
   signature: string
 ): Stripe.Event {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
-  return stripeClient.webhooks.constructEvent(rawBody, signature, webhookSecret);
+  return getStripeClient().webhooks.constructEvent(rawBody, signature, webhookSecret);
 }
