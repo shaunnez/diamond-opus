@@ -17,10 +17,49 @@ function OrderStatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'confirmed':
       return <span className="badge-success">Confirmed</span>;
+    case 'paid':
+      return <span className="badge-success">Paid</span>;
+    case 'pending_payment':
+      return <span className="badge-warning">Pending Payment</span>;
+    case 'pending':
+      return <span className="badge-warning">Pending</span>;
+    case 'expired':
+      return <span className="badge-neutral">Expired</span>;
+    case 'failed':
+      return <span className="badge-error">Failed</span>;
+    case 'cancelled':
+      return <span className="badge-neutral">Cancelled</span>;
+    default:
+      return <span className="badge-neutral">{status}</span>;
+  }
+}
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'paid':
+      return <span className="badge-success">Paid</span>;
+    case 'pending':
+      return <span className="badge-warning">Pending</span>;
+    case 'expired':
+    case 'failed':
+      return <span className="badge-error">{status.charAt(0).toUpperCase() + status.slice(1)}</span>;
+    case 'refunded':
+      return <span className="badge-neutral">Refunded</span>;
+    default:
+      return <span className="badge-neutral">{status}</span>;
+  }
+}
+
+function FeedOrderStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'success':
+      return <span className="badge-success">Success</span>;
     case 'pending':
       return <span className="badge-warning">Pending</span>;
     case 'failed':
       return <span className="badge-error">Failed</span>;
+    case 'not_attempted':
+      return <span className="badge-neutral">N/A</span>;
     default:
       return <span className="badge-neutral">{status}</span>;
   }
@@ -81,38 +120,54 @@ export function Orders() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Order ID</th>
+                    <th>Order #</th>
                     <th>Feed</th>
                     <th>Diamond</th>
-                    <th>Offer ID</th>
+                    <th>Amount</th>
+                    <th>Payment</th>
+                    <th>Feed Order</th>
                     <th>Status</th>
                     <th>Feed Order ID</th>
-                    <th>Reference</th>
-                    <th>Comments</th>
                     <th>Created</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.data.map((order: PurchaseHistoryItem) => (
-                    <tr key={order.id}>
-                      <td className="font-mono text-xs">{truncateId(order.id, 8)}</td>
+                    <tr
+                      key={order.id}
+                      className={
+                        order.paymentStatus === 'paid' && order.feedOrderStatus === 'failed'
+                          ? 'bg-red-50 dark:bg-red-950/20 border-l-4 border-l-red-400'
+                          : ''
+                      }
+                    >
+                      <td className="font-mono text-xs">
+                        {order.orderNumber ?? truncateId(order.id, 8)}
+                      </td>
                       <td>
                         <span className="text-xs font-medium px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
                           {order.feed}
                         </span>
                       </td>
                       <td className="font-mono text-xs">{truncateId(order.diamondId, 8)}</td>
-                      <td className="font-mono text-xs">{truncateId(order.offerId, 12)}</td>
+                      <td className="text-xs">
+                        {order.amountCents != null
+                          ? `$${(order.amountCents / 100).toLocaleString()} ${(order.currency ?? 'NZD').toUpperCase()}`
+                          : '-'}
+                      </td>
+                      <td>
+                        <PaymentStatusBadge status={order.paymentStatus} />
+                      </td>
+                      <td>
+                        <FeedOrderStatusBadge status={order.feedOrderStatus} />
+                      </td>
                       <td>
                         <OrderStatusBadge status={order.status} />
                       </td>
                       <td className="font-mono text-xs">
                         {order.feedOrderId ? truncateId(order.feedOrderId, 12) : '-'}
                       </td>
-                      <td className="text-xs">{order.reference || '-'}</td>
-                      <td className="text-xs max-w-[200px] truncate">{order.comments || '-'}</td>
                       <td className="text-xs">{formatRelativeTime(order.createdAt)}</td>
-                      
                     </tr>
                   ))}
                 </tbody>

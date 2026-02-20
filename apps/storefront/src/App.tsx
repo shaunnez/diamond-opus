@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { SearchPage } from './pages/SearchPage';
 import { DiamondDetailPage } from './pages/DiamondDetailPage';
+import { CheckoutSuccessPage } from './pages/CheckoutSuccessPage';
 import { LoginPage } from './pages/LoginPage';
 import { isApiKeySet } from './api/client';
 
@@ -32,6 +33,16 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <DiamondDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/checkout/success"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CheckoutSuccessPage />
             </Layout>
           </ProtectedRoute>
         }
