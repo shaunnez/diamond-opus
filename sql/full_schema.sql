@@ -217,6 +217,16 @@ CREATE TABLE IF NOT EXISTS "public"."pricing_rules" (
 ALTER TABLE "public"."pricing_rules" OWNER TO "postgres";
 
 
+CREATE SEQUENCE IF NOT EXISTS "public"."order_number_seq" START WITH 1 INCREMENT BY 1 NO MAXVALUE CACHE 1;
+
+CREATE OR REPLACE FUNCTION "public"."generate_order_number"() RETURNS text AS $$
+DECLARE seq_val bigint;
+BEGIN
+  seq_val := nextval('order_number_seq');
+  RETURN 'DO-' || to_char(NOW() AT TIME ZONE 'UTC', 'YYYYMMDD') || '-' || lpad(seq_val::text, 4, '0');
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS "public"."purchase_history" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "diamond_id" "uuid",
@@ -225,6 +235,14 @@ CREATE TABLE IF NOT EXISTS "public"."purchase_history" (
     "offer_id" "text" NOT NULL,
     "idempotency_key" "text" NOT NULL,
     "status" "text" NOT NULL,
+    "order_number" "text",
+    "payment_status" "text" NOT NULL DEFAULT 'pending',
+    "feed_order_status" "text" NOT NULL DEFAULT 'not_attempted',
+    "stripe_checkout_session_id" "text",
+    "stripe_payment_intent_id" "text",
+    "amount_cents" integer,
+    "currency" "text" DEFAULT 'nzd',
+    "feed_order_error" "text",
     "reference" "text",
     "comments" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),

@@ -31,6 +31,10 @@ export enum NotifyCategory {
   REPRICING_COMPLETED = 'repricing_completed',
   REPRICING_FAILED = 'repricing_failed',
 
+  // Orders
+  ORDER_FEED_FAILURE = 'order_feed_failure',
+  ORDER_COMPLETED = 'order_completed',
+
   // Infrastructure
   DATABASE_ERROR = 'database_error',
   EXTERNAL_SERVICE_ERROR = 'external_service_error',
@@ -51,6 +55,8 @@ const CATEGORY_CHANNEL_MAP: Record<NotifyCategory, NotifyChannel> = {
   [NotifyCategory.RATE_LIMIT_EXCEEDED]: NotifyChannel.OPS,
   [NotifyCategory.REPRICING_COMPLETED]: NotifyChannel.OPS,
   [NotifyCategory.REPRICING_FAILED]: NotifyChannel.OPS,
+  [NotifyCategory.ORDER_FEED_FAILURE]: NotifyChannel.ERRORS,
+  [NotifyCategory.ORDER_COMPLETED]: NotifyChannel.OPS,
   [NotifyCategory.DATABASE_ERROR]: NotifyChannel.ERRORS,
   [NotifyCategory.EXTERNAL_SERVICE_ERROR]: NotifyChannel.ERRORS,
 };
@@ -71,6 +77,8 @@ const CATEGORY_COLOR_MAP: Record<NotifyCategory, string> = {
   [NotifyCategory.RATE_LIMIT_EXCEEDED]: '#ffc107',
   [NotifyCategory.REPRICING_COMPLETED]: '#28a745',
   [NotifyCategory.REPRICING_FAILED]: '#dc3545',
+  [NotifyCategory.ORDER_FEED_FAILURE]: '#dc3545',
+  [NotifyCategory.ORDER_COMPLETED]: '#28a745',
   [NotifyCategory.DATABASE_ERROR]: '#dc3545',
   [NotifyCategory.EXTERNAL_SERVICE_ERROR]: '#dc3545',
 };

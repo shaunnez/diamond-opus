@@ -23,12 +23,20 @@ export interface HoldHistory {
 
 export interface PurchaseHistory {
   id: string;
+  orderNumber?: string;
   diamondId: string;
   feed: string;
   feedOrderId?: string;
   offerId: string;
   idempotencyKey: string;
-  status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
+  status: 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'failed' | 'expired' | 'cancelled';
+  paymentStatus: 'pending' | 'paid' | 'failed' | 'expired' | 'refunded';
+  feedOrderStatus: 'not_attempted' | 'pending' | 'success' | 'failed';
+  stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string;
+  amountCents?: number;
+  currency?: string;
+  feedOrderError?: string;
   reference?: string;
   comments?: string;
   createdAt: Date;
