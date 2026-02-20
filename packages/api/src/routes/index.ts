@@ -7,11 +7,16 @@ import heatmapRouter from './heatmap.js';
 import pricingRulesRouter from './pricing-rules.js';
 import ratingRulesRouter from './rating-rules.js';
 import systemRouter from './system.js';
+import checkoutRouter from './checkout.js';
+import webhooksRouter from './webhooks.js';
 import { authMiddleware } from '../middleware/index.js';
 
 const router = Router();
 
 router.use('/health', healthRouter);
+
+// Webhook route — no auth (Stripe signature verification only)
+router.use('/api/v2/webhooks', webhooksRouter);
 
 // All API routes, protected by main auth middleware
 router.use('/api/v2/diamonds', authMiddleware, diamondsRouter);
@@ -21,5 +26,6 @@ router.use('/api/v2/heatmap', authMiddleware, heatmapRouter);
 router.use('/api/v2/pricing-rules', authMiddleware, pricingRulesRouter);
 router.use('/api/v2/rating-rules', authMiddleware, ratingRulesRouter);
 router.use('/api/v2/system', authMiddleware, systemRouter);
+router.use('/api/v2/checkout', authMiddleware, checkoutRouter);
 
 export default router;

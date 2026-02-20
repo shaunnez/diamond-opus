@@ -21,6 +21,14 @@ interface PurchaseHistoryRow {
   offer_id: string;
   idempotency_key: string;
   status: string;
+  order_number: string | null;
+  payment_status: string;
+  feed_order_status: string;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  feed_order_error: string | null;
   reference: string | null;
   comments: string | null;
   created_at: Date;
@@ -44,12 +52,20 @@ function mapRowToHoldHistory(row: HoldHistoryRow): HoldHistory {
 function mapRowToPurchaseHistory(row: PurchaseHistoryRow): PurchaseHistory {
   return {
     id: row.id,
+    orderNumber: row.order_number ?? undefined,
     diamondId: row.diamond_id,
     feed: row.feed,
     feedOrderId: row.feed_order_id ?? undefined,
     offerId: row.offer_id,
     idempotencyKey: row.idempotency_key,
     status: row.status as PurchaseHistory['status'],
+    paymentStatus: (row.payment_status ?? 'pending') as PurchaseHistory['paymentStatus'],
+    feedOrderStatus: (row.feed_order_status ?? 'not_attempted') as PurchaseHistory['feedOrderStatus'],
+    stripeCheckoutSessionId: row.stripe_checkout_session_id ?? undefined,
+    stripePaymentIntentId: row.stripe_payment_intent_id ?? undefined,
+    amountCents: row.amount_cents ?? undefined,
+    currency: row.currency ?? undefined,
+    feedOrderError: row.feed_order_error ?? undefined,
     reference: row.reference ?? undefined,
     comments: row.comments ?? undefined,
     createdAt: row.created_at,
@@ -190,4 +206,105 @@ export async function getPurchaseById(purchaseId: string): Promise<PurchaseHisto
   );
   const row = result.rows[0];
   return row ? mapRowToPurchaseHistory(row) : null;
+}
+
+// ============================================================================
+// Stripe checkout query functions
+// ============================================================================
+
+export async function createCheckoutPurchase(params: {
+  diamondId: string;
+  feed: string;
+  offerId: string;
+  idempotencyKey: string;
+  amountCents: number;
+  currency: string;
+  reference?: string;
+  comments?: string;
+}): Promise<PurchaseHistory> {
+  const result = await query<PurchaseHistoryRow>(
+    `INSERT INTO purchase_history (
+      diamond_id, feed, offer_id, idempotency_key,
+      status, payment_status, feed_order_status,
+      order_number, amount_cents, currency,
+      reference, comments
+    ) VALUES (
+      $1, $2, $3, $4,
+      'pending_payment', 'pending', 'not_attempted',
+      generate_order_number(), $5, $6,
+      $7, $8
+    )
+    RETURNING *`,
+    [
+      params.diamondId, params.feed, params.offerId, params.idempotencyKey,
+      params.amountCents, params.currency,
+      params.reference, params.comments,
+    ]
+  );
+  return mapRowToPurchaseHistory(result.rows[0]!);
+}
+
+export async function updatePurchaseStripeSessionId(
+  id: string,
+  stripeCheckoutSessionId: string
+): Promise<void> {
+  await query(
+    `UPDATE purchase_history SET stripe_checkout_session_id = $2, updated_at = NOW() WHERE id = $1`,
+    [id, stripeCheckoutSessionId]
+  );
+}
+
+export async function getPurchaseByStripeSessionId(sessionId: string): Promise<PurchaseHistory | null> {
+  const result = await query<PurchaseHistoryRow>(
+    `SELECT * FROM purchase_history WHERE stripe_checkout_session_id = $1`,
+    [sessionId]
+  );
+  const row = result.rows[0];
+  return row ? mapRowToPurchaseHistory(row) : null;
+}
+
+export async function updatePurchasePaymentCompleted(
+  id: string,
+  paymentIntentId: string
+): Promise<void> {
+  await query(
+    `UPDATE purchase_history
+     SET status = 'paid', payment_status = 'paid', feed_order_status = 'pending',
+         stripe_payment_intent_id = $2, updated_at = NOW()
+     WHERE id = $1`,
+    [id, paymentIntentId]
+  );
+}
+
+export async function updatePurchaseFeedOrderSuccess(
+  id: string,
+  feedOrderId: string
+): Promise<void> {
+  await query(
+    `UPDATE purchase_history
+     SET status = 'confirmed', feed_order_status = 'success', feed_order_id = $2, updated_at = NOW()
+     WHERE id = $1`,
+    [id, feedOrderId]
+  );
+}
+
+export async function updatePurchaseFeedOrderFailed(
+  id: string,
+  errorMessage: string
+): Promise<void> {
+  await query(
+    `UPDATE purchase_history
+     SET feed_order_status = 'failed', feed_order_error = $2, updated_at = NOW()
+     WHERE id = $1`,
+    [id, errorMessage]
+  );
+}
+
+export async function updatePurchaseExpired(id: string): Promise<void> {
+  await query(
+    `UPDATE purchase_history
+     SET status = 'expired', payment_status = 'expired', updated_at = NOW()
+     WHERE id = $1`,
+    [id]
+  );
 }

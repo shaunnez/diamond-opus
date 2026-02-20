@@ -94,6 +94,17 @@ export async function cancelDiamondHold(diamondId: string): Promise<{ hold_id: s
   return response.data.data;
 }
 
+export async function createCheckout(
+  diamondId: string,
+  options?: { reference?: string; comments?: string }
+): Promise<{ checkoutUrl: string; orderNumber: string }> {
+  const response = await api.post<{ data: { checkoutUrl: string; orderNumber: string } }>(
+    '/checkout/create',
+    { diamond_id: diamondId, reference: options?.reference, comments: options?.comments }
+  );
+  return response.data.data;
+}
+
 export async function getRelatedDiamonds(
   id: string,
   options?: {

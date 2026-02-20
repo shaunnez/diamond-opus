@@ -284,12 +284,18 @@ export async function getHolds(page = 1, limit = 50): Promise<PaginatedResponse<
 // Orders
 export interface PurchaseHistoryItem {
   id: string;
+  orderNumber?: string;
   diamondId: string;
   feed: string;
   feedOrderId?: string;
   offerId: string;
   idempotencyKey: string;
-  status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
+  status: string;
+  paymentStatus: string;
+  feedOrderStatus: string;
+  amountCents?: number;
+  currency?: string;
+  feedOrderError?: string;
   reference?: string;
   comments?: string;
   createdAt: string;

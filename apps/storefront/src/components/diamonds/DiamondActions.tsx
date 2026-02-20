@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { useDiamondActions } from '../../hooks/useDiamondActions';
 import { formatCarats } from '../../utils/format';
+import { createCheckout } from '../../api/diamonds';
 import type { Diamond } from '../../types/diamond';
 
 interface DiamondActionsProps {
@@ -52,10 +53,10 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
     clearMessages();
     setPurchaseModalOpen(false);
     try {
-      await actions.purchase.mutateAsync({ comments: 'test comment', reference: 'test reference', destination_id: diamond.id });
-      setSuccessMessage('Purchase order created successfully');
+      const { checkoutUrl } = await createCheckout(diamond.id);
+      window.location.href = checkoutUrl;
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to create purchase order');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to start checkout');
     }
   };
 
@@ -199,11 +200,12 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
       <Modal
         open={purchaseModalOpen}
         onClose={() => setPurchaseModalOpen(false)}
-        title="Confirm Purchase"
+        title="Confirm & Pay"
       >
         <p className="text-sm text-warm-gray-500 mb-6">
-          Are you sure you want to purchase this {diamond.shape} {formatCarats(diamond.carats)} diamond?
-          This action will create a purchase order.
+          You'll be redirected to our secure payment provider to complete your purchase of this{' '}
+          {diamond.shape} {formatCarats(diamond.carats)} diamond
+          {diamond.priceModelNzd ? ` for $${diamond.priceModelNzd.toLocaleString()} NZD` : ''}.
         </p>
         <div className="flex gap-3">
           <Button
@@ -214,7 +216,7 @@ export function DiamondActions({ diamond }: DiamondActionsProps) {
             Cancel
           </Button>
           <Button variant="primary" onClick={handlePurchase} className="flex-1">
-            Confirm Purchase
+            Proceed to Payment
           </Button>
         </div>
       </Modal>
