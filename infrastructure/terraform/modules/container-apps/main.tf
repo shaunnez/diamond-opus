@@ -211,6 +211,22 @@ resource "azurerm_container_app" "api" {
         name        = "SLACK_WEBHOOK_OPS"
         secret_name = "slack-webhook-ops"
       }
+
+      # Stripe payments
+      env {
+        name        = "STRIPE_SECRET_KEY"
+        secret_name = "stripe-secret-key"
+      }
+
+      env {
+        name        = "STRIPE_WEBHOOK_SECRET"
+        secret_name = "stripe-webhook-secret"
+      }
+
+      env {
+        name  = "STOREFRONT_URL"
+        value = "https://${azurerm_container_app.storefront.ingress[0].fqdn}"
+      }
     }
   }
 
@@ -309,6 +325,16 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "slack-webhook-ops"
     value = coalesce(var.slack_webhook_ops, "not-configured")
+  }
+
+  secret {
+    name  = "stripe-secret-key"
+    value = coalesce(var.stripe_secret_key, "not-configured")
+  }
+
+  secret {
+    name  = "stripe-webhook-secret"
+    value = coalesce(var.stripe_webhook_secret, "not-configured")
   }
 
   tags = var.tags

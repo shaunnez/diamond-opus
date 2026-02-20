@@ -358,6 +358,8 @@ jobs:
           TF_VAR_slack_webhook_errors: ${{ secrets.SLACK_WEBHOOK_ERRORS }}
           TF_VAR_slack_webhook_pipeline: ${{ secrets.SLACK_WEBHOOK_PIPELINE }}
           TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
         run: |
           SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           RG="diamond-staging-rg"
@@ -433,6 +435,8 @@ jobs:
           TF_VAR_slack_webhook_errors: ${{ secrets.SLACK_WEBHOOK_ERRORS }}
           TF_VAR_slack_webhook_pipeline: ${{ secrets.SLACK_WEBHOOK_PIPELINE }}
           TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
@@ -460,6 +464,8 @@ jobs:
           TF_VAR_slack_webhook_errors: ${{ secrets.SLACK_WEBHOOK_ERRORS }}
           TF_VAR_slack_webhook_pipeline: ${{ secrets.SLACK_WEBHOOK_PIPELINE }}
           TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
         run: terraform apply -auto-approve tfplan
 
 
