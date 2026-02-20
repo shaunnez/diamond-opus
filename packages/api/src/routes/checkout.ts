@@ -5,9 +5,10 @@ import {
   createCheckoutPurchase,
   updatePurchaseStripeSessionId,
 } from '@diamond/database';
-import { NivodaFeedAdapter } from '@diamond/nivoda';
-import { DemoFeedAdapter } from '@diamond/demo-feed';
-import type { TradingAdapter } from '@diamond/feed-registry';
+// TODO: Re-enable these imports when live availability check is restored
+// import { NivodaFeedAdapter } from '@diamond/nivoda';
+// import { DemoFeedAdapter } from '@diamond/demo-feed';
+// import type { TradingAdapter } from '@diamond/feed-registry';
 import { validateBody, badRequest, notFound } from '../middleware/index.js';
 import { createCheckoutSchema, type CreateCheckoutBody } from '../validators/index.js';
 import { createCheckoutSession } from '../services/stripe.js';
@@ -15,17 +16,18 @@ import { getNzdRate } from '../services/currency.js';
 
 const router = Router();
 
-function getTradingAdapter(feedId: string): TradingAdapter {
-  switch (feedId) {
-    case 'nivoda-natural':
-    case 'nivoda-labgrown':
-      return new NivodaFeedAdapter({ feedVariant: feedId === 'nivoda-labgrown' ? 'labgrown' : 'natural' });
-    case 'demo':
-      return new DemoFeedAdapter();
-    default:
-      throw badRequest(`Trading is not supported for feed: ${feedId}`);
-  }
-}
+// TODO: Re-enable when live availability check is restored
+// function getTradingAdapter(feedId: string): TradingAdapter {
+//   switch (feedId) {
+//     case 'nivoda-natural':
+//     case 'nivoda-labgrown':
+//       return new NivodaFeedAdapter({ feedVariant: feedId === 'nivoda-labgrown' ? 'labgrown' : 'natural' });
+//     case 'demo':
+//       return new DemoFeedAdapter();
+//     default:
+//       throw badRequest(`Trading is not supported for feed: ${feedId}`);
+//   }
+// }
 
 /**
  * POST /api/v2/checkout/create
@@ -48,11 +50,12 @@ router.post(
         throw badRequest('Diamond is not available for purchase');
       }
 
-      const adapter = getTradingAdapter(diamond.feed);
-      const availability = await adapter.checkAvailability(diamond);
-      if (!availability?.available) {
-        throw badRequest('Diamond is not available for purchase');
-      }
+      // TODO: Re-enable live availability check once Nivoda is back up
+      // const adapter = getTradingAdapter(diamond.feed);
+      // const availability = await adapter.checkAvailability(diamond);
+      // if (!availability?.available) {
+      //   throw badRequest('Diamond is not available for purchase');
+      // }
 
       // Compute NZD amount server-side — client never sends price
       const rate = getNzdRate();
