@@ -187,6 +187,12 @@ variable "stripe_webhook_secret" {
   default     = ""
 }
 
+variable "storefront_url" {
+  description = "Public URL of the storefront (used by API for Stripe success/cancel redirect URLs)"
+  type        = string
+  default     = ""
+}
+
 # ============================================
 # SCHEDULER CONFIGURATION
 # ============================================
