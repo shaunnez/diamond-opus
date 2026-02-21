@@ -174,7 +174,7 @@ erDiagram
     partition_progress {
         uuid run_id PK_FK
         text partition_id PK
-        integer next_offset
+        integer page_offset
         boolean completed
         boolean failed
         timestamptz updated_at
@@ -372,7 +372,7 @@ sequenceDiagram
         Worker->>Nivoda: search(offset, limit=40)
         Nivoda-->>Worker: Page of diamonds
         Worker->>PG: Upsert raw payloads
-        Worker->>PG: Update partition_progress.next_offset
+        Worker->>PG: Update partition_progress.page_offset
 
         alt More pages remain
             Worker->>SB: Enqueue next WorkItemMessage
