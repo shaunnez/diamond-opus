@@ -172,12 +172,12 @@ erDiagram
     }
 
     partition_progress {
-        uuid run_id PK_FK
-        text partition_id PK
+        uuid run_id FK "PK(run_id, partition_id)"
+        text partition_id "PK(run_id, partition_id)"
         integer page_offset
         boolean completed
         boolean failed
-        timestamptz updated_at
+        timestamp updated_at
     }
 
     worker_runs {
@@ -215,8 +215,8 @@ erDiagram
     }
 
     pricing_reapply_snapshots {
-        uuid job_id PK_FK
-        uuid diamond_id PK
+        uuid job_id FK "PK(job_id, diamond_id)"
+        uuid diamond_id "PK(job_id, diamond_id)"
         numeric old_price_model_price
         numeric new_price_model_price
     }
@@ -242,8 +242,8 @@ erDiagram
     }
 
     rating_reapply_snapshots {
-        uuid job_id PK_FK
-        uuid diamond_id PK
+        uuid job_id FK "PK(job_id, diamond_id)"
+        uuid diamond_id "PK(job_id, diamond_id)"
         integer old_rating
         integer new_rating
     }
