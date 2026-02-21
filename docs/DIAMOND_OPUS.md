@@ -159,8 +159,8 @@ apps/scheduler, apps/worker, apps/consolidator
 Workers process exactly **one page per Service Bus message**:
 
 ```
-[WORK_ITEM offset=0] → Process Page → Enqueue [WORK_ITEM offset=30]
-                                            → Process Page → Enqueue [WORK_ITEM offset=60]
+[WORK_ITEM offset=0] → Process Page → Enqueue [WORK_ITEM offset=40]
+                                            → Process Page → Enqueue [WORK_ITEM offset=80]
                                                                   → ... → Last Page → WORK_DONE
 ```
 
@@ -176,8 +176,7 @@ Benefits:
 
 ```typescript
 // From packages/shared/src/constants.ts
-RECORDS_PER_WORKER = 5000              // Target records per worker
-WORKER_PAGE_SIZE = 30                  // Pagination size for Nivoda API
+WORKER_PAGE_SIZE = 40                  // Pagination size for Nivoda API
 CONSOLIDATOR_BATCH_SIZE = 2000         // Raw diamonds fetched per cycle
 CONSOLIDATOR_UPSERT_BATCH_SIZE = 100   // Diamonds per batch INSERT (uses UNNEST)
 CONSOLIDATOR_CONCURRENCY = 2           // Concurrent batch upserts (env: CONSOLIDATOR_CONCURRENCY)

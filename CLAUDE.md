@@ -214,9 +214,8 @@ API key authentication:
 - `packages/nivoda/src/mapper.ts` - Raw to canonical transformation
 - `packages/pricing-engine/src/engine.ts` - Pricing rule matching
 - `packages/api/src/middleware/auth.ts` - Authentication logic
-- `packages/api/src/middleware/nivodaProxyAuth.ts` - Internal proxy auth (constant-time token comparison)
-- `packages/api/src/middleware/rateLimiter.ts` - In-memory rate limiter for Nivoda proxy (token bucket with FIFO queue)
-- `packages/api/src/routes/nivodaProxy.ts` - Nivoda proxy route (rate-limited, forwards GraphQL to Nivoda)
+- `apps/ingestion-proxy/src/middleware/auth.ts` - Internal proxy auth (constant-time token comparison)
+- `apps/ingestion-proxy/src/routes/proxy.ts` - Nivoda proxy route (rate-limited, forwards GraphQL to Nivoda)
 - `packages/api/src/routes/pricing-rules.ts` - Pricing rule CRUD and repricing job endpoints
 - `packages/nivoda/src/proxyTransport.ts` - Proxy transport (used when NIVODA_PROXY_BASE_URL is set)
 - `packages/api/src/services/cache.ts` - In-memory LRU search cache with version-keyed invalidation
@@ -260,7 +259,7 @@ AUTO_CONSOLIDATION_DELAY_MINUTES = 5   // Delay before auto-consolidation on par
 NIVODA_MAX_LIMIT = 50                  // Nivoda API max page size
 TOKEN_LIFETIME_MS = 6 hours            // Nivoda token validity
 HEATMAP_MAX_WORKERS = 10               // Max parallel workers (unified for all run types)
-HEATMAP_MAX_PRICE = 50000              // Max price per carat to scan
+HEATMAP_MAX_PRICE = 100000             // Max price per carat to scan
 HEATMAP_DENSE_ZONE_THRESHOLD = 5000    // $/ct threshold for dense zone
 HEATMAP_DENSE_ZONE_STEP = 50           // Fixed step in dense zone ($/ct)
 HEATMAP_INITIAL_STEP = 250             // Initial adaptive step above dense zone ($/ct)
