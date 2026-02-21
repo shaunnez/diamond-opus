@@ -20,6 +20,7 @@ flowchart TD
         SCHED["Scheduler\n(CronJob)"]
         WORKER["Worker\n(0-10 replicas)"]
         CONSOL["Consolidator\n(1-3 replicas)"]
+        IPROXY["Ingestion Proxy\n(apps/ingestion-proxy)"]
     end
 
     subgraph Messaging["Azure Service Bus"]
@@ -45,7 +46,6 @@ flowchart TD
         API["Express API\n(:3000)"]
         CACHE["In-Memory\nLRU Cache"]
         RATE["Rate Limiter\n(Token Bucket)"]
-        PROXY["Nivoda Proxy"]
     end
 
     subgraph Frontends["Web Frontends"]
@@ -61,13 +61,14 @@ flowchart TD
     end
 
     %% Pipeline flow
-    SCHED -->|"heatmap counts"| NIVODA
+    SCHED -->|"heatmap counts (via proxy)"| IPROXY
     SCHED -->|"load/save watermark"| BLOB
     SCHED -->|"create run"| PG
     SCHED -->|"enqueue WorkItemMessages"| Q_WORK
 
     Q_WORK -->|"receive message"| WORKER
-    WORKER -->|"fetch page"| NIVODA
+    WORKER -->|"fetch page (via proxy)"| IPROXY
+    IPROXY -->|"rate-limited GraphQL"| NIVODA
     WORKER -->|"upsert raw payloads"| PG
     WORKER -->|"next page"| Q_WORK
     WORKER -->|"partition done"| Q_DONE
@@ -82,8 +83,6 @@ flowchart TD
     %% API layer
     API --> CACHE
     API --> RATE
-    RATE --> PROXY
-    PROXY -->|"proxied GraphQL"| NIVODA
     API -->|"query diamonds"| PG
     API -->|"exchange rates"| FRANK
     API -->|"payment"| STRIPE
@@ -152,8 +151,11 @@ erDiagram
         text supplier_stone_id UK
         text offer_id
         jsonb payload
+        text payload_hash
         boolean consolidated
         text consolidation_status
+        timestamptz claimed_at
+        text claimed_by
     }
 
     run_metadata {
@@ -410,5 +412,6 @@ sequenceDiagram
 ## Notes
 
 - **System Architecture**: Dashed lines (-.->)  show package dependencies; solid lines show runtime data flow.
-- **Database Schema**: Only key columns are shown per table. See `sql/full_schema.sql` and `sql/migrations/` for complete definitions.
+- **Ingestion Proxy**: `apps/ingestion-proxy` is a standalone Express service (separate from the main API) that rate-limits and proxies Nivoda GraphQL calls. Workers and the scheduler route through it via `NIVODA_PROXY_BASE_URL`.
+- **Database Schema**: Only key columns are shown per table. See `sql/full_schema.sql` and `sql/migrations/` for complete definitions. Tables added via migrations (e.g. `dataset_versions`, `rating_rules`, `pricing_reapply_jobs`) are included.
 - **Pipeline Sequence**: Shows the happy path. On failure, watermark is not advanced and alerts are sent via Resend/Slack.
