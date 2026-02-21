@@ -120,7 +120,6 @@ module "container_apps" {
 
   stripe_secret_key     = var.stripe_secret_key
   stripe_webhook_secret = var.stripe_webhook_secret
-  storefront_url        = var.storefront_url
 
   # Scheduler configuration
   scheduler_cron_expression = var.scheduler_cron_expression
