@@ -370,9 +370,9 @@ variable "demo_feed_api_min_replicas" {
 }
 
 variable "demo_feed_api_max_replicas" {
-  description = "Maximum demo feed API replicas (unused in production - set to 0)"
+  description = "Maximum demo feed API replicas (unused in production - set to 1)"
   type        = number
-  default     = 0
+  default     = 1
 
   validation {
     condition     = var.demo_feed_api_max_replicas >= 0
