@@ -185,6 +185,19 @@ variable "enable_scheduler" {
   default     = true
 }
 
+variable "scheduler_feeds" {
+  description = "Map of feed scheduler jobs. Each key becomes a suffix on the job name, with its own cron and FEED env var."
+  type = map(object({
+    cron_expression = string
+    feed            = string
+  }))
+  default = {
+    niv-natural  = { cron_expression = "0 */4 * * *", feed = "nivoda-natural" }
+    niv-labgrown = { cron_expression = "30 */4 * * *", feed = "nivoda-labgrown" }
+    demo         = { cron_expression = "0 */6 * * *", feed = "demo" }
+  }
+}
+
 variable "scheduler_parallelism" {
   description = "Parallelism for scheduler job"
   type        = number

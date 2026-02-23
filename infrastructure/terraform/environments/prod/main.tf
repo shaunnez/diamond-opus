@@ -10,8 +10,8 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "diamond-tfstate-rg"
-    storage_account_name = "diamondtfstate"
-    container_name       = "tfstate"
+    storage_account_name = "diamondtfstateprod"
+    container_name       = "tfstateprod"
     key                  = "prod.terraform.tfstate"
   }
 }

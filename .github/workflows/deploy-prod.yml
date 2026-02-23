@@ -1,0 +1,365 @@
+###############################################################################
+# Deploy Production
+#
+# Full build and deploy to production. Builds, tests, pushes Docker images,
+# applies Terraform, and deploys ALL apps.
+#
+# Trigger: manual only (workflow_dispatch).
+###############################################################################
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: diamond-prod-${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+  TF_VERSION: "1.6.0"
+
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
+
+  docker_build_and_push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    environment: prod
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, scheduler, worker, consolidator, demo-feed-api, dashboard, storefront, ingestion-proxy]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get commit SHA
+        id: sha
+        run: |
+          echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "full=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Debug prod secrets present
+        run: |
+          [ -n "${{ secrets.ACR_LOGIN_SERVER }}" ] && echo "ACR_LOGIN_SERVER ok" || (echo "ACR_LOGIN_SERVER missing" && exit 1)
+          [ -n "${{ secrets.ACR_USERNAME }}" ] && echo "ACR_USERNAME ok" || (echo "ACR_USERNAME missing" && exit 1)
+          [ -n "${{ secrets.ACR_PASSWORD }}" ] && echo "ACR_PASSWORD ok" || (echo "ACR_PASSWORD missing" && exit 1)
+          [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && echo "AZURE_CLIENT_ID ok" || (echo "AZURE_CLIENT_ID missing" && exit 1)
+          [ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ] && echo "AZURE_SUBSCRIPTION_ID ok" || (echo "AZURE_SUBSCRIPTION_ID missing" && exit 1)
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/diamond-${{ matrix.app }}
+          tags: |
+            type=sha,format=short,prefix=
+            type=raw,value=prod
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.${{ matrix.app }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  terraform_prod:
+    name: Terraform Apply Prod
+    runs-on: ubuntu-latest
+    needs:
+      - build_and_test
+      - docker_build_and_push
+    environment: prod
+
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: Azure/login@v2.3.0
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Format Check
+        run: terraform fmt -recursive
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      # Import existing Azure resources that are not yet in Terraform state.
+      # Each command uses '|| true' so it silently skips resources that are
+      # already managed or don't exist. Safe to leave permanently — becomes
+      # a no-op once state is fully reconciled.
+      - name: Import Existing Azure Resources
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+          TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
+          TF_VAR_nivoda_proxy_base_url: ${{ secrets.NIVODA_PROXY_BASE_URL }}
+          TF_VAR_slack_webhook_errors: ${{ secrets.SLACK_WEBHOOK_ERRORS }}
+          TF_VAR_slack_webhook_pipeline: ${{ secrets.SLACK_WEBHOOK_PIPELINE }}
+          TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: |
+          SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          RG="diamond-prod-rg"
+          P="/subscriptions/${SUB}/resourceGroups/${RG}"
+
+          echo "=== Importing existing Azure resources into Terraform state ==="
+          echo "Resources already in state will be skipped automatically."
+
+          # Resource Group
+          terraform import 'azurerm_resource_group.main' \
+            "${P}" || true
+
+          # --- Service Bus module ---
+          terraform import 'module.service_bus.azurerm_servicebus_namespace.main' \
+            "${P}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus" || true
+          terraform import 'module.service_bus.azurerm_servicebus_queue.work_items' \
+            "${P}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/queues/work-items" || true
+          terraform import 'module.service_bus.azurerm_servicebus_queue.work_done' \
+            "${P}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/queues/work-done" || true
+          terraform import 'module.service_bus.azurerm_servicebus_queue.consolidate' \
+            "${P}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/queues/consolidate" || true
+          terraform import 'module.service_bus.azurerm_servicebus_namespace_authorization_rule.app' \
+            "${P}/providers/Microsoft.ServiceBus/namespaces/diamond-prod-servicebus/authorizationRules/app-access" || true
+
+          # --- Storage module ---
+          terraform import 'module.storage.azurerm_storage_account.main' \
+            "${P}/providers/Microsoft.Storage/storageAccounts/diamondprodstore" || true
+          terraform import 'module.storage.azurerm_storage_container.watermarks' \
+            "https://diamondprodstore.blob.core.windows.net/watermarks" || true
+
+          # --- Container Registry module ---
+          terraform import 'module.container_registry.azurerm_container_registry.main' \
+            "${P}/providers/Microsoft.ContainerRegistry/registries/diamondprodacr" || true
+
+          # --- Container Apps module (count=1, so index [0]) ---
+          terraform import 'module.container_apps[0].azurerm_log_analytics_workspace.main' \
+            "${P}/providers/Microsoft.OperationalInsights/workspaces/diamond-prod-env-logs" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_environment.main' \
+            "${P}/providers/Microsoft.App/managedEnvironments/diamond-prod-env" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.api' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-prod-api" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.worker' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-prod-worker" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.consolidator' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-prod-consolidator" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.demo_feed_api' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-prod-demo-feed-api" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.dashboard' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-prod-dashboard" || true
+          terraform import 'module.container_apps[0].azurerm_container_app.ingestion_proxy' \
+            "${P}/providers/Microsoft.App/containerApps/diamond-prod-ingestion-proxy" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler[0]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-prod-scheduler" || true
+
+          echo "=== Import step complete ==="
+
+      - name: Terraform Plan
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+          TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
+          TF_VAR_nivoda_proxy_base_url: ${{ secrets.NIVODA_PROXY_BASE_URL }}
+          TF_VAR_slack_webhook_errors: ${{ secrets.SLACK_WEBHOOK_ERRORS }}
+          TF_VAR_slack_webhook_pipeline: ${{ secrets.SLACK_WEBHOOK_PIPELINE }}
+          TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: |
+          terraform plan \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="image_tag=${GITHUB_SHA::7}" \
+            -var="environment_tag=${{ secrets.ENVIRONMENT_TAG }}" \
+            -out=tfplan \
+            -no-color
+
+      - name: Terraform Apply
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
+          TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
+          TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
+          TF_VAR_nivoda_password: ${{ secrets.NIVODA_PASSWORD }}
+          TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
+          TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
+          TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
+          TF_VAR_alert_email_from: ${{ secrets.ALERT_EMAIL_FROM }}
+          TF_VAR_internal_service_token: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
+          TF_VAR_nivoda_proxy_base_url: ${{ secrets.NIVODA_PROXY_BASE_URL }}
+          TF_VAR_slack_webhook_errors: ${{ secrets.SLACK_WEBHOOK_ERRORS }}
+          TF_VAR_slack_webhook_pipeline: ${{ secrets.SLACK_WEBHOOK_PIPELINE }}
+          TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: terraform apply -auto-approve tfplan
+
+  deploy_images_prod:
+    name: Deploy Images to Prod
+    runs-on: ubuntu-latest
+    needs:
+      - docker_build_and_push
+      - terraform_prod
+    environment: prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: Azure/login@v2.3.0
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
+
+      - name: Deploy Container Apps and Job Images
+        env:
+          RESOURCE_GROUP: diamond-prod-rg
+          ACR_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_TAG="${IMAGE_TAG::7}"
+
+          deploy_app() {
+            local name=$1
+            local container_name=$2
+            local image=$3
+
+            if az containerapp show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating $name"
+              az containerapp update \
+                --name "$name" \
+                --resource-group "$RESOURCE_GROUP" \
+                --container-name "$container_name" \
+                --image "$image"
+            else
+              echo "WARNING $name does not exist, Terraform must create it"
+            fi
+          }
+
+          deploy_app "diamond-prod-api" "api" "$ACR_SERVER/diamond-api:$IMAGE_TAG"
+          deploy_app "diamond-prod-ingestion-proxy" "ingestion-proxy" "$ACR_SERVER/diamond-ingestion-proxy:$IMAGE_TAG"
+          deploy_app "diamond-prod-worker" "worker" "$ACR_SERVER/diamond-worker:$IMAGE_TAG"
+          deploy_app "diamond-prod-consolidator" "consolidator" "$ACR_SERVER/diamond-consolidator:$IMAGE_TAG"
+          deploy_app "diamond-prod-demo-feed-api" "demo-feed-api" "$ACR_SERVER/diamond-demo-feed-api:$IMAGE_TAG"
+          deploy_app "diamond-prod-dashboard" "dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG"
+          deploy_app "diamond-prod-storefront" "storefront" "$ACR_SERVER/diamond-storefront:$IMAGE_TAG"
+
+          if az containerapp job show --name "diamond-prod-scheduler" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            echo "Updating scheduler job image"
+            az containerapp job update \
+              --name "diamond-prod-scheduler" \
+              --resource-group "$RESOURCE_GROUP" \
+              --container-name "scheduler" \
+              --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+          else
+            echo "Scheduler job not found, Terraform must create it"
+          fi
+
+      - name: Diagnose Consolidator Scale Rules
+        run: |
+          echo "=== CONSOLIDATOR DIAGNOSTICS ==="
+          az containerapp show \
+            --name "diamond-prod-consolidator" \
+            --resource-group "diamond-prod-rg" \
+            --query "{
+              name: name,
+              minReplicas: properties.template.scale.minReplicas,
+              maxReplicas: properties.template.scale.maxReplicas,
+              scaleRules: properties.template.scale.rules,
+              cpu: properties.template.containers[0].resources.cpu,
+              memory: properties.template.containers[0].resources.memory,
+              image: properties.template.containers[0].image
+            }" \
+            -o json || echo "Failed to get consolidator details"
