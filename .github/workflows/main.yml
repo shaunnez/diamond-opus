@@ -230,8 +230,12 @@ jobs:
             "${P}/providers/Microsoft.App/containerApps/diamond-staging-dashboard" || true
           terraform import 'module.container_apps[0].azurerm_container_app.ingestion_proxy' \
             "${P}/providers/Microsoft.App/containerApps/diamond-staging-ingestion-proxy" || true
-          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler[0]' \
-            "${P}/providers/Microsoft.App/jobs/diamond-staging-scheduler" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler["niv-natural"]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-staging-s-niv-natural" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler["niv-labgrown"]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-staging-s-niv-labgrown" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler["demo"]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-staging-s-demo" || true
 
           echo "=== Import step complete ==="
 
@@ -341,16 +345,18 @@ jobs:
           deploy_app "diamond-staging-dashboard" "dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG"
           deploy_app "diamond-staging-storefront" "storefront" "$ACR_SERVER/diamond-storefront:$IMAGE_TAG"
 
-          if az containerapp job show --name "diamond-staging-scheduler" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-            echo "Updating scheduler job image"
-            az containerapp job update \
-              --name "diamond-staging-scheduler" \
-              --resource-group "$RESOURCE_GROUP" \
-              --container-name "scheduler" \
-              --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
-          else
-            echo "Scheduler job not found, Terraform must create it"
-          fi
+          for feed_job in diamond-staging-s-niv-natural diamond-staging-s-niv-labgrown diamond-staging-s-demo; do
+            if az containerapp job show --name "$feed_job" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating $feed_job image"
+              az containerapp job update \
+                --name "$feed_job" \
+                --resource-group "$RESOURCE_GROUP" \
+                --container-name "scheduler" \
+                --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+            else
+              echo "WARNING $feed_job does not exist, Terraform must create it"
+            fi
+          done
 
       - name: Diagnose Consolidator Scale Rules
         run: |

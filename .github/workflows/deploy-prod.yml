@@ -176,6 +176,8 @@ jobs:
           TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
           TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          TF_VAR_demo_feed_api_min_replicas: "0"
+          TF_VAR_demo_feed_api_max_replicas: "1"
         run: |
           SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           RG="diamond-prod-rg"
@@ -227,8 +229,12 @@ jobs:
             "${P}/providers/Microsoft.App/containerApps/diamond-prod-dashboard" || true
           terraform import 'module.container_apps[0].azurerm_container_app.ingestion_proxy' \
             "${P}/providers/Microsoft.App/containerApps/diamond-prod-ingestion-proxy" || true
-          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler[0]' \
-            "${P}/providers/Microsoft.App/jobs/diamond-prod-scheduler" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler["niv-natural"]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-prod-s-niv-natural" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler["niv-labgrown"]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-prod-s-niv-labgrown" || true
+          terraform import 'module.container_apps[0].azurerm_container_app_job.scheduler["demo"]' \
+            "${P}/providers/Microsoft.App/jobs/diamond-prod-s-demo" || true
 
           echo "=== Import step complete ==="
 
@@ -254,6 +260,8 @@ jobs:
           TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
           TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          TF_VAR_demo_feed_api_min_replicas: "0"
+          TF_VAR_demo_feed_api_max_replicas: "1"
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
@@ -284,6 +292,8 @@ jobs:
           TF_VAR_slack_webhook_ops: ${{ secrets.SLACK_WEBHOOK_OPS }}
           TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          TF_VAR_demo_feed_api_min_replicas: "0"
+          TF_VAR_demo_feed_api_max_replicas: "1"
         run: terraform apply -auto-approve tfplan
 
   deploy_images_prod:
@@ -336,16 +346,18 @@ jobs:
           deploy_app "diamond-prod-dashboard" "dashboard" "$ACR_SERVER/diamond-dashboard:$IMAGE_TAG"
           deploy_app "diamond-prod-storefront" "storefront" "$ACR_SERVER/diamond-storefront:$IMAGE_TAG"
 
-          if az containerapp job show --name "diamond-prod-scheduler" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-            echo "Updating scheduler job image"
-            az containerapp job update \
-              --name "diamond-prod-scheduler" \
-              --resource-group "$RESOURCE_GROUP" \
-              --container-name "scheduler" \
-              --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
-          else
-            echo "Scheduler job not found, Terraform must create it"
-          fi
+          for feed_job in diamond-prod-s-niv-natural diamond-prod-s-niv-labgrown diamond-prod-s-demo; do
+            if az containerapp job show --name "$feed_job" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+              echo "Updating $feed_job image"
+              az containerapp job update \
+                --name "$feed_job" \
+                --resource-group "$RESOURCE_GROUP" \
+                --container-name "scheduler" \
+                --image "$ACR_SERVER/diamond-scheduler:$IMAGE_TAG"
+            else
+              echo "WARNING $feed_job does not exist, Terraform must create it"
+            fi
+          done
 
       - name: Diagnose Consolidator Scale Rules
         run: |
