@@ -244,7 +244,7 @@ variable "stripe_webhook_secret" {
 # ============================================
 
 variable "nivoda_proxy_base_url" {
-  description = "Base URL for internal Nivoda proxy (e.g., https://api-test.fourwords.co.nz). When set, workers/scheduler can route Nivoda calls via the API to satisfy domain allowlisting."
+  description = "Custom domain for the ingestion proxy (e.g., https://stones.fourwords.co.nz). When set, overrides the auto-generated internal FQDN for NIVODA_PROXY_BASE_URL on API, worker, and scheduler. Leave empty to use the internal Container Apps FQDN."
   type        = string
   default     = ""
 }

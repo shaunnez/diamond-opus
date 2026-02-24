@@ -161,7 +161,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "NIVODA_PROXY_BASE_URL"
-        value = "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
+        value = var.nivoda_proxy_base_url != "" ? var.nivoda_proxy_base_url : "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
       }
 
       # Database pooling configuration
@@ -443,9 +443,10 @@ resource "azurerm_container_app" "ingestion_proxy" {
     }
   }
 
-  # Internal ingress only (not publicly accessible)
+  # External ingress - allows custom domain (stones.fourwords.co.nz) binding
+  # Workers/scheduler use the internal FQDN when no override is set; this enables custom domain access
   ingress {
-    external_enabled = false
+    external_enabled = true
     target_port      = 3000
     transport        = "http"
 
@@ -604,7 +605,7 @@ resource "azurerm_container_app" "worker" {
       # Route Nivoda calls through ingestion proxy for global rate limit enforcement
       env {
         name  = "NIVODA_PROXY_BASE_URL"
-        value = "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
+        value = var.nivoda_proxy_base_url != "" ? var.nivoda_proxy_base_url : "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
       }
 
       env {
@@ -1003,7 +1004,7 @@ resource "azurerm_container_app_job" "scheduler" {
       # Route Nivoda calls through ingestion proxy for global rate limit enforcement
       env {
         name  = "NIVODA_PROXY_BASE_URL"
-        value = "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
+        value = var.nivoda_proxy_base_url != "" ? var.nivoda_proxy_base_url : "https://${azurerm_container_app.ingestion_proxy.ingress[0].fqdn}"
       }
 
       env {
