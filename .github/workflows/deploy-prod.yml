@@ -157,7 +157,7 @@ jobs:
       - name: Import Existing Azure Resources
         env:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_image_tag: prod
           TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
           TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
@@ -241,7 +241,7 @@ jobs:
       - name: Terraform Plan
         env:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_image_tag: prod
           TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
           TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
@@ -265,7 +265,7 @@ jobs:
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -var="image_tag=${GITHUB_SHA::7}" \
+            -var="image_tag=prod" \
             -var="environment_tag=${{ secrets.ENVIRONMENT_TAG }}" \
             -out=tfplan \
             -no-color
@@ -273,7 +273,7 @@ jobs:
       - name: Terraform Apply
         env:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_image_tag: prod
           TF_VAR_environment_tag: ${{ secrets.ENVIRONMENT_TAG }}
           TF_VAR_nivoda_endpoint: ${{ secrets.NIVODA_ENDPOINT }}
           TF_VAR_nivoda_username: ${{ secrets.NIVODA_USERNAME }}
