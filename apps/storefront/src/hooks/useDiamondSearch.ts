@@ -116,7 +116,7 @@ export function useDiamondSearch() {
     // Apply stone type filter
     if (stoneType === 'natural') {
       params.lab_grown = false;
-      delete params.fancy_color;
+      params.fancy_color = false;
       delete params.fancy_intensity;
       delete params.fancy_colors;
     } else if (stoneType === 'natural_fancy') {
@@ -125,7 +125,7 @@ export function useDiamondSearch() {
       delete params.color;
     } else if (stoneType === 'lab') {
       params.lab_grown = true;
-      delete params.fancy_color;
+      params.fancy_color = false;
       delete params.fancy_intensity;
       delete params.fancy_colors;
     } else if (stoneType === 'lab_fancy') {
