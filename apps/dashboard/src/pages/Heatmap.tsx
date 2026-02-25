@@ -46,7 +46,6 @@ export function Heatmap() {
   const [feed, setFeed] = useState('nivoda-natural');
   const [minPrice, setMinPrice] = useState('0');
   const [maxPrice, setMaxPrice] = useState('50000');
-  const [maxWorkers, setMaxWorkers] = useState('10');
   const [result, setResult] = useState<HeatmapResult | null>(null);
 
   // Fetch heatmap history for the selected feed
@@ -100,7 +99,6 @@ export function Heatmap() {
     const options: RunHeatmapOptions = {
       min_price: parseInt(minPrice, 10) || 0,
       max_price: parseInt(maxPrice, 10) || 50000,
-      max_workers: parseInt(maxWorkers, 10) || 10,
       feed,
     };
 
@@ -211,7 +209,7 @@ export function Heatmap() {
               title="Scan Configuration"
               subtitle="Configure the heatmap scanning parameters"
             />
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Min $/ct"
                 type="number"
@@ -224,17 +222,12 @@ export function Heatmap() {
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
               />
-              <Input
-                label="Max Workers"
-                type="number"
-                value={maxWorkers}
-                onChange={(e) => setMaxWorkers(e.target.value)}
-              />
             </div>
 
-            <div className="mt-4 flex items-center gap-6">
-              
-            </div>
+            <Alert variant="info" className="mt-4">
+              <strong>Quick Preview</strong> uses coarser scan steps and a lower max price for speed — it is a fast approximation.{' '}
+              <strong>Run Full Scan</strong> uses the exact feed configuration the scheduler runs with (feed-specific step sizes, max workers, and price range), so its partition plan is authoritative.
+            </Alert>
 
             <div className="mt-6 flex gap-3">
               <Button

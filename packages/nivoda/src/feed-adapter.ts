@@ -84,15 +84,15 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
     this.labgrown = variant === 'labgrown';
     this.adapterConfig = config;
 
-    // Labgrown diamonds cluster heavily at very low $/ct ($0–$650).
-    // With the default $50 dense-zone step only ~13 scan chunks cover that range,
-    // leaving the greedy partition algorithm unable to balance 10 workers.
-    // Use a $10 step (65 chunks) and raise maxWorkers to 30 so each partition
-    // handles ~30k records instead of 90k+, and the split threshold kicks in properly.
-    // denseZoneThreshold is lowered to $1,000 so we don't waste 400 extra $10-step
-    // queries in the $1,000–$5,000 range where labgrown data is very sparse.
+    // Labgrown diamonds concentrate heavily below $250/ct (~770k of ~900k total records).
+    // Scan the $0–$1,000 dense zone in $250 steps (4 API calls instead of 100) so the
+    // partition algorithm receives one large $0–$250 density chunk (~770k records) that
+    // it cleanly splits into ~13 balanced sub-partitions of ~59k each. Above $1,000 the
+    // $2,500 initial step skips the sparse high-price zone quickly. This mirrors the
+    // dashboard preview config, making preview an accurate representation of scheduler
+    // behaviour and eliminating the 13 tiny near-zero partitions the old $10 step produced.
     this.heatmapConfig = this.labgrown
-      ? { denseZoneStep: 10, denseZoneThreshold: 1000, maxWorkers: 30 }
+      ? { denseZoneStep: 250, denseZoneThreshold: 1000, maxWorkers: 30, initialStep: 2500 }
       : {};
   }
 
