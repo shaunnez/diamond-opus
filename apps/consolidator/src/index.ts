@@ -48,6 +48,7 @@ import { RatingEngine } from '@diamond/rating-engine';
 import { receiveConsolidateMessage, closeConnections } from './service-bus.js';
 import { saveWatermark } from './watermark.js';
 import { createFeedRegistry } from './feeds.js';
+import { triggerNextFeed } from './chain.js';
 
 const baseLogger = createServiceLogger('consolidator');
 
@@ -321,6 +322,10 @@ async function handleConsolidateMessage(
 
   try {
     await processConsolidation(message, adapter, log);
+    // Fire chain trigger after successful consolidation (fire-and-forget, never fails the consolidation)
+    triggerNextFeed(adapter.feedId, runMetadata.runType as 'full' | 'incremental').catch((err) => {
+      log.warn('feed chain trigger failed — next feed must be started manually', { err });
+    });
   } catch (error) {
     const errorMessage = capErrorMessage(error instanceof Error ? error.message : String(error));
     log.error('Consolidation failed', error);

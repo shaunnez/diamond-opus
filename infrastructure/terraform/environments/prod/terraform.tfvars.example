@@ -24,9 +24,8 @@ consolidator_max_replicas = 2
 # Worker scaling: 1 message per replica for maximum parallelism
 worker_message_count = 1
 
-# Scheduler: enabled for manual triggers, but cron set to Feb 31st (never runs)
-enable_scheduler          = true
-scheduler_cron_expression = "0 0 31 2 *"
+# Scheduler: natural feed runs every 12h; labgrown has no cron (triggered by chain after natural)
+enable_scheduler = true
 
 # Nivoda API Configuration
 nivoda_endpoint  = "https://intg-customer-prod.nivodaapi.net/api/diamonds"

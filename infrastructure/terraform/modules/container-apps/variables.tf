@@ -302,14 +302,14 @@ variable "scheduler_parallelism" {
 }
 
 variable "scheduler_feeds" {
-  description = "Map of feed scheduler jobs. Each key becomes a suffix on the job name, with its own cron and FEED env var."
+  description = "Map of feed scheduler jobs. Each key becomes a suffix on the job name, with its own cron and FEED env var. Feeds without a cron_expression use manual_trigger_config and are triggered programmatically (e.g. via chain trigger)."
   type = map(object({
-    cron_expression = string
+    cron_expression = optional(string)
     feed            = string
   }))
   default = {
-    niv-natural  = { cron_expression = "0 */4 * * *", feed = "nivoda-natural" }
-    niv-labgrown = { cron_expression = "30 */4 * * *", feed = "nivoda-labgrown" }
+    niv-natural  = { cron_expression = "0 */12 * * *", feed = "nivoda-natural" }
+    niv-labgrown = { feed = "nivoda-labgrown" }
     demo         = { cron_expression = "0 */6 * * *", feed = "demo" }
   }
 }

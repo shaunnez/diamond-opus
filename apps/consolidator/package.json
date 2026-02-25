@@ -11,6 +11,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@azure/arm-appcontainers": "^2.1.0",
+    "@azure/identity": "^4.0.0",
     "@azure/service-bus": "^7.9.3",
     "@azure/storage-blob": "^12.17.0",
     "@diamond/database": "*",
