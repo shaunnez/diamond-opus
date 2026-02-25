@@ -172,20 +172,29 @@ export function mapNivodaItemToDiamond(
   const carats = certificate.carats ?? undefined;
   const pricePerCarat = carats ? feedPrice / carats : 0;
 
+  // Reconcile color ↔ fancyColor:
+  // • color='Fancy' but no fancyColor → default fancyColor to 'Unknown'
+  // • fancyColor present but color≠'Fancy' → coerce color to 'Fancy'
+  const rawColor = certificate.color ?? undefined;
+  const rawFancyColor = normalizeFancyColor(certificate.f_color ?? undefined);
+  const isFancy = rawColor?.toLowerCase() === 'fancy';
+  const color = !isFancy && rawFancyColor !== undefined ? 'Fancy' : rawColor;
+  const fancyColor = isFancy && rawFancyColor === undefined ? 'Unknown' : rawFancyColor;
+
   return {
     feed: "nivoda",
     supplierStoneId: diamond.id,
     offerId: item.id,
     shape: certificate.shape,
     carats,
-    color: certificate.color ?? undefined,
+    color,
     clarity: certificate.clarity ?? undefined,
     cut: certificate.cut ?? undefined,
     polish: certificate.polish ?? undefined,
     symmetry: certificate.symmetry ?? undefined,
     fluorescence: mapFluorescence(certificate.floInt, certificate.floCol),
     fluorescenceIntensity: parseFluorescenceIntensity(certificate.floInt),
-    fancyColor: normalizeFancyColor(certificate.f_color ?? undefined),
+    fancyColor,
     fancyIntensity: normalizeFancyIntensity(certificate.f_intensity ?? undefined),
     fancyOvertone: normalizeFancyColor(certificate.f_overtone ?? undefined),
     ratio: computeRatio(certificate.length, certificate.width),

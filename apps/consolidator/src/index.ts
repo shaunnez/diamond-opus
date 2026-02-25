@@ -187,11 +187,14 @@ async function processConsolidation(
   let totalClaimed = 0;
 
   while (true) {
-    // Claim batch exclusively - prevents duplicate processing across replicas
+    // Claim batch exclusively - prevents duplicate processing across replicas.
+    // Pass adapter.feedId so we only claim rows ingested by this feed,
+    // preventing cross-feed contamination between nivoda-natural and nivoda-labgrown.
     const rawDiamonds = await claimUnconsolidatedRawDiamonds(
       CONSOLIDATOR_BATCH_SIZE,
       CONSOLIDATOR_INSTANCE_ID,
-      adapter.rawTableName
+      adapter.rawTableName,
+      adapter.feedId,
     );
 
     if (rawDiamonds.length === 0) {

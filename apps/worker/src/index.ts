@@ -155,7 +155,7 @@ async function processWorkItemPage(
   );
 
   // Write to feed-specific raw table
-  await bulkUpsertRawDiamonds(workItem.runId, bulkDiamonds, adapter.rawTableName);
+  await bulkUpsertRawDiamonds(workItem.runId, bulkDiamonds, adapter.rawTableName, workItem.feed);
 
   log.debug("Page upserted", {
     recordsProcessed: response.items.length,

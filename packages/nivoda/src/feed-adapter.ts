@@ -154,7 +154,7 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
 
   mapRawToDiamond(payload: Record<string, unknown>): MappedDiamond {
     const diamond = mapRawPayloadToDiamond(payload);
-    return { ...diamond, feed: this.feedId };
+    return { ...diamond, feed: this.feedId, labGrown: this.labgrown };
   }
 
   async initialize(): Promise<void> {
