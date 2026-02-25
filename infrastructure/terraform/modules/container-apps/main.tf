@@ -885,6 +885,13 @@ resource "azurerm_container_app" "consolidator" {
         name  = "FEED_CHAIN"
         value = jsonencode({ "nivoda-natural" = "nivoda-labgrown" })
       }
+
+      # Client ID of the user-assigned managed identity — required so
+      # DefaultAzureCredential selects the correct identity on the IMDS endpoint.
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.consolidator.client_id
+      }
     }
   }
 
