@@ -89,6 +89,14 @@ async function processWorkItemPage(
     return { recordsProcessed: 0, hasMore: false, skipped: true };
   }
 
+  // Cancellation guard: skip if partition has been cancelled externally
+  if (progress.failed) {
+    log.info("Partition is cancelled, skipping", {
+      partitionId: workItem.partitionId,
+    });
+    return { recordsProcessed: 0, hasMore: false, skipped: true };
+  }
+
   // Idempotency guard: skip if offset doesn't match expected nextOffset
   if (workItem.offset !== progress.nextOffset) {
     log.warn("Offset mismatch, skipping duplicate or out-of-order message", {
