@@ -14,6 +14,7 @@ import {
   getRunMetadata,
   getFailedWorkerRuns,
   resetFailedWorker,
+  reopenRun,
   getPartitionProgress,
   resetFailedDiamonds,
   cancelRun,
@@ -554,6 +555,14 @@ router.post(
         await sendWorkItem(workItem);
 
         retriedWorkers.push(worker.partitionId);
+      }
+
+      // If any workers were successfully re-queued, clear completed_at so the run
+      // shows as "running" again instead of "completed". cancelRun() sets completed_at,
+      // and without clearing it the status computation returns "completed" immediately
+      // after retry even while workers are still processing.
+      if (retriedWorkers.length > 0) {
+        await reopenRun(body.run_id);
       }
 
       res.json({

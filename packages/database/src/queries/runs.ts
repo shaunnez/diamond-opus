@@ -254,6 +254,19 @@ export async function resetFailedWorker(
 }
 
 /**
+ * Reopen a run that was previously cancelled or marked complete, so it can be retried.
+ * Clears completed_at so the run is treated as running again by status computation.
+ * Call this after resetting failed workers so the run doesn't show as "completed"
+ * while workers are still processing.
+ */
+export async function reopenRun(runId: string): Promise<void> {
+  await query(
+    `UPDATE run_metadata SET completed_at = NULL WHERE run_id = $1`,
+    [runId]
+  );
+}
+
+/**
  * Cancel a run by marking all incomplete partitions and workers as failed.
  * Sets completed_at on the run so it's no longer considered "running".
  * Returns the number of partitions and workers that were cancelled.

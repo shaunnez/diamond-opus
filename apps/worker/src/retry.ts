@@ -16,6 +16,7 @@ import {
   getRunMetadata,
   getFailedWorkerRuns,
   resetFailedWorker,
+  reopenRun,
   getPartitionProgress,
   closePool,
 } from '@diamond/database';
@@ -140,6 +141,11 @@ async function retryFailedWorkers(runId: string, partitionId?: string): Promise<
 
     log.info('Work item re-queued successfully', { partitionId: worker.partitionId });
   }
+
+  // Clear completed_at so the run shows as "running" again. cancelRun() sets
+  // completed_at, and without clearing it the status computation returns
+  // "completed" while workers are still processing.
+  await reopenRun(runId);
 
   log.info('All specified workers have been re-queued');
 }
