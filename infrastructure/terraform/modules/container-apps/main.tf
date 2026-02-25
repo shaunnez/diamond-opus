@@ -1278,11 +1278,6 @@ resource "azurerm_container_app" "dashboard" {
       }
 
       env {
-        name  = "STOREFRONT_URL"
-        value = "https://${var.app_name_prefix}-storefront.${azurerm_container_app_environment.main.default_domain}"
-      }
-
-      env {
         name        = "NIVODA_ENDPOINT"
         secret_name = "nivoda-endpoint"
       }
@@ -1338,7 +1333,7 @@ resource "azurerm_container_app" "dashboard" {
 
   tags = var.tags
 
-  depends_on = [azurerm_container_app.api, azurerm_container_app.storefront]
+  depends_on = [azurerm_container_app.api]
 }
 
 # Storefront Container App (HTTP, external ingress)

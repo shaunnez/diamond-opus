@@ -18,7 +18,6 @@ import {
   Moon,
   Sun,
   FileText,
-  Store,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -32,7 +31,6 @@ const navigation = [
   { name: 'Orders', href: '/orders', icon: Package },
 
   { name: 'Query', href: '/query', icon: Search },
-  { name: 'Storefront', href: '/storefront', icon: Store },
 
   { name: 'Runs', href: '/runs', icon: PlayCircle },
   { name: 'Consolidation', href: '/consolidation', icon: Layers },
