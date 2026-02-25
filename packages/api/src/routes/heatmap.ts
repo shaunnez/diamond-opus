@@ -279,22 +279,21 @@ router.post(
       const baseQuery: FeedQuery = adapter.buildBaseQuery(updatedFrom, updatedTo);
 
 
-      // Build heatmap config from request (prices are dollars per carat)
+      // Build heatmap config: global defaults → adapter overrides → request body.
+      // This mirrors the scheduler's logic so the dashboard shows the same
+      // partitioning behaviour as an actual run for the given feed.
       const heatmapConfig: HeatmapConfig = {
         minPrice: body.min_price ?? 0,
         maxPrice: body.max_price ?? 50000,
-        maxWorkers: body.max_workers ?? HEATMAP_MAX_WORKERS,
+        maxWorkers: HEATMAP_MAX_WORKERS,
         minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
         maxTotalRecords: body.max_total_records ?? 0,
+        ...adapter.heatmapConfig,
+        // Explicit request-body overrides win last
+        ...(body.max_workers !== undefined && { maxWorkers: body.max_workers }),
+        ...(body.dense_zone_threshold !== undefined && { denseZoneThreshold: body.dense_zone_threshold }),
+        ...(body.dense_zone_step !== undefined && { denseZoneStep: body.dense_zone_step }),
       };
-
-      if (body.dense_zone_threshold !== undefined) {
-        heatmapConfig.denseZoneThreshold = body.dense_zone_threshold;
-      }
-
-      if (body.dense_zone_step !== undefined) {
-        heatmapConfig.denseZoneStep = body.dense_zone_step;
-      }
 
       log.info("Running heatmap with config", { heatmapConfig });
 
@@ -386,13 +385,15 @@ router.post(
       const baseQuery: FeedQuery = adapter.buildBaseQuery(updatedFrom, updatedTo);
 
       // Use larger steps for preview (faster, fewer API calls). Prices are $/ct.
+      // Spread adapter overrides first so feed-specific thresholds / maxWorkers
+      // are respected, then re-apply coarse step sizes to keep the preview fast.
       const heatmapConfig: HeatmapConfig = {
         minPrice: body.min_price ?? 0,
         maxPrice: body.max_price ?? 30000, // Default to lower max for preview ($/ct)
         maxWorkers: 10,
         minRecordsPerWorker: HEATMAP_MIN_RECORDS_PER_WORKER,
-        denseZoneStep: 250, // Larger steps for preview ($/ct)
-        denseZoneThreshold: 5000,
+        ...adapter.heatmapConfig,
+        denseZoneStep: 250, // Larger steps for preview ($/ct) — override adapter
         initialStep: 2500,
       };
 

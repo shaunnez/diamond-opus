@@ -804,7 +804,16 @@ export function createPartitions(
   const flattenedChunks: DensityChunk[] = [];
   for (const chunk of densityMap) {
     if (chunk.count > targetPerWorker * 1.5) {
-      const numSubChunks = Math.ceil(chunk.count / targetPerWorker);
+      // Cap so priceStep = (max - min) / numSubChunks is always >= 1.
+      // Without this, a narrow chunk (e.g. $10 wide with denseZoneStep=10)
+      // can produce numSubChunks > price-width, making Math.floor yield
+      // sub-chunks where min == max, which then emit inverted partitions
+      // (maxPrice = max - priceGranularity < minPrice) that workers query
+      // with an invalid price range and receive near-zero results.
+      const numSubChunks = Math.min(
+        Math.ceil(chunk.count / targetPerWorker),
+        chunk.max - chunk.min,
+      );
       const priceStep = (chunk.max - chunk.min) / numSubChunks;
       const countPerSubChunk = Math.floor(chunk.count / numSubChunks);
 

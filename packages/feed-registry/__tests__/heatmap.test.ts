@@ -184,6 +184,24 @@ describe('createPartitions', () => {
     expect(partitions[1].maxPrice).toBe(4999);
   });
 
+  it('should never produce inverted partitions when chunk is narrower than numSubChunks', () => {
+    // Regression: with denseZoneStep=10 a $10-wide chunk can require more
+    // sub-chunks than it has price units. Before the fix, Math.floor produced
+    // sub-chunks with min==max, and then maxPrice = max - priceGranularity < minPrice.
+    // e.g. chunk { min:300, max:310, count:110 }, desiredWorkerCount=11
+    //   targetPerWorker = ceil(110/11) = 10
+    //   numSubChunks (uncapped) = ceil(110/10) = 11 > (310-300) = 10  ← bug
+    const chunks: DensityChunk[] = [{ min: 300, max: 310, count: 110 }];
+    const partitions = createPartitions(chunks, 11);
+
+    for (const p of partitions) {
+      expect(p.maxPrice).toBeGreaterThanOrEqual(p.minPrice);
+    }
+    // All estimated records must be accounted for
+    const total = partitions.reduce((s, p) => s + p.totalRecords, 0);
+    expect(total).toBe(110);
+  });
+
   it('should handle maxTotalRecords cap', () => {
     const chunks: DensityChunk[] = [
       { min: 0, max: 100, count: 600 },
