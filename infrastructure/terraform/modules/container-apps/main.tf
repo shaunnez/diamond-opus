@@ -737,6 +737,17 @@ resource "azurerm_container_app" "worker" {
   tags = var.tags
 }
 
+# User-assigned managed identity for the consolidator.
+# A separate resource ensures principal_id is known at plan time, before the
+# Container App is created/updated — avoiding the "null principal_id" Terraform
+# error that occurs when adding a SystemAssigned identity to an existing resource.
+resource "azurerm_user_assigned_identity" "consolidator" {
+  name                = "${var.app_name_prefix}-consolidator-identity"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
 # Consolidator Container App (Service Bus consumer, long-running)
 # Now supports multi-replica deployment with FOR UPDATE SKIP LOCKED
 resource "azurerm_container_app" "consolidator" {
@@ -746,7 +757,8 @@ resource "azurerm_container_app" "consolidator" {
   revision_mode                = "Single"
 
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.consolidator.id]
   }
 
   template {
@@ -1432,11 +1444,13 @@ resource "azurerm_role_assignment" "api_scheduler_job_operator" {
   principal_id         = azurerm_container_app.api.identity[0].principal_id
 }
 
-# Grant consolidator managed identity permission to trigger scheduler jobs (chain trigger)
+# Grant consolidator managed identity permission to trigger scheduler jobs (chain trigger).
+# Referencing the user-assigned identity directly ensures principal_id is always
+# resolved at plan time rather than depending on the Container App's runtime state.
 resource "azurerm_role_assignment" "consolidator_scheduler_job_operator" {
   for_each = var.enable_scheduler ? var.scheduler_feeds : {}
 
   scope                = azurerm_container_app_job.scheduler[each.key].id
   role_definition_name = "Container Apps Jobs Operator"
-  principal_id         = azurerm_container_app.consolidator.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.consolidator.principal_id
 }
