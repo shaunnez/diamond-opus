@@ -41,6 +41,7 @@ export async function upsertRawDiamond(
   payload: Record<string, unknown>,
   sourceUpdatedAt?: Date,
   tableName: string = DEFAULT_RAW_TABLE,
+  feed?: string,
 ): Promise<void> {
   const table = validateTableName(tableName);
   const payloadStr = JSON.stringify(payload);
@@ -49,8 +50,8 @@ export async function upsertRawDiamond(
   // WHERE clause prevents no-op updates when payload hasn't changed
   await query(
     `INSERT INTO ${table} (
-      run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+      run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at, feed
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (supplier_stone_id) DO UPDATE SET
       run_id = EXCLUDED.run_id,
       offer_id = EXCLUDED.offer_id,
@@ -60,9 +61,10 @@ export async function upsertRawDiamond(
       consolidated = FALSE,
       consolidation_status = 'pending',
       consolidated_at = NULL,
+      feed = EXCLUDED.feed,
       updated_at = NOW()
     WHERE ${table}.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash`,
-    [runId, supplierStoneId, offerId, payloadStr, payloadHash, sourceUpdatedAt]
+    [runId, supplierStoneId, offerId, payloadStr, payloadHash, sourceUpdatedAt, feed ?? null]
   );
 }
 
@@ -82,32 +84,52 @@ export interface ClaimedRawDiamond {
  * @param limit - Maximum number of rows to claim
  * @param claimedBy - Unique identifier for the consolidator instance (e.g., random UUID)
  * @param tableName - Raw table to claim from (default: raw_diamonds_nivoda)
+ * @param feed - When provided, only claim rows for this feed (prevents cross-feed contamination)
  * @returns Array of claimed diamonds with only id and payload (minimal data transfer)
  */
 export async function claimUnconsolidatedRawDiamonds(
   limit: number,
   claimedBy: string,
   tableName: string = DEFAULT_RAW_TABLE,
+  feed?: string,
 ): Promise<ClaimedRawDiamond[]> {
   const table = validateTableName(tableName);
   const result = await query<ClaimedRawDiamond>(
-    `WITH candidates AS (
-      SELECT id
-      FROM ${table}
-      WHERE consolidated = FALSE
-        AND consolidation_status = 'pending'
-      ORDER BY created_at ASC
-      LIMIT $1
-      FOR UPDATE SKIP LOCKED
-    )
-    UPDATE ${table} r
-    SET consolidation_status = 'processing',
-        claimed_at = NOW(),
-        claimed_by = $2
-    FROM candidates
-    WHERE r.id = candidates.id
-    RETURNING r.id, r.payload`,
-    [limit, claimedBy]
+    feed
+      ? `WITH candidates AS (
+          SELECT id
+          FROM ${table}
+          WHERE consolidated = FALSE
+            AND consolidation_status = 'pending'
+            AND feed = $3
+          ORDER BY created_at ASC
+          LIMIT $1
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE ${table} r
+        SET consolidation_status = 'processing',
+            claimed_at = NOW(),
+            claimed_by = $2
+        FROM candidates
+        WHERE r.id = candidates.id
+        RETURNING r.id, r.payload`
+      : `WITH candidates AS (
+          SELECT id
+          FROM ${table}
+          WHERE consolidated = FALSE
+            AND consolidation_status = 'pending'
+          ORDER BY created_at ASC
+          LIMIT $1
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE ${table} r
+        SET consolidation_status = 'processing',
+            claimed_at = NOW(),
+            claimed_by = $2
+        FROM candidates
+        WHERE r.id = candidates.id
+        RETURNING r.id, r.payload`,
+    feed ? [limit, claimedBy, feed] : [limit, claimedBy]
   );
   return result.rows;
 }
@@ -267,11 +289,13 @@ export interface BulkRawDiamond {
  * @param runId - The run ID to associate with these diamonds
  * @param diamonds - Array of raw diamonds to upsert
  * @param tableName - Raw table to upsert into (default: raw_diamonds_nivoda)
+ * @param feed - Feed identifier to store on each row (e.g. 'nivoda-natural')
  */
 export async function bulkUpsertRawDiamonds(
   runId: string,
   diamonds: BulkRawDiamond[],
   tableName: string = DEFAULT_RAW_TABLE,
+  feed?: string,
 ): Promise<void> {
   if (diamonds.length === 0) return;
   const table = validateTableName(tableName);
@@ -285,7 +309,7 @@ export async function bulkUpsertRawDiamonds(
   // WHERE clause prevents no-op updates when payload hasn't changed
   await query(
     `INSERT INTO ${table} (
-      run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at
+      run_id, supplier_stone_id, offer_id, payload, payload_hash, source_updated_at, feed
     )
     SELECT
       $1,
@@ -293,7 +317,8 @@ export async function bulkUpsertRawDiamonds(
       UNNEST($3::TEXT[]),
       UNNEST($4::JSONB[]),
       UNNEST($5::TEXT[]),
-      UNNEST($6::TIMESTAMPTZ[])
+      UNNEST($6::TIMESTAMPTZ[]),
+      $7
     ON CONFLICT (supplier_stone_id) DO UPDATE SET
       run_id = EXCLUDED.run_id,
       offer_id = EXCLUDED.offer_id,
@@ -303,8 +328,9 @@ export async function bulkUpsertRawDiamonds(
       consolidated = FALSE,
       consolidation_status = 'pending',
       consolidated_at = NULL,
+      feed = EXCLUDED.feed,
       updated_at = NOW()
     WHERE ${table}.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash`,
-    [runId, supplierStoneIds, offerIds, payloads, payloadHashes, sourceUpdatedAts]
+    [runId, supplierStoneIds, offerIds, payloads, payloadHashes, sourceUpdatedAts, feed ?? null]
   );
 }
