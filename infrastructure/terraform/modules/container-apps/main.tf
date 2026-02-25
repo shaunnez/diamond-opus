@@ -745,6 +745,10 @@ resource "azurerm_container_app" "consolidator" {
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   template {
     min_replicas = var.consolidator_min_replicas
     max_replicas = var.consolidator_max_replicas
@@ -848,6 +852,27 @@ resource "azurerm_container_app" "consolidator" {
         name  = "CONSOLIDATOR_CONCURRENCY"
         value = tostring(var.consolidator_concurrency)
       }
+
+      # Chain trigger: allow consolidator to start the next feed's scheduler job
+      env {
+        name  = "AZURE_SUBSCRIPTION_ID"
+        value = var.subscription_id
+      }
+
+      env {
+        name  = "AZURE_RESOURCE_GROUP"
+        value = var.resource_group_name
+      }
+
+      env {
+        name  = "AZURE_SCHEDULER_JOB_NAME_PREFIX"
+        value = "${var.app_name_prefix}-s-"
+      }
+
+      env {
+        name  = "FEED_CHAIN"
+        value = jsonencode({ "nivoda-natural" = "nivoda-labgrown" })
+      }
     }
   }
 
@@ -928,10 +953,21 @@ resource "azurerm_container_app_job" "scheduler" {
   replica_timeout_in_seconds = 1800
   replica_retry_limit        = 1
 
-  schedule_trigger_config {
-    cron_expression          = each.value.cron_expression
-    parallelism              = var.scheduler_parallelism
-    replica_completion_count = 1
+  dynamic "schedule_trigger_config" {
+    for_each = each.value.cron_expression != null ? [1] : []
+    content {
+      cron_expression          = each.value.cron_expression
+      parallelism              = var.scheduler_parallelism
+      replica_completion_count = 1
+    }
+  }
+
+  dynamic "manual_trigger_config" {
+    for_each = each.value.cron_expression == null ? [1] : []
+    content {
+      parallelism              = var.scheduler_parallelism
+      replica_completion_count = 1
+    }
   }
 
   template {
@@ -1399,4 +1435,13 @@ resource "azurerm_role_assignment" "api_scheduler_job_operator" {
   scope                = azurerm_container_app_job.scheduler[each.key].id
   role_definition_name = "Container Apps Jobs Operator"
   principal_id         = azurerm_container_app.api.identity[0].principal_id
+}
+
+# Grant consolidator managed identity permission to trigger scheduler jobs (chain trigger)
+resource "azurerm_role_assignment" "consolidator_scheduler_job_operator" {
+  for_each = var.enable_scheduler ? var.scheduler_feeds : {}
+
+  scope                = azurerm_container_app_job.scheduler[each.key].id
+  role_definition_name = "Container Apps Jobs Operator"
+  principal_id         = azurerm_container_app.consolidator.identity[0].principal_id
 }

@@ -119,8 +119,12 @@ module "container_apps" {
   slack_webhook_ops      = var.slack_webhook_ops
 
   # Scheduler configuration
-  scheduler_cron_expression = var.scheduler_cron_expression
-  enable_scheduler          = var.enable_scheduler
+  # Natural feed runs on cron; labgrown is triggered exclusively by the chain after natural completes.
+  scheduler_feeds = {
+    niv-natural  = { cron_expression = "0 */12 * * *", feed = "nivoda-natural" }
+    niv-labgrown = { feed = "nivoda-labgrown" }
+  }
+  enable_scheduler = var.enable_scheduler
 
   # Worker scaling configuration
   worker_message_count = var.worker_message_count
