@@ -35,7 +35,11 @@ async function triggerSchedulerJob(
 ): Promise<void> {
   const jobName = `${config.jobNamePrefix}${feedToJobKey(feed)}`;
 
-  const credential = new DefaultAzureCredential();
+  // For user-assigned managed identity, DefaultAzureCredential needs the client ID
+  // to know which identity to use. AZURE_CLIENT_ID is set to the user-assigned
+  // identity's client_id by Terraform. Falls back gracefully when not set (local dev).
+  const managedIdentityClientId = optionalEnv('AZURE_CLIENT_ID', '') || undefined;
+  const credential = new DefaultAzureCredential({ managedIdentityClientId });
   const client = new ContainerAppsAPIClient(credential, config.subscriptionId);
 
   // Fetch the existing job definition to preserve its environment variables.
