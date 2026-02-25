@@ -71,7 +71,7 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
   readonly watermarkBlobName: string;
   readonly maxPageSize = NIVODA_MAX_LIMIT;
   readonly workerPageSize = WORKER_PAGE_SIZE;
-  readonly heatmapConfig: HeatmapConfigOverrides = {};
+  readonly heatmapConfig: HeatmapConfigOverrides;
 
   private adapter: NivodaAdapter | null = null;
   private adapterConfig?: NivodaAdapterConfig;
@@ -83,6 +83,17 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
     this.watermarkBlobName = `nivoda-${variant}.json`;
     this.labgrown = variant === 'labgrown';
     this.adapterConfig = config;
+
+    // Labgrown diamonds cluster heavily at very low $/ct ($0–$650).
+    // With the default $50 dense-zone step only ~13 scan chunks cover that range,
+    // leaving the greedy partition algorithm unable to balance 10 workers.
+    // Use a $10 step (65 chunks) and raise maxWorkers to 30 so each partition
+    // handles ~30k records instead of 90k+, and the split threshold kicks in properly.
+    // denseZoneThreshold is lowered to $1,000 so we don't waste 400 extra $10-step
+    // queries in the $1,000–$5,000 range where labgrown data is very sparse.
+    this.heatmapConfig = this.labgrown
+      ? { denseZoneStep: 10, denseZoneThreshold: 1000, maxWorkers: 30 }
+      : {};
   }
 
   /**
