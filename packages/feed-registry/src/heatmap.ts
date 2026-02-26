@@ -203,9 +203,28 @@ export async function scanHeatmap(
   );
   log.info("Worker count calculated", { desiredWorkerCount, maxWorkers });
 
+  // Phase 2.5: Refine oversized chunks with actual sub-range counts.
+  // createPartitions splits large chunks using proportional estimates (assumes
+  // uniform distribution within a chunk). This fails badly when records are
+  // concentrated in a sub-range — e.g. labgrown diamonds pack ~770k records
+  // into $0-$250 but most sit between $50-$200, leaving the edges near-empty.
+  // To fix this we re-query any chunk that would need splitting, replacing the
+  // single coarse count with fine-grained actual counts from the API.
+  const targetPerWorker = desiredWorkerCount > 0
+    ? Math.ceil(totalRecords / desiredWorkerCount)
+    : totalRecords;
+  const refinedDensityMap = await refineLargeChunks(
+    adapter,
+    baseQuery,
+    densityMap,
+    targetPerWorker,
+    concurrency,
+    scanContext,
+  );
+
   // Phase 3: Partition into balanced worker buckets
   const partitions = createPartitions(
-    densityMap,
+    refinedDensityMap,
     desiredWorkerCount,
     log,
     maxTotalRecords,
@@ -230,9 +249,9 @@ export async function scanHeatmap(
   // Build final stats
   const stats: ScanStats = {
     apiCalls: scanContext.apiCalls,
-    scanDurationMs,
+    scanDurationMs: Date.now() - startTime,
     rangesScanned: scanContext.rangesScanned,
-    nonEmptyRanges: densityMap.length,
+    nonEmptyRanges: refinedDensityMap.length,
     usedTwoPass: useTwoPassScan,
   };
 
@@ -245,7 +264,7 @@ export async function scanHeatmap(
   });
 
   return {
-    densityMap,
+    densityMap: refinedDensityMap,
     partitions,
     totalRecords: effectiveTotalRecords,
     workerCount,
@@ -389,6 +408,114 @@ async function buildDensityMap(
   });
 
   return densityMap;
+}
+
+/**
+ * Refines oversized density chunks by re-querying sub-ranges with actual counts.
+ *
+ * When a density chunk is large enough that createPartitions would split it,
+ * the split assumes uniform distribution — which is often wrong (e.g. labgrown
+ * diamonds concentrate heavily in the middle of the $0-$250 range). This
+ * function replaces those large chunks with fine-grained sub-chunks whose
+ * counts come directly from the API, giving createPartitions accurate data.
+ */
+async function refineLargeChunks(
+  adapter: FeedAdapter,
+  baseQuery: FeedQuery,
+  densityMap: DensityChunk[],
+  targetPerWorker: number,
+  concurrency: number,
+  ctx: ScanContext,
+): Promise<DensityChunk[]> {
+  const splitThreshold = targetPerWorker * 1.5;
+  const needsRefinement = densityMap.some((c) => c.count > splitThreshold);
+  if (!needsRefinement) {
+    return densityMap;
+  }
+
+  ctx.log.info("Refining oversized density chunks", {
+    threshold: splitThreshold,
+    chunksToRefine: densityMap.filter((c) => c.count > splitThreshold).length,
+  });
+
+  const refined: DensityChunk[] = [];
+
+  for (const chunk of densityMap) {
+    if (chunk.count <= splitThreshold) {
+      refined.push(chunk);
+      continue;
+    }
+
+    // Determine sub-ranges: aim for targetPerWorker records each,
+    // but cap so each sub-range is at least 1 dollar wide.
+    const numSubRanges = Math.min(
+      Math.ceil(chunk.count / targetPerWorker),
+      chunk.max - chunk.min,
+    );
+    if (numSubRanges <= 1) {
+      refined.push(chunk);
+      continue;
+    }
+
+    const subStep = (chunk.max - chunk.min) / numSubRanges;
+    const subRanges: Array<{ min: number; max: number }> = [];
+    for (let i = 0; i < numSubRanges; i++) {
+      const subMin = Math.floor(chunk.min + subStep * i);
+      const subMax = i === numSubRanges - 1
+        ? chunk.max
+        : Math.floor(chunk.min + subStep * (i + 1));
+      if (subMax > subMin) {
+        subRanges.push({ min: subMin, max: subMax });
+      }
+    }
+
+    // Query actual counts in parallel batches
+    let pos = 0;
+    while (pos < subRanges.length) {
+      const batch = subRanges.slice(pos, pos + concurrency);
+      const results = await Promise.all(
+        batch.map(async (range) => {
+          ctx.apiCalls++;
+          const q = queryWithPriceRange(
+            baseQuery,
+            range.min,
+            range.max,
+            ctx.priceGranularity,
+          );
+          const count = await withRetry(
+            () => adapter.getCount(q),
+            {
+              onRetry: (error, attempt) => {
+                ctx.log.warn("Retrying refinement count", {
+                  attempt,
+                  priceRange: range,
+                  error: error.message,
+                });
+              },
+            },
+          );
+          return { ...range, count };
+        }),
+      );
+
+      for (const r of results) {
+        ctx.rangesScanned++;
+        if (r.count > 0) {
+          refined.push({ min: r.min, max: r.max, count: r.count });
+        }
+      }
+      pos += concurrency;
+    }
+
+    ctx.log.info("Refined large chunk", {
+      originalRange: { min: chunk.min, max: chunk.max },
+      originalCount: chunk.count,
+      subRanges: subRanges.length,
+      refinedChunks: refined.length,
+    });
+  }
+
+  return refined;
 }
 
 interface DenseRegion {
