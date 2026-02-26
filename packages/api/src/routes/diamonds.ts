@@ -126,255 +126,472 @@ function getTradingAdapter(feedId: string): TradingAdapter {
  * @openapi
  * /api/v2/diamonds:
  *   get:
- *     summary: Search diamonds with filters
+ *     summary: Search diamonds
+ *     description: >
+ *       Filter and paginate the active diamond inventory.
+ *
+ *       **Array parameters** accept either repeated keys (`?shape=ROUND&shape=OVAL`)
+ *       or a single comma-separated value (`?shape=ROUND,OVAL`).
+ *
+ *       **String normalisation** — most categorical values (shape, color, clarity,
+ *       cut, polish, symmetry, fluorescence_intensity) are upper-cased before
+ *       matching. Cut/polish/symmetry also accept long-form grades:
+ *       `Excellent` → `EX`, `Very Good` → `VG`, `Good` → `G`, `Fair` → `F`,
+ *       `Poor` → `P`. `fancy_colors` and `availability` are stored
+ *       case-sensitively and must be passed exactly as documented.
  *     tags:
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- 
  *     parameters:
  *       - in: query
- *         name: shape
+ *         name: feed
  *         schema:
  *           type: string
- *         description: Comma-separated shape values (e.g. ROUND,OVAL)
+ *           enum: [nivoda-natural, nivoda-labgrown, demo]
+ *         description: Restrict results to a single source feed. Omit to search across all feeds.
+ *         example: nivoda-natural
+ *
+ *       - in: query
+ *         name: shape
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondShape'
+ *         description: >
+ *           One or more diamond shapes. Values: ROUND, OVAL, EMERALD, CUSHION,
+ *           CUSHION B, CUSHION MODIFIED, CUSHION BRILLIANT, ASSCHER, RADIANT,
+ *           MARQUISE, PEAR, PRINCESS, ROSE, OLD MINER, TRILLIANT, HEXAGONAL, HEART.
+ *         example: ROUND,OVAL
+ *
+ *       - in: query
+ *         name: color
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondColor'
+ *         description: >
+ *           One or more colour grades. D–M are traditional white grades (D = most
+ *           colourless). Pass "Fancy" to include fancy-coloured diamonds; use
+ *           fancy_colors to narrow by specific colour.
+ *         example: G,H,I
+ *
+ *       - in: query
+ *         name: clarity
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondClarity'
+ *         description: One or more clarity grades from FL (Flawless) to I3 (Included).
+ *         example: VS1,VS2
+ *
+ *       - in: query
+ *         name: cut
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondCutGrade'
+ *         description: >
+ *           One or more cut grades. Short codes (EX, VG, G, F, P) and long-form
+ *           (Excellent, Very Good, Good, Fair, Poor) are both accepted.
+ *         example: EX,VG
+ *
+ *       - in: query
+ *         name: polish
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondCutGrade'
+ *         description: >
+ *           One or more polish grades. Short codes (EX, VG, G, F, P) and long-form
+ *           (Excellent, Very Good, Good, Fair, Poor) are both accepted.
+ *         example: EX,VG
+ *
+ *       - in: query
+ *         name: symmetry
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondCutGrade'
+ *         description: >
+ *           One or more symmetry grades. Short codes (EX, VG, G, F, P) and
+ *           long-form (Excellent, Very Good, Good, Fair, Poor) are both accepted.
+ *         example: EX
+ *
+ *       - in: query
+ *         name: lab
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondLab'
+ *         description: >
+ *           One or more grading laboratories. Values: GIA, AGS, IGI, HRD, GCAL.
+ *         example: GIA,IGI
+ *
+ *       - in: query
+ *         name: fluorescence_intensity
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondFluorescenceIntensity'
+ *         description: >
+ *           One or more fluorescence intensity grades. Stored upper-case with
+ *           underscores; spaces and mixed case are normalised automatically.
+ *           Values: NONE, FAINT, MEDIUM, STRONG, VERY_STRONG.
+ *         example: NONE,FAINT
+ *
+ *       - in: query
+ *         name: availability
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondAvailability'
+ *         description: >
+ *           One or more availability statuses. Defaults to all statuses if omitted.
+ *           Values: available, on_hold, sold, unavailable. Case-sensitive.
+ *         example: available
+ *
+ *       - in: query
+ *         name: lab_grown
+ *         schema:
+ *           type: boolean
+ *         description: >
+ *           `true` = lab-grown diamonds only; `false` = natural/earth-mined only.
+ *           Omit to return both.
+ *         example: false
+ *
+ *       - in: query
+ *         name: fancy_color
+ *         schema:
+ *           type: boolean
+ *         description: >
+ *           `true` = only fancy-coloured diamonds (fancy_color IS NOT NULL);
+ *           `false` = only non-fancy diamonds. Omit to return both.
+ *
+ *       - in: query
+ *         name: fancy_colors
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondFancyColor'
+ *         description: >
+ *           Filter by specific fancy colour names. Case-sensitive. Use alongside
+ *           fancy_color=true. Values: Black, Blue, Brown, Chameleon, Cognac,
+ *           Gray, Green, Orange, Pink, Purple, White, Yellow, Brown-Orange,
+ *           Brown-Pink, Brown-Yellow, Gray-Blue, Green-Yellow, Orange-Yellow,
+ *           Pink-Purple, Yellow-Green, Yellow-Orange.
+ *         example: Pink,Blue
+ *
+ *       - in: query
+ *         name: fancy_intensity
+ *         style: form
+ *         explode: false
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/DiamondFancyIntensity'
+ *         description: >
+ *           One or more fancy colour intensity grades. Values: Faint, Very Light,
+ *           Light, Fancy Light, Fancy, Fancy Intense, Fancy Vivid, Fancy Deep,
+ *           Fancy Dark.
+ *         example: Fancy Intense,Fancy Vivid
+ *
+ *       - in: query
+ *         name: eye_clean
+ *         schema:
+ *           type: boolean
+ *         description: >
+ *           `true` = only eye-clean diamonds (no inclusions visible to the naked eye).
+ *
+ *       - in: query
+ *         name: no_bgm
+ *         schema:
+ *           type: boolean
+ *         description: >
+ *           `true` = exclude diamonds with any brown, green, or milky tint
+ *           (i.e. where the brown, green, or milky column is non-null and non-empty).
+ *
  *       - in: query
  *         name: carat_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum carat weight (inclusive).
+ *         example: 0.5
+ *
  *       - in: query
  *         name: carat_max
  *         schema:
  *           type: number
  *           minimum: 0
- *       - in: query
- *         name: color
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: clarity
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: cut
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: lab_grown
- *         schema:
- *           type: boolean
+ *         description: Maximum carat weight (inclusive).
+ *         example: 2.0
+ *
  *       - in: query
  *         name: price_min
  *         schema:
  *           type: number
  *           minimum: 0
- *         description: Min feed price in USD
+ *         description: Minimum feed/cost price in USD (inclusive).
+ *         example: 1000
+ *
  *       - in: query
  *         name: price_max
  *         schema:
  *           type: number
  *           minimum: 0
- *         description: Max feed price in USD
+ *         description: Maximum feed/cost price in USD (inclusive).
+ *         example: 10000
+ *
  *       - in: query
  *         name: price_model_price_min
  *         schema:
  *           type: number
  *           minimum: 0
- *         description: Min model price in USD
+ *         description: Minimum selling price (after pricing rules) in USD (inclusive).
+ *         example: 1200
+ *
  *       - in: query
  *         name: price_model_price_max
  *         schema:
  *           type: number
  *           minimum: 0
- *         description: Max model price in USD
- *       - in: query
- *         name: availability
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *             enum: [available, on_hold, sold, unavailable]
- *         description: Filter by availability status (comma-separated)
+ *         description: Maximum selling price (after pricing rules) in USD (inclusive).
+ *         example: 12000
+ *
  *       - in: query
  *         name: rating_min
  *         schema:
  *           type: integer
  *           minimum: 1
  *           maximum: 10
+ *         description: Minimum overall quality rating (1–10, inclusive).
+ *         example: 7
+ *
  *       - in: query
  *         name: rating_max
  *         schema:
  *           type: integer
  *           minimum: 1
  *           maximum: 10
- *       - in: query
- *         name: fancy_color
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: fancy_intensity
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: fluorescence_intensity
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: polish
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: symmetry
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *       - in: query
- *         name: lab
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *         description: Certificate lab (e.g. GIA, IGI)
- *       - in: query
- *         name: eye_clean
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: no_bgm
- *         schema:
- *           type: boolean
- *         description: Exclude Brown/Green/Milky tinted diamonds
+ *         description: Maximum overall quality rating (1–10, inclusive).
+ *
  *       - in: query
  *         name: ratio_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum length-to-width ratio (inclusive).
+ *         example: 1.0
+ *
  *       - in: query
  *         name: ratio_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum length-to-width ratio (inclusive).
+ *         example: 1.5
+ *
  *       - in: query
  *         name: table_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum table percentage (%) (inclusive).
+ *         example: 54
+ *
  *       - in: query
  *         name: table_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum table percentage (%) (inclusive).
+ *         example: 62
+ *
  *       - in: query
  *         name: depth_pct_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum depth percentage (%) (inclusive).
+ *         example: 59
+ *
  *       - in: query
  *         name: depth_pct_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum depth percentage (%) (inclusive).
+ *         example: 63
+ *
  *       - in: query
  *         name: crown_angle_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum crown angle in degrees (inclusive).
+ *         example: 33.0
+ *
  *       - in: query
  *         name: crown_angle_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum crown angle in degrees (inclusive).
+ *         example: 36.0
+ *
  *       - in: query
  *         name: pav_angle_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum pavilion angle in degrees (inclusive).
+ *         example: 40.0
+ *
  *       - in: query
  *         name: pav_angle_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum pavilion angle in degrees (inclusive).
+ *         example: 41.5
+ *
  *       - in: query
  *         name: length_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum length in millimetres (inclusive).
+ *
  *       - in: query
  *         name: length_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum length in millimetres (inclusive).
+ *
  *       - in: query
  *         name: width_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum width in millimetres (inclusive).
+ *
  *       - in: query
  *         name: width_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum width in millimetres (inclusive).
+ *
  *       - in: query
  *         name: depth_mm_min
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Minimum depth (height) in millimetres (inclusive).
+ *
  *       - in: query
  *         name: depth_mm_max
  *         schema:
  *           type: number
  *           minimum: 0
+ *         description: Maximum depth (height) in millimetres (inclusive).
+ *
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           minimum: 1
  *           default: 1
+ *         description: Page number (1-based).
+ *         example: 1
+ *
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 50
  *           minimum: 1
  *           maximum: 1000
+ *           default: 50
+ *         description: Number of results per page. Maximum 1000.
+ *         example: 50
+ *
  *       - in: query
  *         name: sort_by
  *         schema:
  *           type: string
  *           enum: [created_at, feed_price, carats, color, clarity, ratio, fancy_color, fluorescence_intensity, certificate_lab, price_model_price, rating]
  *           default: created_at
+ *         description: Field to sort by.
+ *
  *       - in: query
  *         name: sort_order
  *         schema:
  *           type: string
  *           enum: [asc, desc]
  *           default: desc
+ *         description: Sort direction.
+ *
  *       - in: query
  *         name: fields
  *         schema:
  *           type: string
  *           enum: [full, slim]
  *           default: full
- *         description: "slim returns card-view fields only (priceModelNzd, priceNzd, rating, etc.); full returns all fields"
+ *         description: >
+ *           Response field set. `full` returns the complete Diamond object.
+ *           `slim` returns only card-view fields (id, feed, shape, carats, color,
+ *           clarity, cut, fancyColor, fancyIntensity, labGrown, priceModelNzd,
+ *           priceNzd, markupRatio, rating, availability, certificateLab,
+ *           imageUrl, videoUrl, createdAt) — use this for list/grid views to
+ *           reduce payload size.
+ *
  *     responses:
  *       200:
- *         description: List of diamonds
+ *         description: Paginated list of matching diamonds.
+ *         headers:
+ *           X-Cache:
+ *             schema:
+ *               type: string
+ *               enum: [HIT, MISS]
+ *             description: Whether the response was served from the in-memory cache.
+ *           ETag:
+ *             schema:
+ *               type: string
+ *             description: Dataset version tag. Send back as If-None-Match to receive 304 when data is unchanged.
+ *           Cache-Control:
+ *             schema:
+ *               type: string
+ *             description: "'public, max-age=60, stale-while-revalidate=300'"
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedDiamondResponse'
+ *       304:
+ *         description: Not Modified — dataset version matches the If-None-Match header sent by the client.
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized — missing or invalid X-API-Key header.
  */
 router.get(
   '/',
