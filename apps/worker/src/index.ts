@@ -75,6 +75,8 @@ async function processWorkItemPage(
     offset: workItem.offset,
     limit: workItem.limit,
     priceRange: { min: workItem.minPrice, max: workItem.maxPrice },
+    updatedFrom: workItem.updatedFrom,
+    updatedTo: workItem.updatedTo,
   });
 
   // Initialize or get partition progress for idempotency guard
@@ -175,8 +177,24 @@ async function processWorkItemPage(
   // Compute new offset
   const newOffset = workItem.offset + response.items.length;
 
-  // Check if we have more pages
-  let hasMore = response.items.length === workItem.limit;
+  // Keep paginating as long as Nivoda returns any items.
+  // A partial page (items.length < limit) does NOT mean end-of-data — Nivoda
+  // can return fewer items than requested mid-stream due to internal behaviour
+  // (e.g. filtering after pagination). Stopping on a partial page causes workers
+  // to miss the bulk of a partition. We rely on a zero-item response as the
+  // true end-of-data signal, with the offset safety cap below as a backstop.
+  let hasMore = response.items.length > 0;
+
+  if (response.items.length < workItem.limit) {
+    log.warn("Partial page received from Nivoda", {
+      received: response.items.length,
+      limit: workItem.limit,
+      offset: workItem.offset,
+      priceRange: { min: workItem.minPrice, max: workItem.maxPrice },
+      estimatedRecords: workItem.estimatedRecords,
+      willContinue: hasMore,
+    });
+  }
 
   // Safety cap: stop paginating if offset far exceeds the heatmap estimate.
   // This prevents runaway ingestion when the feed returns more data than expected
