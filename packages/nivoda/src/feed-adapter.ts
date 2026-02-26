@@ -85,12 +85,11 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
     this.adapterConfig = config;
 
     // Labgrown diamonds concentrate heavily below $250/ct (~770k of ~900k total records).
-    // Scan the $0–$1,000 dense zone in $250 steps (4 API calls instead of 100) so the
-    // partition algorithm receives one large $0–$250 density chunk (~770k records) that
-    // it cleanly splits into ~13 balanced sub-partitions of ~59k each. Above $1,000 the
-    // $2,500 initial step skips the sparse high-price zone quickly. This mirrors the
-    // dashboard preview config, making preview an accurate representation of scheduler
-    // behaviour and eliminating the 13 tiny near-zero partitions the old $10 step produced.
+    // Use a dense zone up to $1,000 with $250 coarse steps (4 API calls). The heatmap's
+    // refineLargeChunks phase will automatically re-scan the oversized $0–$250 chunk at
+    // finer granularity (~26 sub-range API calls) to get actual counts per sub-range,
+    // avoiding the old bug where proportional splitting assumed uniform distribution
+    // and produced partitions with near-zero actual records at the price-range edges.
     this.heatmapConfig = this.labgrown
       ? { denseZoneStep: 250, denseZoneThreshold: 1000, maxWorkers: 30, initialStep: 2500 }
       : {};
