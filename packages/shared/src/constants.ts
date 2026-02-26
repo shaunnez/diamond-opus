@@ -102,18 +102,19 @@ export const WATERMARK_BLOB_NAME = 'nivoda.json';
 /** Maximum total records to process (0 = unlimited). Use for staging caps. */
 export const MAX_SCHEDULER_RECORDS = 0;
 export const HEATMAP_MIN_PRICE = 0;
+/** Default upper price bound for heatmap scanning ($/ct). Feeds can override via heatmapConfig. */
 export const HEATMAP_MAX_PRICE = 100000;
-/** Price-per-carat threshold below which we use fixed small steps (dense zone) */
+/** Price-per-carat threshold below which we use fixed small steps (dense zone). Default suits natural diamonds. Feeds override via heatmapConfig. */
 export const HEATMAP_DENSE_ZONE_THRESHOLD = 5000;
-/** Fixed step size in dense zone (dollars per carat) */
+/** Fixed step size in dense zone (dollars per carat). Default suits natural diamonds. Feeds override via heatmapConfig. */
 export const HEATMAP_DENSE_ZONE_STEP = 50;
 /** Initial step size for adaptive scanning above dense zone (dollars per carat) */
 export const HEATMAP_INITIAL_STEP = 250;
-/** Target records per scan chunk for adaptive stepping */
+/** Target records per scan chunk for adaptive step-size tuning (above dense zone only — does not affect partition sizes) */
 export const HEATMAP_TARGET_RECORDS_PER_CHUNK = 500;
-/** Maximum workers for any run (full or incremental) */
+/** Default maximum workers per run. Individual feeds override this via heatmapConfig (e.g. labgrown uses 30). */
 export const HEATMAP_MAX_WORKERS = 10;
-/** Minimum records needed to spawn an additional worker */
+/** Minimum records per worker — only relevant for very small datasets; production feeds always hit HEATMAP_MAX_WORKERS first. */
 export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
 /**
  * Safety multiplier for worker offset cap.

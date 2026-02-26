@@ -1,6 +1,22 @@
 import type { RatingRule, Diamond } from '@diamond/shared';
 import { getActiveRatingRules } from '@diamond/database';
 
+/**
+ * Normalises a cut short-code to the long-form value stored in rating rules.
+ * Diamonds from Nivoda store "EX", "VG", "G", etc., while the dashboard saves
+ * rules with "EXCELLENT", "VERY GOOD", "GOOD", etc.
+ */
+function normaliseCut(cut: string): string {
+  const c = cut.toUpperCase();
+  if (c === 'EX') return 'EXCELLENT';
+  if (c === 'VG') return 'VERY GOOD';
+  if (c === 'G') return 'GOOD';
+  if (c === 'F') return 'FAIR';
+  if (c === 'P') return 'POOR';
+  if (c === 'ID') return 'IDEAL';
+  return c;
+}
+
 export class RatingEngine {
   private rules: RatingRule[] = [];
   private rulesLoaded = false;
@@ -46,7 +62,7 @@ export class RatingEngine {
     }
 
     if (rule.cuts && rule.cuts.length > 0) {
-      if (!diamond.cut || !rule.cuts.includes(diamond.cut.toUpperCase())) {
+      if (!diamond.cut || !rule.cuts.map(c => c.toUpperCase()).includes(normaliseCut(diamond.cut))) {
         return false;
       }
     }
