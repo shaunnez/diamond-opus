@@ -105,20 +105,18 @@ export async function createCheckout(
   return response.data.data;
 }
 
-export async function getRelatedDiamonds(
+export interface RecommendedDiamonds {
+  highest_rated: Diamond | null;
+  most_expensive: Diamond | null;
+  mid_rated: Diamond | null;
+}
+
+export async function getRecommendedDiamonds(
   id: string,
-  options?: {
-    limit?: number;
-    fields?: string;
-    carat_tolerance?: number;
-    price_tolerance?: number;
-  }
-): Promise<Diamond[]> {
+  options?: { carat_tolerance?: number }
+): Promise<RecommendedDiamonds> {
   const query: Record<string, string> = {};
-  if (options?.limit !== undefined) query.limit = String(options.limit);
-  if (options?.fields) query.fields = options.fields;
   if (options?.carat_tolerance !== undefined) query.carat_tolerance = String(options.carat_tolerance);
-  if (options?.price_tolerance !== undefined) query.price_tolerance = String(options.price_tolerance);
-  const response = await api.get<{ data: Diamond[] }>(`/diamonds/${id}/related`, { params: query });
+  const response = await api.get<{ data: RecommendedDiamonds }>(`/diamonds/${id}/related`, { params: query });
   return response.data.data;
 }
