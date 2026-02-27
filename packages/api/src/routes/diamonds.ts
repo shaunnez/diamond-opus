@@ -646,6 +646,8 @@ router.get(
         sortOrder: query.sort_order,
         fields: query.fields,
         skipCount: query.no_count === true,
+        afterCreatedAt: query.after_created_at,
+        afterId: query.after_id,
       };
 
       // --- ETag: return 304 if dataset hasn't changed ---
@@ -663,7 +665,11 @@ router.get(
       const page = payload.page ?? 1;
       const limit = Math.min(payload.limit ?? 50, 1000);
       const fields = payload.fields ?? 'full';
-      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, page, limit);
+      // Use cursor as page key when keyset pagination is active
+      const pageKey = payload.afterCreatedAt && payload.afterId
+        ? `${payload.afterCreatedAt}_${payload.afterId}`
+        : String(page);
+      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, pageKey, limit);
 
       const cached = getCachedSearch(cacheKey);
       if (cached) {

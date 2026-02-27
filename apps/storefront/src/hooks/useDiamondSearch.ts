@@ -102,16 +102,15 @@ export function useDiamondSearch() {
   const stoneType = useMemo(() => getStoneTypeFromURL(searchParams), [searchParams]);
   const selectedFeed = filters.feed || 'all';
 
-  // Build the API params from filters + stone type (excluding page — managed by infinite query)
+  // Build the API params from filters + stone type (excluding page/cursor — managed by infinite query)
   const apiParams = useMemo(() => {
     const params: DiamondSearchParams = { ...filters };
-    if (!params.limit) params.limit = 24;
+    if (!params.limit) params.limit = 100;
     // Always request slim fields for list views (full detail fetched per-diamond)
     params.fields = 'slim';
     // Skip COUNT for infinite scroll — just use hasMore
     params.no_count = true;
-    // Default to available-only unless the user has explicitly set availability
-    if (!params.availability?.length) params.availability = ['available'];
+    // availability defaults to 'available' server-side — no need to send it
 
     // Apply stone type filter
     if (stoneType === 'natural') {
@@ -153,10 +152,18 @@ export function useDiamondSearch() {
     fetchNextPage,
   } = useInfiniteQuery({
     queryKey: ['diamonds', apiParams],
-    queryFn: ({ pageParam }) => searchDiamonds({ ...apiParams, page: pageParam }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined,
+    queryFn: ({ pageParam }) => {
+      const cursor = pageParam as { after_created_at: string; after_id: string } | undefined;
+      return searchDiamonds({ ...apiParams, ...cursor });
+    },
+    initialPageParam: undefined as { after_created_at: string; after_id: string } | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.pagination.hasMore) return undefined;
+      const cursor = lastPage.pagination.nextCursor;
+      if (cursor) return { after_created_at: cursor.createdAt, after_id: cursor.id };
+      // Fallback for non-keyset sorts: no cursor available, stop pagination
+      return undefined;
+    },
   });
 
   const diamonds = useMemo(

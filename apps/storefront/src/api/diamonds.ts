@@ -50,6 +50,8 @@ export async function searchDiamonds(params: DiamondSearchParams): Promise<Diamo
   if (params.sort_order) query.sort_order = params.sort_order;
   if (params.fields) query.fields = params.fields;
   if (params.no_count) query.no_count = 'true';
+  if (params.after_created_at) query.after_created_at = params.after_created_at;
+  if (params.after_id) query.after_id = params.after_id;
 
   const response = await api.get<DiamondSearchResponse>('/diamonds', { params: query });
   return response.data;

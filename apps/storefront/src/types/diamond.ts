@@ -75,6 +75,7 @@ export interface DiamondSearchResponse {
     totalPages: number;
     isEstimated?: boolean;
     hasMore?: boolean;
+    nextCursor?: { createdAt: string; id: string };
   };
 }
 
@@ -113,6 +114,8 @@ export interface DiamondSearchParams {
   sort_order?: 'asc' | 'desc';
   fields?: 'full' | 'slim';
   no_count?: boolean;
+  after_created_at?: string;
+  after_id?: string;
 }
 
 export type StoneType = 'all' | 'natural' | 'natural_fancy' | 'lab' | 'lab_fancy';
