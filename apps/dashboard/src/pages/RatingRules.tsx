@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Star, RefreshCw, RotateCcw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Star, RefreshCw, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   getRatingRules,
   createRatingRule,
@@ -40,6 +40,31 @@ interface RuleFormData {
   feed: string;
   rating: string;
   recalculate_rating: boolean;
+  // Tier 1
+  polishes: string;
+  symmetries: string;
+  fluorescences: string;
+  certificate_labs: string;
+  lab_grown: string; // '', 'true', 'false'
+  carat_min: string;
+  carat_max: string;
+  // Tier 2
+  table_min: string;
+  table_max: string;
+  depth_min: string;
+  depth_max: string;
+  crown_angle_min: string;
+  crown_angle_max: string;
+  crown_height_min: string;
+  crown_height_max: string;
+  pavilion_angle_min: string;
+  pavilion_angle_max: string;
+  pavilion_depth_min: string;
+  pavilion_depth_max: string;
+  girdles: string;
+  culet_sizes: string;
+  ratio_min: string;
+  ratio_max: string;
 }
 
 const emptyFormData: RuleFormData = {
@@ -53,6 +78,29 @@ const emptyFormData: RuleFormData = {
   feed: '',
   rating: '5',
   recalculate_rating: false,
+  polishes: '',
+  symmetries: '',
+  fluorescences: '',
+  certificate_labs: '',
+  lab_grown: '',
+  carat_min: '',
+  carat_max: '',
+  table_min: '',
+  table_max: '',
+  depth_min: '',
+  depth_max: '',
+  crown_angle_min: '',
+  crown_angle_max: '',
+  crown_height_min: '',
+  crown_height_max: '',
+  pavilion_angle_min: '',
+  pavilion_angle_max: '',
+  pavilion_depth_min: '',
+  pavilion_depth_max: '',
+  girdles: '',
+  culet_sizes: '',
+  ratio_min: '',
+  ratio_max: '',
 };
 
 function formatPrice(price: number): string {
@@ -85,29 +133,98 @@ function formatTriggerType(triggerType: string | null): string {
 function formatRuleSnapshot(snapshot: RatingReapplyJob['trigger_rule_snapshot']): string {
   if (!snapshot) return '';
   const parts: string[] = [];
+  const s = snapshot as Record<string, unknown>;
 
-  if (snapshot.shapes && snapshot.shapes.length > 0) {
-    parts.push(`Shapes: ${snapshot.shapes.join(', ')}`);
-  }
-  if (snapshot.colors && snapshot.colors.length > 0) {
-    parts.push(`Colors: ${snapshot.colors.join(', ')}`);
-  }
-  if (snapshot.clarities && snapshot.clarities.length > 0) {
-    parts.push(`Clarities: ${snapshot.clarities.join(', ')}`);
-  }
-  if (snapshot.price_min !== undefined || snapshot.price_max !== undefined) {
-    const min = snapshot.price_min !== undefined ? formatPrice(snapshot.price_min) : '$0';
-    const max = snapshot.price_max !== undefined ? formatPrice(snapshot.price_max) : 'No limit';
+  const arr = (key: string) => {
+    const v = s[key];
+    return Array.isArray(v) && v.length > 0 ? v : null;
+  };
+
+  const shapes = arr('shapes');
+  if (shapes) parts.push(`Shapes: ${shapes.join(', ')}`);
+  const colors = arr('colors');
+  if (colors) parts.push(`Colors: ${colors.join(', ')}`);
+  const clarities = arr('clarities');
+  if (clarities) parts.push(`Clarities: ${clarities.join(', ')}`);
+  const polishes = arr('polishes');
+  if (polishes) parts.push(`Polish: ${polishes.join(', ')}`);
+  const symmetries = arr('symmetries');
+  if (symmetries) parts.push(`Symmetry: ${symmetries.join(', ')}`);
+  const fluorescences = arr('fluorescences');
+  if (fluorescences) parts.push(`Fluorescence: ${fluorescences.join(', ')}`);
+  const certificateLabs = arr('certificate_labs');
+  if (certificateLabs) parts.push(`Lab: ${certificateLabs.join(', ')}`);
+
+  if (s.price_min !== undefined || s.price_max !== undefined) {
+    const min = s.price_min !== undefined ? formatPrice(s.price_min as number) : '$0';
+    const max = s.price_max !== undefined ? formatPrice(s.price_max as number) : 'No limit';
     parts.push(`${min} - ${max}`);
   }
-  if (snapshot.feed) {
-    parts.push(`Feed: ${snapshot.feed}`);
-  }
-  if (snapshot.rating !== undefined) {
-    parts.push(`Rating: ${snapshot.rating}/10`);
-  }
+  if (s.feed) parts.push(`Feed: ${s.feed}`);
+  if (s.rating !== undefined) parts.push(`Rating: ${s.rating}/10`);
+  if (s.lab_grown !== undefined) parts.push(`Lab-grown: ${s.lab_grown ? 'Yes' : 'No'}`);
 
   return parts.join(', ');
+}
+
+function FilterSection({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-stone-200 dark:border-stone-600 rounded-lg">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors rounded-lg"
+        onClick={() => setOpen(!open)}
+      >
+        {title}
+        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+      </button>
+      {open && <div className="px-4 pb-4 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
+function hasExtendedFilters(rule: RatingRule): boolean {
+  return !!(
+    rule.polishes?.length ||
+    rule.symmetries?.length ||
+    rule.fluorescences?.length ||
+    rule.certificate_labs?.length ||
+    rule.lab_grown !== undefined ||
+    rule.carat_min !== undefined ||
+    rule.carat_max !== undefined ||
+    rule.table_min !== undefined ||
+    rule.table_max !== undefined ||
+    rule.depth_min !== undefined ||
+    rule.depth_max !== undefined ||
+    rule.crown_angle_min !== undefined ||
+    rule.crown_angle_max !== undefined ||
+    rule.crown_height_min !== undefined ||
+    rule.crown_height_max !== undefined ||
+    rule.pavilion_angle_min !== undefined ||
+    rule.pavilion_angle_max !== undefined ||
+    rule.pavilion_depth_min !== undefined ||
+    rule.pavilion_depth_max !== undefined ||
+    rule.girdles?.length ||
+    rule.culet_sizes?.length ||
+    rule.ratio_min !== undefined ||
+    rule.ratio_max !== undefined
+  );
+}
+
+function formatRange(label: string, min?: number, max?: number): string | null {
+  if (min === undefined && max === undefined) return null;
+  const minStr = min !== undefined ? String(min) : '0';
+  const maxStr = max !== undefined ? String(max) : '\u221e';
+  return `${label}: ${minStr}-${maxStr}`;
 }
 
 export function RatingRules() {
@@ -235,6 +352,29 @@ export function RatingRules() {
       feed: rule.feed ?? '',
       rating: rule.rating.toString(),
       recalculate_rating: false,
+      polishes: rule.polishes?.join(', ') ?? '',
+      symmetries: rule.symmetries?.join(', ') ?? '',
+      fluorescences: rule.fluorescences?.join(', ') ?? '',
+      certificate_labs: rule.certificate_labs?.join(', ') ?? '',
+      lab_grown: rule.lab_grown === undefined ? '' : String(rule.lab_grown),
+      carat_min: rule.carat_min?.toString() ?? '',
+      carat_max: rule.carat_max?.toString() ?? '',
+      table_min: rule.table_min?.toString() ?? '',
+      table_max: rule.table_max?.toString() ?? '',
+      depth_min: rule.depth_min?.toString() ?? '',
+      depth_max: rule.depth_max?.toString() ?? '',
+      crown_angle_min: rule.crown_angle_min?.toString() ?? '',
+      crown_angle_max: rule.crown_angle_max?.toString() ?? '',
+      crown_height_min: rule.crown_height_min?.toString() ?? '',
+      crown_height_max: rule.crown_height_max?.toString() ?? '',
+      pavilion_angle_min: rule.pavilion_angle_min?.toString() ?? '',
+      pavilion_angle_max: rule.pavilion_angle_max?.toString() ?? '',
+      pavilion_depth_min: rule.pavilion_depth_min?.toString() ?? '',
+      pavilion_depth_max: rule.pavilion_depth_max?.toString() ?? '',
+      girdles: rule.girdles?.join(', ') ?? '',
+      culet_sizes: rule.culet_sizes?.join(', ') ?? '',
+      ratio_min: rule.ratio_min?.toString() ?? '',
+      ratio_max: rule.ratio_max?.toString() ?? '',
     });
     setEditingRule(rule);
   };
@@ -242,6 +382,11 @@ export function RatingRules() {
   const parseCommaSeparated = (value: string): string[] | undefined => {
     if (!value.trim()) return undefined;
     return value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  };
+
+  const optFloat = (value: string): number | undefined => {
+    if (!value.trim()) return undefined;
+    return parseFloat(value);
   };
 
   const handleSubmit = () => {
@@ -259,11 +404,43 @@ export function RatingRules() {
     if (formData.cuts) input.cuts = parseCommaSeparated(formData.cuts);
     if (formData.feed) input.feed = formData.feed;
 
+    // Tier 1
+    if (formData.polishes) input.polishes = parseCommaSeparated(formData.polishes);
+    if (formData.symmetries) input.symmetries = parseCommaSeparated(formData.symmetries);
+    if (formData.fluorescences) input.fluorescences = parseCommaSeparated(formData.fluorescences);
+    if (formData.certificate_labs) input.certificate_labs = parseCommaSeparated(formData.certificate_labs);
+    if (formData.lab_grown === 'true') input.lab_grown = true;
+    if (formData.lab_grown === 'false') input.lab_grown = false;
+    input.carat_min = optFloat(formData.carat_min);
+    input.carat_max = optFloat(formData.carat_max);
+
+    // Tier 2
+    input.table_min = optFloat(formData.table_min);
+    input.table_max = optFloat(formData.table_max);
+    input.depth_min = optFloat(formData.depth_min);
+    input.depth_max = optFloat(formData.depth_max);
+    input.crown_angle_min = optFloat(formData.crown_angle_min);
+    input.crown_angle_max = optFloat(formData.crown_angle_max);
+    input.crown_height_min = optFloat(formData.crown_height_min);
+    input.crown_height_max = optFloat(formData.crown_height_max);
+    input.pavilion_angle_min = optFloat(formData.pavilion_angle_min);
+    input.pavilion_angle_max = optFloat(formData.pavilion_angle_max);
+    input.pavilion_depth_min = optFloat(formData.pavilion_depth_min);
+    input.pavilion_depth_max = optFloat(formData.pavilion_depth_max);
+    if (formData.girdles) input.girdles = parseCommaSeparated(formData.girdles);
+    if (formData.culet_sizes) input.culet_sizes = parseCommaSeparated(formData.culet_sizes);
+    input.ratio_min = optFloat(formData.ratio_min);
+    input.ratio_max = optFloat(formData.ratio_max);
+
     if (editingRule) {
       updateMutation.mutate({ id: editingRule.id, updates: input });
     } else {
       createMutation.mutate(input);
     }
+  };
+
+  const setField = (field: keyof RuleFormData, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const rules = data?.rules ?? [];
@@ -278,7 +455,7 @@ export function RatingRules() {
             <div>
               <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Rating Rules</h1>
               <p className="text-stone-600 dark:text-stone-400 mt-1">
-                Manage quality rating rules for diamonds based on shape, color, clarity, cut, and price
+                Manage quality rating rules for diamonds. Configure filters across grading, measurements, and attributes.
               </p>
             </div>
             <Button
@@ -395,12 +572,58 @@ export function RatingRules() {
                                 {rule.price_max !== undefined ? formatPrice(rule.price_max) : 'No limit'}
                               </Badge>
                             )}
+                            {/* Extended filter badges */}
+                            {rule.polishes && rule.polishes.length > 0 && (
+                              <Badge variant="success">Polish: {rule.polishes.join(', ')}</Badge>
+                            )}
+                            {rule.symmetries && rule.symmetries.length > 0 && (
+                              <Badge variant="success">Sym: {rule.symmetries.join(', ')}</Badge>
+                            )}
+                            {rule.fluorescences && rule.fluorescences.length > 0 && (
+                              <Badge variant="warning">Fluor: {rule.fluorescences.join(', ')}</Badge>
+                            )}
+                            {rule.certificate_labs && rule.certificate_labs.length > 0 && (
+                              <Badge variant="info">Lab: {rule.certificate_labs.join(', ')}</Badge>
+                            )}
+                            {rule.lab_grown !== undefined && (
+                              <Badge variant={rule.lab_grown ? 'info' : 'neutral'}>
+                                {rule.lab_grown ? 'Lab-grown' : 'Natural'}
+                              </Badge>
+                            )}
+                            {(rule.carat_min !== undefined || rule.carat_max !== undefined) && (
+                              <Badge variant="neutral">
+                                {formatRange('Ct', rule.carat_min, rule.carat_max)}
+                              </Badge>
+                            )}
+                            {(rule.table_min !== undefined || rule.table_max !== undefined) && (
+                              <Badge variant="neutral">
+                                {formatRange('Table%', rule.table_min, rule.table_max)}
+                              </Badge>
+                            )}
+                            {(rule.depth_min !== undefined || rule.depth_max !== undefined) && (
+                              <Badge variant="neutral">
+                                {formatRange('Depth%', rule.depth_min, rule.depth_max)}
+                              </Badge>
+                            )}
+                            {rule.girdles && rule.girdles.length > 0 && (
+                              <Badge variant="neutral">Girdle: {rule.girdles.join(', ')}</Badge>
+                            )}
+                            {rule.culet_sizes && rule.culet_sizes.length > 0 && (
+                              <Badge variant="neutral">Culet: {rule.culet_sizes.join(', ')}</Badge>
+                            )}
+                            {(rule.ratio_min !== undefined || rule.ratio_max !== undefined) && (
+                              <Badge variant="neutral">
+                                {formatRange('Ratio', rule.ratio_min, rule.ratio_max)}
+                              </Badge>
+                            )}
+                            {/* Show "All" only when no filters at all */}
                             {!rule.shapes?.length &&
                               !rule.colors?.length &&
                               !rule.clarities?.length &&
                               !rule.cuts?.length &&
                               rule.price_min === undefined &&
-                              rule.price_max === undefined && (
+                              rule.price_max === undefined &&
+                              !hasExtendedFilters(rule) && (
                                 <span className="text-stone-400 dark:text-stone-500 text-sm italic">
                                   All
                                 </span>
@@ -559,130 +782,316 @@ export function RatingRules() {
                   {editingRule ? 'Edit Rating Rule' : 'Create Rating Rule'}
                 </h2>
               </div>
-              <div className="p-6 space-y-6">
-                {/* Priority */}
-                <div>
-                  <Input
-                    label="Priority"
-                    type="number"
-                    value={formData.priority}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, priority: e.target.value }))
-                    }
-                  />
-                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                    Lower number = higher priority. Rules are evaluated in order.
-                  </p>
-                </div>
-
-                {/* Rating */}
-                <div>
-                  <Input
-                    label="Rating (1-10)"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={formData.rating}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, rating: e.target.value }))
-                    }
-                  />
-                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                    Quality rating to assign to matching diamonds
-                  </p>
-                </div>
-
-                {/* Shape, Color, Clarity, Cut filters */}
+              <div className="p-6 space-y-4">
+                {/* Priority & Rating */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Input
-                      label="Shapes"
-                      value={formData.shapes}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, shapes: e.target.value }))
-                      }
-                      placeholder="e.g. ROUND, OVAL"
+                      label="Priority"
+                      type="number"
+                      value={formData.priority}
+                      onChange={(e) => setField('priority', e.target.value)}
                     />
                     <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                      Comma-separated, leave empty for all
+                      Lower = higher precedence
                     </p>
                   </div>
                   <div>
                     <Input
-                      label="Colors"
-                      value={formData.colors}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, colors: e.target.value }))
-                      }
-                      placeholder="e.g. D, E, F"
+                      label="Rating (1-10)"
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={formData.rating}
+                      onChange={(e) => setField('rating', e.target.value)}
                     />
                     <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                      Comma-separated, leave empty for all
-                    </p>
-                  </div>
-                  <div>
-                    <Input
-                      label="Clarities"
-                      value={formData.clarities}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, clarities: e.target.value }))
-                      }
-                      placeholder="e.g. VS1, VS2, VVS1"
-                    />
-                    <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                      Comma-separated, leave empty for all
-                    </p>
-                  </div>
-                  <div>
-                    <Input
-                      label="Cuts"
-                      value={formData.cuts}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, cuts: e.target.value }))
-                      }
-                      placeholder="e.g. EX, VG"
-                    />
-                    <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                      Comma-separated, leave empty for all
+                      Quality score to assign
                     </p>
                   </div>
                 </div>
 
-                {/* Price Range */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Min Price (USD)"
-                    type="number"
-                    step="0.01"
-                    value={formData.price_min}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, price_min: e.target.value }))
-                    }
-                    placeholder="Leave empty for no minimum"
-                  />
-                  <Input
-                    label="Max Price (USD)"
-                    type="number"
-                    step="0.01"
-                    value={formData.price_max}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, price_max: e.target.value }))
-                    }
-                    placeholder="Leave empty for no maximum"
-                  />
-                </div>
-
-                {/* Feed */}
-                <div>
+                {/* Basic 4Cs + Price (always visible) */}
+                <FilterSection title="Basic Filters (4Cs, Price, Feed)" defaultOpen>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Input
+                        label="Shapes"
+                        value={formData.shapes}
+                        onChange={(e) => setField('shapes', e.target.value)}
+                        placeholder="e.g. ROUND, OVAL"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Colors"
+                        value={formData.colors}
+                        onChange={(e) => setField('colors', e.target.value)}
+                        placeholder="e.g. D, E, F"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Clarities"
+                        value={formData.clarities}
+                        onChange={(e) => setField('clarities', e.target.value)}
+                        placeholder="e.g. VS1, VS2, VVS1"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Cuts"
+                        value={formData.cuts}
+                        onChange={(e) => setField('cuts', e.target.value)}
+                        placeholder="e.g. EX, VG"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Min Price (USD)"
+                      type="number"
+                      step="0.01"
+                      value={formData.price_min}
+                      onChange={(e) => setField('price_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Price (USD)"
+                      type="number"
+                      step="0.01"
+                      value={formData.price_max}
+                      onChange={(e) => setField('price_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                  </div>
                   <Input
                     label="Feed"
                     value={formData.feed}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, feed: e.target.value }))
-                    }
+                    onChange={(e) => setField('feed', e.target.value)}
                     placeholder="Leave empty to match all feeds"
                   />
-                </div>
+                </FilterSection>
+
+                {/* Grading */}
+                <FilterSection title="Grading (Polish, Symmetry, Fluorescence, Lab)">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Input
+                        label="Polish"
+                        value={formData.polishes}
+                        onChange={(e) => setField('polishes', e.target.value)}
+                        placeholder="e.g. EX, VG"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Symmetry"
+                        value={formData.symmetries}
+                        onChange={(e) => setField('symmetries', e.target.value)}
+                        placeholder="e.g. EX, VG"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Fluorescence"
+                        value={formData.fluorescences}
+                        onChange={(e) => setField('fluorescences', e.target.value)}
+                        placeholder="e.g. NONE, FAINT"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Certificate Lab"
+                        value={formData.certificate_labs}
+                        onChange={(e) => setField('certificate_labs', e.target.value)}
+                        placeholder="e.g. GIA, IGI"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                      Lab-Grown
+                    </label>
+                    <select
+                      value={formData.lab_grown}
+                      onChange={(e) => setField('lab_grown', e.target.value)}
+                      className="w-full rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                    >
+                      <option value="">Any (no filter)</option>
+                      <option value="true">Lab-grown only</option>
+                      <option value="false">Natural only</option>
+                    </select>
+                  </div>
+                </FilterSection>
+
+                {/* Carat & Measurements */}
+                <FilterSection title="Carat & Measurements (Table%, Depth%, Ratio)">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Min Carat"
+                      type="number"
+                      step="0.01"
+                      value={formData.carat_min}
+                      onChange={(e) => setField('carat_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Carat"
+                      type="number"
+                      step="0.01"
+                      value={formData.carat_max}
+                      onChange={(e) => setField('carat_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                    <Input
+                      label="Min Table %"
+                      type="number"
+                      step="0.1"
+                      value={formData.table_min}
+                      onChange={(e) => setField('table_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Table %"
+                      type="number"
+                      step="0.1"
+                      value={formData.table_max}
+                      onChange={(e) => setField('table_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                    <Input
+                      label="Min Depth %"
+                      type="number"
+                      step="0.1"
+                      value={formData.depth_min}
+                      onChange={(e) => setField('depth_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Depth %"
+                      type="number"
+                      step="0.1"
+                      value={formData.depth_max}
+                      onChange={(e) => setField('depth_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                    <Input
+                      label="Min Ratio (L/W)"
+                      type="number"
+                      step="0.01"
+                      value={formData.ratio_min}
+                      onChange={(e) => setField('ratio_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Ratio (L/W)"
+                      type="number"
+                      step="0.01"
+                      value={formData.ratio_max}
+                      onChange={(e) => setField('ratio_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                  </div>
+                </FilterSection>
+
+                {/* Crown, Pavilion, Girdle, Culet */}
+                <FilterSection title="Crown & Pavilion (Angles, Heights, Girdle, Culet)">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Min Crown Angle"
+                      type="number"
+                      step="0.1"
+                      value={formData.crown_angle_min}
+                      onChange={(e) => setField('crown_angle_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Crown Angle"
+                      type="number"
+                      step="0.1"
+                      value={formData.crown_angle_max}
+                      onChange={(e) => setField('crown_angle_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                    <Input
+                      label="Min Crown Height"
+                      type="number"
+                      step="0.1"
+                      value={formData.crown_height_min}
+                      onChange={(e) => setField('crown_height_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Crown Height"
+                      type="number"
+                      step="0.1"
+                      value={formData.crown_height_max}
+                      onChange={(e) => setField('crown_height_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                    <Input
+                      label="Min Pavilion Angle"
+                      type="number"
+                      step="0.1"
+                      value={formData.pavilion_angle_min}
+                      onChange={(e) => setField('pavilion_angle_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Pavilion Angle"
+                      type="number"
+                      step="0.1"
+                      value={formData.pavilion_angle_max}
+                      onChange={(e) => setField('pavilion_angle_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                    <Input
+                      label="Min Pavilion Depth"
+                      type="number"
+                      step="0.1"
+                      value={formData.pavilion_depth_min}
+                      onChange={(e) => setField('pavilion_depth_min', e.target.value)}
+                      placeholder="No minimum"
+                    />
+                    <Input
+                      label="Max Pavilion Depth"
+                      type="number"
+                      step="0.1"
+                      value={formData.pavilion_depth_max}
+                      onChange={(e) => setField('pavilion_depth_max', e.target.value)}
+                      placeholder="No maximum"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Input
+                        label="Girdle"
+                        value={formData.girdles}
+                        onChange={(e) => setField('girdles', e.target.value)}
+                        placeholder="e.g. THIN, MEDIUM"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Culet Size"
+                        value={formData.culet_sizes}
+                        onChange={(e) => setField('culet_sizes', e.target.value)}
+                        placeholder="e.g. NONE, SMALL"
+                      />
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">Comma-separated</p>
+                    </div>
+                  </div>
+                </FilterSection>
 
                 {/* Recalculate Rating */}
                 <div className="border-t border-stone-200 dark:border-stone-600 pt-4">
@@ -690,9 +1099,7 @@ export function RatingRules() {
                     <input
                       type="checkbox"
                       checked={formData.recalculate_rating}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, recalculate_rating: e.target.checked }))
-                      }
+                      onChange={(e) => setField('recalculate_rating', e.target.checked)}
                       className="mt-1 w-4 h-4 rounded border-stone-300 text-primary-600 focus:ring-primary-500"
                       disabled={!!activeJobId || createMutation.isPending || updateMutation.isPending}
                     />
