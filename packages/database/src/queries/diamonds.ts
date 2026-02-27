@@ -63,6 +63,9 @@ interface DiamondRow {
   deleted_at: Date | null;
 }
 
+/** All diamond columns needed by mapRowToDiamond (excludes unused JSONB: measurements, attributes). */
+const DIAMOND_SELECT_COLUMNS = `id, feed, supplier_stone_id, offer_id, shape, carats, color, clarity, cut, polish, symmetry, fluorescence, fluorescence_intensity, fancy_color, fancy_intensity, fancy_overtone, ratio, lab_grown, treated, feed_price, diamond_price, price_per_carat, price_model_price, markup_ratio, pricing_rating, rating, availability, raw_availability, hold_id, image_url, video_url, meta_images, certificate_lab, certificate_number, certificate_pdf_url, table_pct, depth_pct, length_mm, width_mm, depth_mm, crown_angle, crown_height, pavilion_angle, pavilion_depth, girdle, culet_size, eye_clean, brown, green, milky, supplier_name, supplier_legal_name, status, source_updated_at, created_at, updated_at, deleted_at`;
+
 function mapRowToDiamond(row: DiamondRow): Diamond {
   return {
     id: row.id,
@@ -360,20 +363,22 @@ export async function searchDiamonds(
   ];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
-  console.log("where clause", whereClause, values, `ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT ${limit} OFFSET ${offset}`);
 
-  const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) as count FROM diamonds WHERE ${whereClause}`,
-    values
-  );
+  // Run COUNT and SELECT in parallel — both share the same WHERE clause and
+  // execute on separate pool connections, cutting wall-clock time roughly in half.
+  const dataParamIndex = paramIndex;
+  const [countResult, dataResult] = await Promise.all([
+    query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM diamonds WHERE ${whereClause}`,
+      values
+    ),
+    query<DiamondRow>(
+      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${dataParamIndex} OFFSET $${dataParamIndex + 1}`,
+      [...values, limit, offset]
+    ),
+  ]);
 
   const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
-
-  console.log(total, 'total diamonds found');
-  const dataResult = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-    [...values, limit, offset]
-  );
 
   return {
     data: dataResult.rows.map(mapRowToDiamond),
@@ -388,7 +393,7 @@ export async function searchDiamonds(
 
 export async function getDiamondById(id: string): Promise<Diamond | null> {
   const result = await query<DiamondRow>(
-    "SELECT * FROM diamonds WHERE id = $1 AND status = 'active'",
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE id = $1 AND status = 'active'`,
     [id]
   );
   const row = result.rows[0];
@@ -397,7 +402,7 @@ export async function getDiamondById(id: string): Promise<Diamond | null> {
 
 export async function getDiamondByOfferId(offerId: string): Promise<Diamond | null> {
   const result = await query<DiamondRow>(
-    "SELECT * FROM diamonds WHERE offer_id = $1 AND status = 'active'",
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE offer_id = $1 AND status = 'active'`,
     [offerId]
   );
   const row = result.rows[0];
@@ -406,7 +411,7 @@ export async function getDiamondByOfferId(offerId: string): Promise<Diamond | nu
 
 export async function getDiamondsOnHold(): Promise<Diamond[]> {
   const result = await query<DiamondRow>(
-    "SELECT * FROM diamonds WHERE availability = 'on_hold' AND status = 'active' ORDER BY updated_at DESC"
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE availability = 'on_hold' AND status = 'active' ORDER BY updated_at DESC`
   );
   return result.rows.map(mapRowToDiamond);
 }
@@ -906,7 +911,7 @@ export async function getRelatedDiamonds(
   const limitParam = `$${paramIndex++}`;
 
   const result = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limitParam}`,
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limitParam}`,
     values
   );
 
@@ -944,7 +949,7 @@ export async function quickSearchDiamonds(
   values.push(Math.min(limit, 50));
 
   const result = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${conditions.join(' AND ')}
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${conditions.join(' AND ')}
      ORDER BY updated_at DESC LIMIT $${paramIndex}`,
     values
   );
