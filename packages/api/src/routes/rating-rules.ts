@@ -26,6 +26,7 @@ import {
   RATING_REAPPLY_RETRY_MAX_DELAY_MINUTES,
 } from "@diamond/shared";
 import { RatingEngine } from "@diamond/rating-engine";
+import type { RatingRule } from "@diamond/shared";
 import { badRequest } from "../middleware/index.js";
 
 const router = Router();
@@ -39,21 +40,7 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       data: {
-        rules: rules.map((rule) => ({
-          id: rule.id,
-          priority: rule.priority,
-          price_min: rule.priceMin,
-          price_max: rule.priceMax,
-          shapes: rule.shapes,
-          colors: rule.colors,
-          clarities: rule.clarities,
-          cuts: rule.cuts,
-          feed: rule.feed,
-          rating: rule.rating,
-          active: rule.active,
-          created_at: rule.createdAt,
-          updated_at: rule.updatedAt,
-        })),
+        rules: rules.map(formatRule),
         total: rules.length,
       },
     });
@@ -88,6 +75,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       cuts: body.cuts,
       feed: body.feed,
       rating,
+      ...parseExtendedFilters(body),
     });
 
     let reapplyJobId: string | undefined;
@@ -109,17 +97,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         reapplyJobId = await createRatingReapplyJob(totalDiamonds, {
           triggerType: 'rule_create',
           triggeredByRuleId: rule.id,
-          triggerRuleSnapshot: {
-            priority: rule.priority,
-            price_min: rule.priceMin,
-            price_max: rule.priceMax,
-            shapes: rule.shapes,
-            colors: rule.colors,
-            clarities: rule.clarities,
-            cuts: rule.cuts,
-            feed: rule.feed,
-            rating: rule.rating,
-          },
+          triggerRuleSnapshot: formatRule(rule),
         });
 
         executeRatingReapplyJob(reapplyJobId).catch((err) => {
@@ -157,18 +135,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
       throw badRequest("id is required");
     }
 
-    const updates: {
-      priority?: number;
-      priceMin?: number;
-      priceMax?: number;
-      shapes?: string[];
-      colors?: string[];
-      clarities?: string[];
-      cuts?: string[];
-      feed?: string;
-      rating?: number;
-      active?: boolean;
-    } = {};
+    const updates: Record<string, unknown> = {};
 
     if (body.priority !== undefined) {
       updates.priority = parseInt(body.priority, 10);
@@ -208,6 +175,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     if (body.active !== undefined) {
       updates.active = body.active;
     }
+    Object.assign(updates, parseExtendedFilters(body));
 
     await updateRatingRule(id, updates);
 
@@ -231,17 +199,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
         reapplyJobId = await createRatingReapplyJob(totalDiamonds, {
           triggerType: 'rule_update',
           triggeredByRuleId: id,
-          triggerRuleSnapshot: {
-            priority: updates.priority,
-            price_min: updates.priceMin,
-            price_max: updates.priceMax,
-            shapes: updates.shapes,
-            colors: updates.colors,
-            clarities: updates.clarities,
-            cuts: updates.cuts,
-            feed: updates.feed,
-            rating: updates.rating,
-          },
+          triggerRuleSnapshot: updates,
         });
 
         executeRatingReapplyJob(reapplyJobId).catch((err) => {
@@ -295,23 +253,44 @@ router.delete(
   }
 );
 
+// --- Helpers ---
+
+function optionalFloat(val: unknown): number | undefined {
+  if (val === undefined || val === null) return undefined;
+  return parseFloat(String(val));
+}
+
+function parseExtendedFilters(body: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  if (body.polishes !== undefined) out.polishes = body.polishes;
+  if (body.symmetries !== undefined) out.symmetries = body.symmetries;
+  if (body.fluorescences !== undefined) out.fluorescences = body.fluorescences;
+  if (body.certificate_labs !== undefined) out.certificateLabs = body.certificate_labs;
+  if (body.lab_grown !== undefined) out.labGrown = body.lab_grown;
+  if (body.carat_min !== undefined) out.caratMin = optionalFloat(body.carat_min);
+  if (body.carat_max !== undefined) out.caratMax = optionalFloat(body.carat_max);
+  if (body.table_min !== undefined) out.tableMin = optionalFloat(body.table_min);
+  if (body.table_max !== undefined) out.tableMax = optionalFloat(body.table_max);
+  if (body.depth_min !== undefined) out.depthMin = optionalFloat(body.depth_min);
+  if (body.depth_max !== undefined) out.depthMax = optionalFloat(body.depth_max);
+  if (body.crown_angle_min !== undefined) out.crownAngleMin = optionalFloat(body.crown_angle_min);
+  if (body.crown_angle_max !== undefined) out.crownAngleMax = optionalFloat(body.crown_angle_max);
+  if (body.crown_height_min !== undefined) out.crownHeightMin = optionalFloat(body.crown_height_min);
+  if (body.crown_height_max !== undefined) out.crownHeightMax = optionalFloat(body.crown_height_max);
+  if (body.pavilion_angle_min !== undefined) out.pavilionAngleMin = optionalFloat(body.pavilion_angle_min);
+  if (body.pavilion_angle_max !== undefined) out.pavilionAngleMax = optionalFloat(body.pavilion_angle_max);
+  if (body.pavilion_depth_min !== undefined) out.pavilionDepthMin = optionalFloat(body.pavilion_depth_min);
+  if (body.pavilion_depth_max !== undefined) out.pavilionDepthMax = optionalFloat(body.pavilion_depth_max);
+  if (body.girdles !== undefined) out.girdles = body.girdles;
+  if (body.culet_sizes !== undefined) out.culetSizes = body.culet_sizes;
+  if (body.ratio_min !== undefined) out.ratioMin = optionalFloat(body.ratio_min);
+  if (body.ratio_max !== undefined) out.ratioMax = optionalFloat(body.ratio_max);
+  return out;
+}
+
 // --- Reapply rating endpoints ---
 
-function formatRule(rule: {
-  id: string;
-  priority: number;
-  priceMin?: number;
-  priceMax?: number;
-  shapes?: string[];
-  colors?: string[];
-  clarities?: string[];
-  cuts?: string[];
-  feed?: string;
-  rating: number;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
+function formatRule(rule: RatingRule) {
   return {
     id: rule.id,
     priority: rule.priority,
@@ -326,6 +305,31 @@ function formatRule(rule: {
     active: rule.active,
     created_at: rule.createdAt,
     updated_at: rule.updatedAt,
+    // Tier 1
+    polishes: rule.polishes,
+    symmetries: rule.symmetries,
+    fluorescences: rule.fluorescences,
+    certificate_labs: rule.certificateLabs,
+    lab_grown: rule.labGrown,
+    carat_min: rule.caratMin,
+    carat_max: rule.caratMax,
+    // Tier 2
+    table_min: rule.tableMin,
+    table_max: rule.tableMax,
+    depth_min: rule.depthMin,
+    depth_max: rule.depthMax,
+    crown_angle_min: rule.crownAngleMin,
+    crown_angle_max: rule.crownAngleMax,
+    crown_height_min: rule.crownHeightMin,
+    crown_height_max: rule.crownHeightMax,
+    pavilion_angle_min: rule.pavilionAngleMin,
+    pavilion_angle_max: rule.pavilionAngleMax,
+    pavilion_depth_min: rule.pavilionDepthMin,
+    pavilion_depth_max: rule.pavilionDepthMax,
+    girdles: rule.girdles,
+    culet_sizes: rule.culetSizes,
+    ratio_min: rule.ratioMin,
+    ratio_max: rule.ratioMax,
   };
 }
 
@@ -431,6 +435,21 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
             clarity: diamond.clarity ?? undefined,
             cut: diamond.cut ?? undefined,
             feed: diamond.feed,
+            carats: diamond.carats ?? undefined,
+            polish: diamond.polish ?? undefined,
+            symmetry: diamond.symmetry ?? undefined,
+            fluorescence: diamond.fluorescence ?? undefined,
+            certificateLab: diamond.certificateLab ?? undefined,
+            labGrown: diamond.labGrown,
+            tablePct: diamond.tablePct ?? undefined,
+            depthPct: diamond.depthPct ?? undefined,
+            crownAngle: diamond.crownAngle ?? undefined,
+            crownHeight: diamond.crownHeight ?? undefined,
+            pavilionAngle: diamond.pavilionAngle ?? undefined,
+            pavilionDepth: diamond.pavilionDepth ?? undefined,
+            girdle: diamond.girdle ?? undefined,
+            culetSize: diamond.culetSize ?? undefined,
+            ratio: diamond.ratio ?? undefined,
           });
 
           const oldRating = diamond.rating;

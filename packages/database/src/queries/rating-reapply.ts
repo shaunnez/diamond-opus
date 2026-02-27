@@ -40,6 +40,21 @@ interface AvailableDiamondRatingRow {
   clarity: string | null;
   cut: string | null;
   rating: number | null;
+  carats: string | null;
+  polish: string | null;
+  symmetry: string | null;
+  fluorescence: string | null;
+  certificate_lab: string | null;
+  lab_grown: boolean;
+  table_pct: string | null;
+  depth_pct: string | null;
+  crown_angle: string | null;
+  crown_height: string | null;
+  pavilion_angle: string | null;
+  pavilion_depth: string | null;
+  girdle: string | null;
+  culet_size: string | null;
+  ratio: string | null;
 }
 
 // --- Public types ---
@@ -82,6 +97,21 @@ export interface AvailableDiamondRating {
   clarity: string | null;
   cut: string | null;
   rating: number | null;
+  carats: number | null;
+  polish: string | null;
+  symmetry: string | null;
+  fluorescence: string | null;
+  certificateLab: string | null;
+  labGrown: boolean;
+  tablePct: number | null;
+  depthPct: number | null;
+  crownAngle: number | null;
+  crownHeight: number | null;
+  pavilionAngle: number | null;
+  pavilionDepth: number | null;
+  girdle: string | null;
+  culetSize: string | null;
+  ratio: number | null;
 }
 
 // --- Mappers ---
@@ -256,13 +286,18 @@ export async function getAvailableDiamondsBatchForRating(
   values.push(limit);
 
   const result = await query<AvailableDiamondRatingRow>(
-    `SELECT id, feed, feed_price, shape, color, clarity, cut, rating
+    `SELECT id, feed, feed_price, shape, color, clarity, cut, rating,
+            carats, polish, symmetry, fluorescence, certificate_lab, lab_grown,
+            table_pct, depth_pct, crown_angle, crown_height,
+            pavilion_angle, pavilion_depth, girdle, culet_size, ratio
      FROM diamonds
      WHERE ${conditions.join(' AND ')}
      ORDER BY id ASC
      LIMIT $${paramIndex}`,
     values
   );
+
+  const parseNum = (v: string | null) => (v ? parseFloat(v) : null);
 
   return result.rows.map((row) => ({
     id: row.id,
@@ -273,6 +308,21 @@ export async function getAvailableDiamondsBatchForRating(
     clarity: row.clarity,
     cut: row.cut,
     rating: row.rating,
+    carats: parseNum(row.carats),
+    polish: row.polish,
+    symmetry: row.symmetry,
+    fluorescence: row.fluorescence,
+    certificateLab: row.certificate_lab,
+    labGrown: row.lab_grown,
+    tablePct: parseNum(row.table_pct),
+    depthPct: parseNum(row.depth_pct),
+    crownAngle: parseNum(row.crown_angle),
+    crownHeight: parseNum(row.crown_height),
+    pavilionAngle: parseNum(row.pavilion_angle),
+    pavilionDepth: parseNum(row.pavilion_depth),
+    girdle: row.girdle,
+    culetSize: row.culet_size,
+    ratio: parseNum(row.ratio),
   }));
 }
 

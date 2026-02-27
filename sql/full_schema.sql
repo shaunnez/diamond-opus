@@ -217,6 +217,98 @@ CREATE TABLE IF NOT EXISTS "public"."pricing_rules" (
 ALTER TABLE "public"."pricing_rules" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."rating_rules" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL PRIMARY KEY,
+    "priority" integer NOT NULL,
+    "active" boolean NOT NULL DEFAULT true,
+    "price_min" numeric(12,2),
+    "price_max" numeric(12,2),
+    "shape" text[],
+    "color" text[],
+    "clarity" text[],
+    "cut" text[],
+    "feed" text,
+    "rating" integer NOT NULL,
+    -- Tier 1: Grading filters
+    "polish" text[],
+    "symmetry" text[],
+    "fluorescence" text[],
+    "certificate_lab" text[],
+    "lab_grown" boolean,
+    "carat_min" numeric(6,2),
+    "carat_max" numeric(6,2),
+    -- Tier 2: Measurement filters
+    "table_min" numeric(5,2),
+    "table_max" numeric(5,2),
+    "depth_min" numeric(5,2),
+    "depth_max" numeric(5,2),
+    "crown_angle_min" numeric(5,2),
+    "crown_angle_max" numeric(5,2),
+    "crown_height_min" numeric(5,2),
+    "crown_height_max" numeric(5,2),
+    "pavilion_angle_min" numeric(5,2),
+    "pavilion_angle_max" numeric(5,2),
+    "pavilion_depth_min" numeric(5,2),
+    "pavilion_depth_max" numeric(5,2),
+    "girdle" text[],
+    "culet_size" text[],
+    "ratio_min" numeric(5,3),
+    "ratio_max" numeric(5,3),
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT "rating_rules_rating_check" CHECK (("rating" >= 1) AND ("rating" <= 10))
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_rules_active_priority
+    ON rating_rules (priority ASC)
+    WHERE active = TRUE;
+
+CREATE TABLE IF NOT EXISTS "public"."rating_reapply_jobs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL PRIMARY KEY,
+    "status" text NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'reverted')),
+    "total_diamonds" integer NOT NULL DEFAULT 0,
+    "processed_diamonds" integer NOT NULL DEFAULT 0,
+    "updated_diamonds" integer NOT NULL DEFAULT 0,
+    "failed_diamonds" integer NOT NULL DEFAULT 0,
+    "feeds_affected" text[] NOT NULL DEFAULT '{}',
+    "error" text,
+    "started_at" timestamptz,
+    "completed_at" timestamptz,
+    "reverted_at" timestamptz,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "retry_count" integer NOT NULL DEFAULT 0,
+    "last_progress_at" timestamptz,
+    "next_retry_at" timestamptz,
+    "trigger_type" text CHECK (trigger_type IN ('manual', 'rule_create', 'rule_update')),
+    "triggered_by_rule_id" "uuid",
+    "trigger_rule_snapshot" jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_reapply_jobs_status
+    ON rating_reapply_jobs (status);
+CREATE INDEX IF NOT EXISTS idx_rating_reapply_jobs_monitoring
+    ON rating_reapply_jobs (status, last_progress_at, next_retry_at);
+
+CREATE TABLE IF NOT EXISTS "public"."rating_reapply_snapshots" (
+    "job_id" "uuid" NOT NULL REFERENCES rating_reapply_jobs(id) ON DELETE CASCADE,
+    "diamond_id" "uuid" NOT NULL,
+    "feed" text NOT NULL,
+    "old_rating" integer,
+    "new_rating" integer,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (job_id, diamond_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_reapply_snapshots_job
+    ON rating_reapply_snapshots (job_id);
+
+
+ALTER TABLE "public"."rating_rules" OWNER TO "postgres";
+ALTER TABLE "public"."rating_reapply_jobs" OWNER TO "postgres";
+ALTER TABLE "public"."rating_reapply_snapshots" OWNER TO "postgres";
+
+
 CREATE SEQUENCE IF NOT EXISTS "public"."order_number_seq" START WITH 1 INCREMENT BY 1 NO MAXVALUE CACHE 1;
 
 CREATE OR REPLACE FUNCTION "public"."generate_order_number"() RETURNS text AS $$
