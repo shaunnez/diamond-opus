@@ -20,10 +20,16 @@ interface FilterPanelProps {
 
 const COLORS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
 const CLARITIES = ['FL', 'IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'I1', 'I2', 'I3'];
-const CUTS = ['Excellent', 'Very Good', 'Good', 'Fair', 'Poor'];
-const POLISH = ['Excellent', 'Very Good', 'Good', 'Fair', 'Poor'];
-const SYMMETRY = ['Excellent', 'Very Good', 'Good', 'Fair', 'Poor'];
-const FLUORESCENCE = ['None', 'Faint', 'Medium', 'Strong', 'Very Strong'];
+const CUTS = ['EX', 'VG', 'G', 'F', 'P'];
+const POLISH = ['EX', 'VG', 'G', 'F', 'P'];
+const SYMMETRY = ['EX', 'VG', 'G', 'F', 'P'];
+const FLUORESCENCE = ['NONE', 'FAINT', 'MEDIUM', 'STRONG', 'VERY_STRONG'];
+
+const CUT_GRADE_LABELS: Record<string, string> = {
+  EX: 'Excellent', VG: 'Very Good', G: 'Good', F: 'Fair', P: 'Poor',
+};
+const formatGradeLabel = (value: string) =>
+  CUT_GRADE_LABELS[value] ?? value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const LABS = ['GIA', 'AGS', 'IGI', 'HRD', 'GCAL'];
 
 const FANCY_COLORS = [
@@ -128,6 +134,7 @@ export function FilterPanel({
         options={CUTS}
         selected={filters.cut || []}
         onChange={(cut) => update({ cut: cut.length ? cut : undefined })}
+        getLabel={formatGradeLabel}
       />
 
       {/* Polish */}
@@ -136,6 +143,7 @@ export function FilterPanel({
         options={POLISH}
         selected={filters.polish || []}
         onChange={(polish) => update({ polish: polish.length ? polish : undefined })}
+        getLabel={formatGradeLabel}
       />
 
       {/* Symmetry */}
@@ -144,6 +152,7 @@ export function FilterPanel({
         options={SYMMETRY}
         selected={filters.symmetry || []}
         onChange={(symmetry) => update({ symmetry: symmetry.length ? symmetry : undefined })}
+        getLabel={formatGradeLabel}
       />
 
       {/* Fluorescence */}
@@ -154,6 +163,7 @@ export function FilterPanel({
         onChange={(fi) =>
           update({ fluorescence_intensity: fi.length ? fi : undefined })
         }
+        getLabel={formatGradeLabel}
       />
 
       {/* Lab */}

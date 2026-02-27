@@ -3,9 +3,10 @@ interface ChipSelectProps {
   options: string[];
   selected: string[];
   onChange: (selected: string[]) => void;
+  getLabel?: (value: string) => string;
 }
 
-export function ChipSelect({ label, options, selected, onChange }: ChipSelectProps) {
+export function ChipSelect({ label, options, selected, onChange, getLabel }: ChipSelectProps) {
   const toggle = (value: string) => {
     if (selected.includes(value)) {
       onChange(selected.filter((s) => s !== value));
@@ -32,7 +33,7 @@ export function ChipSelect({ label, options, selected, onChange }: ChipSelectPro
                   : 'bg-white text-warm-gray-500 border-border hover:border-warm-gray-400 hover:text-charcoal'
               }`}
             >
-              {opt}
+              {getLabel ? getLabel(opt) : opt}
             </button>
           );
         })}

@@ -57,13 +57,13 @@ const options: swaggerJsdoc.Options = {
         },
         DiamondCutGrade: {
           type: 'string',
-          description: 'Cut, polish, or symmetry grade. Short codes (EX, VG, G, F, P) and long-form (Excellent, Very Good, Good, Fair, Poor) are both accepted and normalised before filtering.',
+          description: 'Cut, polish, or symmetry grade. Values must match exactly as stored.',
           enum: ['EX', 'VG', 'G', 'F', 'P'],
           example: 'EX',
         },
         DiamondFluorescenceIntensity: {
           type: 'string',
-          description: 'Fluorescence intensity. Stored upper-case with underscores. Input is normalised (spaces → underscores, case-insensitive).',
+          description: 'Fluorescence intensity. Values must match exactly as stored.',
           enum: ['NONE', 'FAINT', 'MEDIUM', 'STRONG', 'VERY_STRONG'],
           example: 'NONE',
         },
