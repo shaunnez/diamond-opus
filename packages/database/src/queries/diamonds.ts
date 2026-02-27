@@ -365,6 +365,31 @@ export async function searchDiamonds(
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
+  // When skipCount is true, skip the expensive COUNT query entirely.
+  // Fetch limit+1 rows to detect if there are more pages.
+  if (params.skipCount) {
+    const dataLimitParam = paramIndex++;
+    const dataOffsetParam = paramIndex++;
+    const dataResult = await query<DiamondRow>(
+      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
+      [...values, limit + 1, offset]
+    );
+
+    const hasMore = dataResult.rows.length > limit;
+    const rows = hasMore ? dataResult.rows.slice(0, limit) : dataResult.rows;
+
+    return {
+      data: rows.map(mapRowToDiamond),
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        hasMore,
+      },
+    };
+  }
+
   // Run bounded COUNT and SELECT in parallel.
   // The COUNT is capped at SEARCH_COUNT_LIMIT+1 rows to avoid full-table scans
   // on broad queries (which can take 10s+ on small instances).

@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { SlidersHorizontal, ArrowUpDown, Loader2 } from 'lucide-react';
 import { FilterPanel } from '../components/filters/FilterPanel';
 import { DiamondGrid } from '../components/diamonds/DiamondGrid';
-import { Pagination } from '../components/ui/Pagination';
 import { Spinner } from '../components/ui/Spinner';
 import { useDiamondSearch } from '../hooks/useDiamondSearch';
 
@@ -20,6 +19,7 @@ const SORT_OPTIONS = [
 export function SearchPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const {
     filters,
@@ -27,13 +27,37 @@ export function SearchPage() {
     setFilters,
     setStoneType,
     resetFilters,
-    setPage,
     setSort,
     diamonds,
-    pagination,
+    diamondCount,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
     isLoading,
     isFetching,
   } = useDiamondSearch();
+
+  // Infinite scroll: observe a sentinel element near the bottom
+  const handleIntersect = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage]
+  );
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(handleIntersect, {
+      rootMargin: '400px',
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [handleIntersect]);
 
   const currentSort = SORT_OPTIONS.find(
     (s) => s.value === (filters.sort_by || 'created_at') && s.order === (filters.sort_order || 'desc')
@@ -79,8 +103,9 @@ export function SearchPage() {
 
               {/* Result count */}
               <p className="text-sm text-warm-gray-500">
-                {pagination.total.toLocaleString()}{pagination.isEstimated ? '+' : ''} diamond{pagination.total !== 1 ? 's' : ''}
-                {isFetching && !isLoading && (
+                {diamondCount.toLocaleString()} diamond{diamondCount !== 1 ? 's' : ''}
+                {hasNextPage ? '+' : ''}
+                {isFetching && !isLoading && !isFetchingNextPage && (
                   <span className="ml-2 text-warm-gray-400">updating...</span>
                 )}
               </p>
@@ -129,13 +154,14 @@ export function SearchPage() {
           ) : (
             <>
               <DiamondGrid diamonds={diamonds} />
-              {pagination.totalPages > 1 && (
-                <div className="mt-8">
-                  <Pagination
-                    page={pagination.page}
-                    totalPages={pagination.totalPages}
-                    onPageChange={setPage}
-                  />
+
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} className="h-px" />
+
+              {/* Loading indicator for next page */}
+              {isFetchingNextPage && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 text-warm-gray-400 animate-spin" />
                 </div>
               )}
             </>
