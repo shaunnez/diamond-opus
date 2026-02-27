@@ -329,9 +329,6 @@ export async function searchDiamonds(
 
   if (!params.availability || params.availability.length === 0) {
     conditions.push(`availability = 'available'`);
-  } else if (params.availability.length === 1) {
-    conditions.push(`availability = $${paramIndex++}`);
-    values.push(params.availability[0]);
   } else {
     conditions.push(`availability = ANY($${paramIndex++})`);
     values.push(params.availability);
