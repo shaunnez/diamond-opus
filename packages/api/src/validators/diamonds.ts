@@ -68,6 +68,7 @@ export const diamondSearchSchema = z.object({
   ]).default('created_at'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
   fields: z.enum(['full', 'slim']).default('full'),
+  no_count: booleanQueryParam,
 });
 
 export type DiamondSearchQuery = z.infer<typeof diamondSearchSchema>;

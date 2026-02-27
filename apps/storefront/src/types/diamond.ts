@@ -74,6 +74,7 @@ export interface DiamondSearchResponse {
     limit: number;
     totalPages: number;
     isEstimated?: boolean;
+    hasMore?: boolean;
   };
 }
 
@@ -111,6 +112,7 @@ export interface DiamondSearchParams {
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   fields?: 'full' | 'slim';
+  no_count?: boolean;
 }
 
 export type StoneType = 'all' | 'natural' | 'natural_fancy' | 'lab' | 'lab_fancy';

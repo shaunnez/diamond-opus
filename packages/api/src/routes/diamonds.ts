@@ -646,6 +646,7 @@ router.get(
         sortBy: query.sort_by,
         sortOrder: query.sort_order,
         fields: query.fields,
+        skipCount: query.no_count === true,
       };
 
       // --- ETag: return 304 if dataset hasn't changed ---

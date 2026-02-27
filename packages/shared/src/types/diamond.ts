@@ -164,6 +164,8 @@ export interface DiamondSearchParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   fields?: 'full' | 'slim';
+  /** When true, skip the COUNT query and return hasMore instead of total/totalPages. */
+  skipCount?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -175,5 +177,7 @@ export interface PaginatedResponse<T> {
     totalPages: number;
     /** True when total is a lower-bound estimate (count scan was capped for performance) */
     isEstimated?: boolean;
+    /** True when more pages are available. Present when skipCount is used. */
+    hasMore?: boolean;
   };
 }
