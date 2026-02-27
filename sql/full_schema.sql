@@ -483,6 +483,9 @@ ALTER TABLE ONLY "public"."worker_runs"
 -- for index-only scans on COUNT queries and fast filtering on data queries.
 CREATE INDEX "idx_diamonds_search_v3" ON "public"."diamonds" USING "btree" ("lab_grown", "shape", "carats", "color", "clarity") INCLUDE ("cut", "polish", "symmetry", "fluorescence_intensity", "availability", "feed_price", "price_model_price", "rating", "certificate_lab", "fancy_color") WHERE ("status" = 'active'::"text");
 
+-- Browse index: covers storefront queries filtering by stone type + carat range without shape.
+CREATE INDEX "idx_diamonds_browse" ON "public"."diamonds" USING "btree" ("lab_grown", "carats") INCLUDE ("shape", "color", "clarity", "cut", "polish", "symmetry", "fluorescence_intensity", "availability", "feed_price", "price_model_price", "rating", "certificate_lab", "fancy_color") WHERE ("status" = 'active'::"text");
+
 
 
 CREATE INDEX "idx_api_keys_hash" ON "public"."api_keys" USING "btree" ("key_hash") WHERE ("active" = true);
