@@ -120,8 +120,9 @@ export const HEATMAP_MIN_RECORDS_PER_WORKER = 1000;
  * Safety multiplier for worker offset cap.
  * If offset exceeds estimatedRecords * this multiplier, the worker stops
  * paginating and completes the partition to prevent runaway ingestion.
+ * Set to 1 so workers stop as soon as they reach the heatmap estimate.
  */
-export const WORKER_OFFSET_LIMIT_MULTIPLIER = 2;
+export const WORKER_OFFSET_LIMIT_MULTIPLIER = 1;
 
 // Nivoda query date filtering
 /**

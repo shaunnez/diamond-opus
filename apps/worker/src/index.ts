@@ -196,7 +196,7 @@ async function processWorkItemPage(
     });
   }
 
-  // Safety cap: stop paginating if offset far exceeds the heatmap estimate.
+  // Safety cap: stop paginating if offset reaches or exceeds the heatmap estimate.
   // This prevents runaway ingestion when the feed returns more data than expected
   // (e.g., count vs search disagreement, data shifting during the run).
   if (hasMore && workItem.estimatedRecords > 0) {
