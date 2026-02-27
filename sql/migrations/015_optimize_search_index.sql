@@ -14,9 +14,6 @@
 --
 -- Expected impact: COUNT queries drop from ~21s to <1s; total API response from
 -- 10-40s to 1-3s. Index count on diamonds drops from ~35 to ~15.
---
--- IMPORTANT: On Supabase/production, run the CREATE INDEX statement with CONCURRENTLY
--- to avoid locking the table. The DROP INDEX statements are fast (metadata only).
 
 -- =========================================================================
 -- Step 1: Normalize cut/polish/symmetry data to uppercase
@@ -46,9 +43,6 @@ WHERE symmetry IS NOT NULL AND symmetry != UPPER(symmetry);
 --   stored in leaf pages for index-only filter evaluation without heap access.
 -- Partial: WHERE status = 'active' — excludes deleted rows from the index entirely.
 --
--- For production, use: CREATE INDEX CONCURRENTLY idx_diamonds_search_v3 ...
--- (CONCURRENTLY cannot run inside a transaction block)
-
 CREATE INDEX IF NOT EXISTS idx_diamonds_search_v3 ON diamonds
   (lab_grown, shape, carats, color, clarity)
   INCLUDE (cut, polish, symmetry, fluorescence_intensity, availability,
