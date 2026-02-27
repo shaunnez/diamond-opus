@@ -479,15 +479,9 @@ ALTER TABLE ONLY "public"."worker_runs"
 
 
 
-CREATE INDEX "diamonds_status_idx" ON "public"."diamonds" USING "btree" ("status");
-
-
-
-CREATE INDEX "diamonds_supplier_idx" ON "public"."diamonds" USING "btree" ("feed");
-
-
-
-CREATE INDEX "diamonds_supplier_legal_name_idx" ON "public"."diamonds" USING "btree" ("supplier_legal_name");
+-- Primary search index: covers all common storefront filter columns via INCLUDE
+-- for index-only scans on COUNT queries and fast filtering on data queries.
+CREATE INDEX "idx_diamonds_search_v3" ON "public"."diamonds" USING "btree" ("lab_grown", "shape", "carats", "color", "clarity") INCLUDE ("cut", "polish", "symmetry", "fluorescence_intensity", "availability", "feed_price", "price_model_price", "rating", "certificate_lab", "fancy_color") WHERE ("status" = 'active'::"text");
 
 
 
@@ -507,19 +501,6 @@ CREATE INDEX "idx_demo_inventory_updated" ON "public"."demo_feed_inventory" USIN
 
 
 
-CREATE INDEX "idx_diamonds_availability" ON "public"."diamonds" USING "btree" ("availability") WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_carats" ON "public"."diamonds" USING "btree" ("carats") WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_created" ON "public"."diamonds" USING "btree" ("created_at" DESC) WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_cut" ON "public"."diamonds" USING "btree" ("cut") WHERE ("status" = 'active'::"text");
 
 
 
@@ -527,7 +508,6 @@ CREATE INDEX "idx_diamonds_deleted" ON "public"."diamonds" USING "btree" ("delet
 
 
 
-CREATE INDEX "idx_diamonds_lab_grown" ON "public"."diamonds" USING "btree" ("lab_grown") WHERE ("status" = 'active'::"text");
 
 
 
@@ -535,21 +515,10 @@ CREATE INDEX "idx_diamonds_offer" ON "public"."diamonds" USING "btree" ("offer_i
 
 
 
-CREATE INDEX "idx_diamonds_price" ON "public"."diamonds" USING "btree" ("feed_price") WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_search" ON "public"."diamonds" USING "btree" ("shape", "carats", "color", "clarity") WHERE ("status" = 'active'::"text");
-
 CREATE INDEX "idx_diamonds_fancy_color" ON "public"."diamonds" USING "btree" ("fancy_color") WHERE ("status" = 'active'::"text" AND "fancy_color" IS NOT NULL);
 CREATE INDEX "idx_diamonds_fancy_intensity" ON "public"."diamonds" USING "btree" ("fancy_intensity") WHERE ("status" = 'active'::"text" AND "fancy_intensity" IS NOT NULL);
-CREATE INDEX "idx_diamonds_fluorescence_intensity" ON "public"."diamonds" USING "btree" ("fluorescence_intensity") WHERE ("status" = 'active'::"text");
 CREATE INDEX "idx_diamonds_ratio" ON "public"."diamonds" USING "btree" ("ratio") WHERE ("status" = 'active'::"text" AND "ratio" IS NOT NULL);
-CREATE INDEX "idx_diamonds_polish" ON "public"."diamonds" USING "btree" ("polish") WHERE ("status" = 'active'::"text");
-CREATE INDEX "idx_diamonds_symmetry" ON "public"."diamonds" USING "btree" ("symmetry") WHERE ("status" = 'active'::"text");
 CREATE INDEX "idx_diamonds_certificate_lab" ON "public"."diamonds" USING "btree" ("certificate_lab") WHERE ("status" = 'active'::"text");
-CREATE INDEX "idx_diamonds_measurements_gin" ON "public"."diamonds" USING GIN ("measurements" "jsonb_path_ops") WHERE ("status" = 'active'::"text");
-CREATE INDEX "idx_diamonds_attributes_gin" ON "public"."diamonds" USING GIN ("attributes" "jsonb_path_ops") WHERE ("status" = 'active'::"text");
 
 
 
