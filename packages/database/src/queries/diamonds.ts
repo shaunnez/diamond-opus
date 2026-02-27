@@ -368,16 +368,17 @@ export async function searchDiamonds(
   // Run bounded COUNT and SELECT in parallel.
   // The COUNT is capped at SEARCH_COUNT_LIMIT+1 rows to avoid full-table scans
   // on broad queries (which can take 10s+ on small instances).
-  const countLimitParam = paramIndex++;
-  const dataLimitParam = paramIndex++;
-  const dataOffsetParam = paramIndex++;
+  // Both queries share the same `values` base and add their own extra params
+  // independently starting at `paramIndex`, so they must not share the same
+  // param index slots.
+  const extraParamStart = paramIndex;
   const [countResult, dataResult] = await Promise.all([
     query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM (SELECT 1 FROM diamonds WHERE ${whereClause} LIMIT $${countLimitParam}) _bounded`,
+      `SELECT COUNT(*) as count FROM (SELECT 1 FROM diamonds WHERE ${whereClause} LIMIT $${extraParamStart}) _bounded`,
       [...values, SEARCH_COUNT_LIMIT + 1]
     ),
     query<DiamondRow>(
-      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
+      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${extraParamStart} OFFSET $${extraParamStart + 1}`,
       [...values, limit, offset]
     ),
   ]);
