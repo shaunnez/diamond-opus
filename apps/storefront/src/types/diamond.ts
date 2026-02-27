@@ -73,6 +73,7 @@ export interface DiamondSearchResponse {
     page: number;
     limit: number;
     totalPages: number;
+    isEstimated?: boolean;
   };
 }
 

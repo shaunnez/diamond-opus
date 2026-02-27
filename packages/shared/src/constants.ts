@@ -151,6 +151,17 @@ export const CACHE_MAX_ENTRIES = parseInt(
   process.env.CACHE_MAX_ENTRIES ?? '500',
   10
 );
+/**
+ * Maximum rows to scan for COUNT queries in diamond search.
+ * Caps the expensive full-table count; if exceeded, the API returns
+ * isEstimated: true with totalPages based on this cap.
+ * Nobody paginates past 10K results — this prevents 10s+ count scans on Micro.
+ */
+export const SEARCH_COUNT_LIMIT = parseInt(
+  process.env.SEARCH_COUNT_LIMIT ?? '10000',
+  10
+);
+
 /** Safety TTL - entries expire after this even if version hasn't changed (ms) */
 export const CACHE_TTL_MS = parseInt(
   process.env.CACHE_TTL_MS ?? '300000',

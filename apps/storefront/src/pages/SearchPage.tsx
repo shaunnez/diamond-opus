@@ -79,7 +79,7 @@ export function SearchPage() {
 
               {/* Result count */}
               <p className="text-sm text-warm-gray-500">
-                {pagination.total.toLocaleString()} diamond{pagination.total !== 1 ? 's' : ''}
+                {pagination.total.toLocaleString()}{pagination.isEstimated ? '+' : ''} diamond{pagination.total !== 1 ? 's' : ''}
                 {isFetching && !isLoading && (
                   <span className="ml-2 text-warm-gray-400">updating...</span>
                 )}

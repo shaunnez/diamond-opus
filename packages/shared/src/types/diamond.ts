@@ -173,5 +173,7 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     totalPages: number;
+    /** True when total is a lower-bound estimate (count scan was capped for performance) */
+    isEstimated?: boolean;
   };
 }
