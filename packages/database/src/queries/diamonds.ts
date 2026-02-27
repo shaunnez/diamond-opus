@@ -1,4 +1,5 @@
 import type { Diamond, DiamondSearchParams, PaginatedResponse } from '@diamond/shared';
+import { SEARCH_COUNT_LIMIT } from '@diamond/shared';
 import { query } from '../client.js';
 
 interface DiamondRow {
@@ -364,21 +365,26 @@ export async function searchDiamonds(
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
-  // Run COUNT and SELECT in parallel — both share the same WHERE clause and
-  // execute on separate pool connections, cutting wall-clock time roughly in half.
-  const dataParamIndex = paramIndex;
+  // Run bounded COUNT and SELECT in parallel.
+  // The COUNT is capped at SEARCH_COUNT_LIMIT+1 rows to avoid full-table scans
+  // on broad queries (which can take 10s+ on small instances).
+  const countLimitParam = paramIndex++;
+  const dataLimitParam = paramIndex++;
+  const dataOffsetParam = paramIndex++;
   const [countResult, dataResult] = await Promise.all([
     query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM diamonds WHERE ${whereClause}`,
-      values
+      `SELECT COUNT(*) as count FROM (SELECT 1 FROM diamonds WHERE ${whereClause} LIMIT $${countLimitParam}) _bounded`,
+      [...values, SEARCH_COUNT_LIMIT + 1]
     ),
     query<DiamondRow>(
-      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${dataParamIndex} OFFSET $${dataParamIndex + 1}`,
+      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
       [...values, limit, offset]
     ),
   ]);
 
-  const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  const rawCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  const isEstimated = rawCount > SEARCH_COUNT_LIMIT;
+  const total = isEstimated ? SEARCH_COUNT_LIMIT : rawCount;
 
   return {
     data: dataResult.rows.map(mapRowToDiamond),
@@ -387,6 +393,7 @@ export async function searchDiamonds(
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      ...(isEstimated ? { isEstimated: true } : {}),
     },
   };
 }

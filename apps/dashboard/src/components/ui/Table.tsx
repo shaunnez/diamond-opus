@@ -83,10 +83,11 @@ interface PaginationProps {
   totalPages: number;
   total: number;
   limit: number;
+  isEstimated?: boolean;
   onPageChange: (page: number) => void;
 }
 
-export function Pagination({ page, totalPages, total, limit, onPageChange }: PaginationProps) {
+export function Pagination({ page, totalPages, total, limit, isEstimated, onPageChange }: PaginationProps) {
   const startItem = (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, total);
 
@@ -97,7 +98,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }: Pag
           Showing <span className="font-medium">{startItem}</span> to{' '}
           <span className="font-medium">{endItem}</span> of{' '}
         </span>
-        <span className="font-medium">{total}</span> <span className="hidden sm:inline">results</span><span className="sm:hidden">total</span>
+        <span className="font-medium">{total}{isEstimated ? '+' : ''}</span> <span className="hidden sm:inline">results</span><span className="sm:hidden">total</span>
       </div>
       <div className="flex items-center gap-2">
         <Button
