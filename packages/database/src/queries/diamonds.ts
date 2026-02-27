@@ -327,7 +327,12 @@ export async function searchDiamonds(
     values.push(params.ratingMax);
   }
 
-  if (params.availability && params.availability.length > 0) {
+  if (!params.availability || params.availability.length === 0) {
+    conditions.push(`availability = 'available'`);
+  } else if (params.availability.length === 1) {
+    conditions.push(`availability = $${paramIndex++}`);
+    values.push(params.availability[0]);
+  } else {
     conditions.push(`availability = ANY($${paramIndex++})`);
     values.push(params.availability);
   }
@@ -341,11 +346,6 @@ export async function searchDiamonds(
     conditions.push(`price_model_price <= $${paramIndex++}`);
     values.push(params.priceModelPriceMax);
   }
-
-  const whereClause = conditions.join(' AND ');
-  const page = params.page ?? 1;
-  const limit = Math.min(params.limit ?? 50, 1000);
-  const offset = (page - 1) * limit;
 
   const sortBy = params.sortBy ?? 'created_at';
   const sortOrder = params.sortOrder ?? 'desc';
@@ -365,27 +365,51 @@ export async function searchDiamonds(
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
+  // Keyset cursor — only active when sorting by created_at.
+  // Adds (created_at, id) < (cursor_ts, cursor_id) condition for DESC,
+  // or > for ASC, enabling O(log n) pagination without OFFSET drift.
+  const usingKeyset = safeSort === 'created_at' && !!params.afterCreatedAt && !!params.afterId;
+  if (usingKeyset) {
+    const op = safeOrder === 'DESC' ? '<' : '>';
+    conditions.push(`(created_at, id) ${op} ($${paramIndex}, $${paramIndex + 1})`);
+    values.push(new Date(params.afterCreatedAt as string | Date), params.afterId);
+    paramIndex += 2;
+  }
+
+  const whereClause = conditions.join(' AND ');
+  const page = params.page ?? 1;
+  const limit = Math.min(params.limit ?? 50, 1000);
+  const offset = usingKeyset ? 0 : (page - 1) * limit;
+  // Always include id as tiebreaker for deterministic ordering.
+  const orderClause = `${safeSort} ${safeOrder} NULLS LAST, id ${safeOrder}`;
+
   // When skipCount is true, skip the expensive COUNT query entirely.
   // Fetch limit+1 rows to detect if there are more pages.
   if (params.skipCount) {
     const dataLimitParam = paramIndex++;
     const dataOffsetParam = paramIndex++;
     const dataResult = await query<DiamondRow>(
-      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
+      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
       [...values, limit + 1, offset]
     );
 
     const hasMore = dataResult.rows.length > limit;
     const rows = hasMore ? dataResult.rows.slice(0, limit) : dataResult.rows;
+    const lastRow = rows[rows.length - 1];
+    const nextCursor = hasMore && lastRow ? {
+      createdAt: lastRow.created_at.toISOString(),
+      id: lastRow.id,
+    } : undefined;
 
     return {
       data: rows.map(mapRowToDiamond),
       pagination: {
         total: 0,
-        page,
+        page: usingKeyset ? 0 : page,
         limit,
         totalPages: 0,
         hasMore,
+        ...(nextCursor ? { nextCursor } : {}),
       },
     };
   }
@@ -403,7 +427,7 @@ export async function searchDiamonds(
       [...values, SEARCH_COUNT_LIMIT + 1]
     ),
     query<DiamondRow>(
-      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${extraParamStart} OFFSET $${extraParamStart + 1}`,
+      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${extraParamStart} OFFSET $${extraParamStart + 1}`,
       [...values, limit, offset]
     ),
   ]);
