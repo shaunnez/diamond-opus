@@ -918,6 +918,186 @@ export async function getRelatedDiamonds(
 
 export { RELATED_FIELDS_ALLOWLIST };
 
+// Fixed similarity fields for the recommended diamonds endpoint.
+const RECOMMENDED_FIELDS = ['shape', 'clarity', 'cut'] as const;
+
+// Constraint levels to try in order when the pool is too small.
+// lab_grown is always enforced; the remaining fields are relaxed progressively.
+const RECOMMENDED_CONSTRAINT_LEVELS = [
+  ['shape', 'clarity', 'cut'],  // full
+  ['shape', 'clarity'],          // relax: drop cut
+  ['shape'],                     // relax: drop clarity
+] as const;
+
+export interface RecommendedDiamondsResult {
+  anchor: Diamond;
+  highestRated: Diamond | null;
+  mostExpensive: Diamond | null;
+  midRated: Diamond | null;
+}
+
+/**
+ * Build the shared WHERE clause + values for the recommended diamonds candidate pool.
+ * lab_grown and id-exclusion are always applied. `fields` controls which additional
+ * equality columns are matched.
+ */
+function buildRecommendedConditions(
+  anchor: Diamond,
+  excludeIds: string[],
+  fields: readonly string[],
+  caratTolerance: number
+): { conditions: string[]; values: unknown[]; nextParam: number } {
+  const conditions: string[] = [
+    "status = 'active'",
+    "availability = 'available'",
+  ];
+  const values: unknown[] = [];
+  let p = 1;
+
+  // Exclude anchor and any already-selected slots
+  for (const xid of excludeIds) {
+    conditions.push(`id != $${p++}`);
+    values.push(xid);
+  }
+
+  // Always match lab_grown
+  conditions.push(`lab_grown = $${p++}`);
+  values.push(anchor.labGrown);
+
+  // Carat window
+  if (anchor.carats != null) {
+    conditions.push(`carats >= $${p++}`);
+    values.push(anchor.carats - caratTolerance);
+    conditions.push(`carats <= $${p++}`);
+    values.push(anchor.carats + caratTolerance);
+  }
+
+  // Similarity fields (equality match on anchor value; skip if anchor has null)
+  for (const field of fields) {
+    const column = RELATED_FIELDS_ALLOWLIST[field];
+    if (!column) continue;
+    const anchorKey = field === 'fluorescence_intensity' ? 'fluorescenceIntensity'
+      : field === 'certificate_lab' ? 'certificateLab'
+      : field;
+    const anchorValue = (anchor as unknown as Record<string, unknown>)[anchorKey];
+    if (anchorValue == null) continue;
+    conditions.push(`${column} = $${p++}`);
+    values.push(anchorValue);
+  }
+
+  return { conditions, values, nextParam: p };
+}
+
+/**
+ * Run a single targeted query to pick one diamond from the candidate pool.
+ * `orderBy` is an ORDER BY expression (no parameter binding — must be static).
+ * `extra` allows appending additional parameterised conditions and their bound values.
+ */
+async function pickOne(
+  conditions: string[],
+  values: unknown[],
+  orderBy: string,
+  extra: { conditions: string[]; values: unknown[] } = { conditions: [], values: [] }
+): Promise<Diamond | null> {
+  const allConditions = [...conditions, ...extra.conditions];
+  const allValues = [...values, ...extra.values];
+  const sql = `SELECT * FROM diamonds WHERE ${allConditions.join(' AND ')} ORDER BY ${orderBy} LIMIT 1`;
+  const result = await query<DiamondRow>(sql, allValues);
+  return result.rows.length > 0 ? mapRowToDiamond(result.rows[0]) : null;
+}
+
+/**
+ * Try to fill all three recommendation slots using the given similarity field set.
+ * Returns null if fewer than 3 distinct candidates are available with these constraints.
+ * Each slot uses a dedicated LIMIT 1 query rather than a large pool fetch.
+ */
+async function tryFillSlots(
+  anchor: Diamond,
+  fields: readonly string[],
+  caratTolerance: number
+): Promise<{ highestRated: Diamond; mostExpensive: Diamond; midRated: Diamond } | null> {
+  // Slot 1: highest rated
+  const { conditions: c1, values: v1 } = buildRecommendedConditions(anchor, [anchor.id], fields, caratTolerance);
+  const highestRated = await pickOne(c1, v1, 'rating DESC NULLS LAST, price_model_price DESC NULLS LAST, created_at DESC');
+  if (!highestRated) return null;
+
+  // Slot 2: most expensive, excluding slot 1
+  const { conditions: c2, values: v2 } = buildRecommendedConditions(anchor, [anchor.id, highestRated.id], fields, caratTolerance);
+  const mostExpensive = await pickOne(c2, v2, 'price_model_price DESC NULLS LAST, created_at DESC');
+  if (!mostExpensive) return null;
+
+  // Slot 3: rating 7–8 (closest to midpoint 7.5), excluding slots 1 & 2
+  const { conditions: c3, values: v3, nextParam: p3 } = buildRecommendedConditions(
+    anchor, [anchor.id, highestRated.id, mostExpensive.id], fields, caratTolerance
+  );
+
+  // Primary attempt: rating in [7, 8] ordered by closeness to 7.5
+  const midRated = await pickOne(
+    c3, v3,
+    'ABS(rating - 7.5) ASC NULLS LAST, created_at DESC',
+    { conditions: [`rating >= $${p3}`, `rating <= $${p3 + 1}`], values: [7, 8] }
+  );
+
+  if (midRated) {
+    return { highestRated, mostExpensive, midRated };
+  }
+
+  // Fallback: pick whichever remaining diamond has a rating closest to 7.5 (any rating)
+  const { conditions: c3b, values: v3b } = buildRecommendedConditions(
+    anchor, [anchor.id, highestRated.id, mostExpensive.id], fields, caratTolerance
+  );
+  const midRatedFallback = await pickOne(c3b, v3b, 'ABS(COALESCE(rating, 0) - 7.5) ASC, created_at DESC');
+
+  if (midRatedFallback) {
+    return { highestRated, mostExpensive, midRated: midRatedFallback };
+  }
+
+  return null;
+}
+
+/**
+ * Returns three curated diamond recommendations relative to the anchor:
+ *  - highestRated: the highest-rated similar diamond
+ *  - mostExpensive: the most expensive similar diamond
+ *  - midRated: a similar diamond rated between 7–8 (fallback: closest to 7.5)
+ *
+ * Similarity is determined by shape, lab_grown, clarity, and cut (within caratTolerance).
+ * If the candidate pool is too small, cut is dropped, then clarity, progressively.
+ * Returns null if the anchor diamond does not exist.
+ */
+export async function getRecommendedDiamonds(
+  anchorId: string,
+  options: { caratTolerance?: number } = {}
+): Promise<RecommendedDiamondsResult | null> {
+  const anchor = await getDiamondById(anchorId);
+  if (!anchor) return null;
+
+  const caratTolerance = options.caratTolerance ?? 0.15;
+
+  for (const fields of RECOMMENDED_CONSTRAINT_LEVELS) {
+    const slots = await tryFillSlots(anchor, fields, caratTolerance);
+    if (slots) {
+      return { anchor, ...slots };
+    }
+  }
+
+  // Best-effort: return whatever slots we can fill with the most relaxed constraints
+  const fields = RECOMMENDED_CONSTRAINT_LEVELS[RECOMMENDED_CONSTRAINT_LEVELS.length - 1];
+
+  const { conditions: c1, values: v1 } = buildRecommendedConditions(anchor, [anchor.id], fields, caratTolerance);
+  const highestRated = await pickOne(c1, v1, 'rating DESC NULLS LAST, price_model_price DESC NULLS LAST, created_at DESC');
+
+  const excludeAfterSlot1 = [anchor.id, ...(highestRated ? [highestRated.id] : [])];
+  const { conditions: c2, values: v2 } = buildRecommendedConditions(anchor, excludeAfterSlot1, fields, caratTolerance);
+  const mostExpensive = await pickOne(c2, v2, 'price_model_price DESC NULLS LAST, created_at DESC');
+
+  const excludeAfterSlot2 = [...excludeAfterSlot1, ...(mostExpensive ? [mostExpensive.id] : [])];
+  const { conditions: c3, values: v3 } = buildRecommendedConditions(anchor, excludeAfterSlot2, fields, caratTolerance);
+  const midRated = await pickOne(c3, v3, 'ABS(COALESCE(rating, 0) - 7.5) ASC, created_at DESC');
+
+  return { anchor, highestRated, mostExpensive, midRated };
+}
+
 /**
  * Quick text search across key diamond identifier fields.
  * Searches supplier_stone_id, offer_id, and certificate_number with ILIKE prefix matching.

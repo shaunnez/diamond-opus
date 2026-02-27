@@ -11,7 +11,7 @@ vi.mock('../../client.js', () => ({
   query: (...args: unknown[]) => mockQueryFn(...args),
 }));
 
-import { searchDiamonds, getRelatedDiamonds } from '../diamonds.js';
+import { searchDiamonds, getRelatedDiamonds, getRecommendedDiamonds } from '../diamonds.js';
 
 function makeCountResult(count = 0) {
   return { rows: [{ count: String(count) }] };
@@ -370,5 +370,108 @@ describe('getRelatedDiamonds', () => {
 
     const relatedQuerySql = mockQueryFn.mock.calls[1][0] as string;
     expect(relatedQuerySql).toContain('id !=');
+  });
+});
+
+describe('getRecommendedDiamonds', () => {
+  it('returns null when anchor diamond is not found', async () => {
+    mockQueryFn.mockResolvedValueOnce(makeDataResult([]));
+
+    const result = await getRecommendedDiamonds('550e8400-e29b-41d4-a716-446655440000');
+
+    expect(result).toBeNull();
+    expect(mockQueryFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns anchor and all three slots when enough candidates exist', async () => {
+    const anchor = makeAnchorRow({ id: 'anchor-id', rating: 5, price_model_price: '5000' });
+    const slot1 = makeAnchorRow({ id: 'slot1-id', rating: 9, price_model_price: '8000' });
+    const slot2 = makeAnchorRow({ id: 'slot2-id', rating: 6, price_model_price: '12000' });
+    const slot3 = makeAnchorRow({ id: 'slot3-id', rating: 8, price_model_price: '6000' });
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))  // getDiamondById (anchor lookup)
+      .mockResolvedValueOnce(makeDataResult([slot1]))   // slot 1: highest rated
+      .mockResolvedValueOnce(makeDataResult([slot2]))   // slot 2: most expensive
+      .mockResolvedValueOnce(makeDataResult([slot3]))   // slot 3: mid-rated (primary 7–8 attempt)
+
+    const result = await getRecommendedDiamonds('anchor-id');
+
+    expect(result).not.toBeNull();
+    expect(result?.anchor.id).toBe('anchor-id');
+    expect(result?.highestRated?.id).toBe('slot1-id');
+    expect(result?.mostExpensive?.id).toBe('slot2-id');
+    expect(result?.midRated?.id).toBe('slot3-id');
+  });
+
+  it('always excludes the anchor id from all slot queries', async () => {
+    const anchor = makeAnchorRow();
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))
+      .mockResolvedValue(makeDataResult([]));
+
+    await getRecommendedDiamonds('550e8400-e29b-41d4-a716-446655440001');
+
+    // Every query after the anchor lookup must exclude the anchor id
+    for (let i = 1; i < mockQueryFn.mock.calls.length; i++) {
+      const sql = mockQueryFn.mock.calls[i][0] as string;
+      expect(sql).toContain('id !=');
+    }
+  });
+
+  it('slot 3 falls back to closest-to-7.5 when no 7–8 rated diamond exists', async () => {
+    const anchor = makeAnchorRow({ id: 'anchor-id' });
+    const slot1 = makeAnchorRow({ id: 'slot1-id', rating: 10 });
+    const slot2 = makeAnchorRow({ id: 'slot2-id', rating: 6 });
+    const slot3Fallback = makeAnchorRow({ id: 'slot3-fb', rating: 5 });
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))    // anchor lookup
+      .mockResolvedValueOnce(makeDataResult([slot1]))     // slot 1: highest rated
+      .mockResolvedValueOnce(makeDataResult([slot2]))     // slot 2: most expensive
+      .mockResolvedValueOnce(makeDataResult([]))          // slot 3 primary (7–8): none found
+      .mockResolvedValueOnce(makeDataResult([slot3Fallback])); // slot 3 fallback
+
+    const result = await getRecommendedDiamonds('anchor-id');
+
+    expect(result?.midRated?.id).toBe('slot3-fb');
+  });
+
+  it('slot 3 primary query uses rating bounds 7 and 8', async () => {
+    const anchor = makeAnchorRow({ id: 'anchor-id' });
+    const slot1 = makeAnchorRow({ id: 'slot1-id', rating: 10 });
+    const slot2 = makeAnchorRow({ id: 'slot2-id', rating: 6, price_model_price: '9000' });
+
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))
+      .mockResolvedValueOnce(makeDataResult([slot1]))
+      .mockResolvedValueOnce(makeDataResult([slot2]))
+      .mockResolvedValue(makeDataResult([]));
+
+    await getRecommendedDiamonds('anchor-id');
+
+    // The slot 3 primary attempt query should bind 7 and 8 as rating bounds
+    const slot3PrimaryCall = mockQueryFn.mock.calls[3];
+    const slot3Values = slot3PrimaryCall[1] as unknown[];
+    expect(slot3Values).toContain(7);
+    expect(slot3Values).toContain(8);
+  });
+
+  it('returns slots with nulls when pool is empty after constraint relaxation', async () => {
+    const anchor = makeAnchorRow({ id: 'anchor-id' });
+
+    // Anchor lookup + all subsequent slot queries return empty
+    mockQueryFn
+      .mockResolvedValueOnce(makeDataResult([anchor]))
+      .mockResolvedValue(makeDataResult([]));
+
+    const result = await getRecommendedDiamonds('anchor-id');
+
+    expect(result).not.toBeNull();
+    expect(result?.anchor.id).toBe('anchor-id');
+    expect(result?.highestRated).toBeNull();
+    expect(result?.mostExpensive).toBeNull();
+    expect(result?.midRated).toBeNull();
   });
 });
