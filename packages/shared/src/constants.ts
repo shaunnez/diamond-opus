@@ -149,7 +149,7 @@ export const FANCY_BASE_MARGIN = 40;
 // API search cache (in-memory per replica, version-keyed)
 /** Max cached search responses per API replica */
 export const CACHE_MAX_ENTRIES = parseInt(
-  process.env.CACHE_MAX_ENTRIES ?? '2000',
+  process.env.CACHE_MAX_ENTRIES ?? '5000',
   10
 );
 /**
@@ -163,9 +163,9 @@ export const SEARCH_COUNT_LIMIT = parseInt(
   10
 );
 
-/** Safety TTL - entries expire after this even if version hasn't changed (ms) */
+/** Safety TTL - entries expire after this even if version hasn't changed (ms). Version-keyed invalidation handles freshness; this is a safety net. */
 export const CACHE_TTL_MS = parseInt(
-  process.env.CACHE_TTL_MS ?? '300000',
+  process.env.CACHE_TTL_MS ?? '21600000',
   10
 );
 /** How often to poll DB for dataset version changes (ms) */
@@ -180,9 +180,9 @@ export const ANALYTICS_CACHE_MAX_ENTRIES = parseInt(
   process.env.ANALYTICS_CACHE_MAX_ENTRIES ?? '50',
   10
 );
-/** Analytics cache TTL — 15 seconds (ms) */
+/** Analytics cache TTL — 60 seconds (ms) */
 export const ANALYTICS_CACHE_TTL_MS = parseInt(
-  process.env.ANALYTICS_CACHE_TTL_MS ?? '15000',
+  process.env.ANALYTICS_CACHE_TTL_MS ?? '60000',
   10
 );
 
