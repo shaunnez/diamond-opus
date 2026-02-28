@@ -21,6 +21,7 @@ function getPoolConfig(): pg.PoolConfig {
     idleTimeoutMillis,
     connectionTimeoutMillis,
     keepAlive: true,
+    ssl: true,
   };
 }
 

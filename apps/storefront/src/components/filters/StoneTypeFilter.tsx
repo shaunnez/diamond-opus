@@ -16,9 +16,6 @@ const options: { value: StoneType; label: string }[] = [
 export function StoneTypeFilter({ value, onChange }: StoneTypeFilterProps) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-warm-gray-600 uppercase tracking-wider">
-        Stone Type
-      </label>
       <div className="grid grid-cols-3 gap-1">
         {options.map((opt) => (
           <button

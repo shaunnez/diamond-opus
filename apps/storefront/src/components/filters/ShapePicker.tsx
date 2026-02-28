@@ -17,9 +17,6 @@ export function ShapePicker({ selected, onChange }: ShapePickerProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-warm-gray-600 uppercase tracking-wider">
-        Shape
-      </label>
       <div className="grid grid-cols-5 gap-2">
         {DIAMOND_SHAPES.map((shape) => {
           const active = selected.includes(shape.name);
