@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { optionalEnv, requireEnv } from '@diamond/shared';
+import { getCacheStats } from '../services/cache.js';
 
 const router = Router();
 
@@ -47,6 +48,23 @@ router.get('/config', (_req, res) => {
       ...(proxyEnabled && { proxyUrl }),
     },
   });
+});
+
+/**
+ * @openapi
+ * /api/v2/system/cache-stats:
+ *   get:
+ *     summary: Get cache statistics
+ *     tags:
+ *       - System
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Cache statistics including hit rates and entry counts
+ */
+router.get('/cache-stats', (_req, res) => {
+  res.json(getCacheStats());
 });
 
 export default router;
