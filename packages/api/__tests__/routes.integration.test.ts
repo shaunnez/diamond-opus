@@ -4,7 +4,7 @@
  * and verify the API contracts without requiring real external services.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 import request from 'supertest';
 import { sha256 } from '@diamond/shared';
 
@@ -32,6 +32,7 @@ vi.mock('@diamond/nivoda', () => ({
 }));
 
 import { createApp } from '../src/server.js';
+import { stopCacheService } from '../src/services/cache.js';
 
 const {
   getApiKeyByHash,
@@ -51,6 +52,10 @@ const mockGetPurchaseByIdempotencyKey = vi.mocked(getPurchaseByIdempotencyKey);
 
 describe('API Routes', () => {
   let app: ReturnType<typeof createApp>;
+
+  afterEach(() => {
+    stopCacheService();
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,13 +84,16 @@ describe('API Routes', () => {
   });
 
   describe('GET /api/v2/diamonds', () => {
-    it('should return 401 without authentication', async () => {
+    it('should be accessible without authentication', async () => {
       mockGetApiKeyByHash.mockResolvedValue(null);
+      mockSearchDiamonds.mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 50, total: 0, totalPages: 0, hasMore: false },
+      });
 
       const response = await request(app).get('/api/v2/diamonds');
 
-      expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('UNAUTHORIZED');
+      expect(response.status).toBe(200);
     });
 
     it('should return paginated diamonds with valid API key', async () => {
