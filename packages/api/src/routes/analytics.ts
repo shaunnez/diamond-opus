@@ -115,6 +115,17 @@ async function streamToString(readableStream: NodeJS.ReadableStream): Promise<st
   });
 }
 
+const BLOB_DOWNLOAD_TIMEOUT_MS = 5000;
+
+function withBlobTimeout<T>(promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Blob download timed out')), BLOB_DOWNLOAD_TIMEOUT_MS)
+    ),
+  ]);
+}
+
 // ============================================================================
 // Combined Dashboard Endpoint
 // ============================================================================
@@ -160,14 +171,14 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
             try {
               const containerClient = blobClient.getContainerClient(BLOB_CONTAINERS.WATERMARKS);
               const blobRef = containerClient.getBlobClient(`${feed}.json`);
-              const downloadResponse = await blobRef.download();
-              const content = await streamToString(downloadResponse.readableStreamBody!);
+              const downloadResponse = await withBlobTimeout(blobRef.download());
+              const content = await withBlobTimeout(streamToString(downloadResponse.readableStreamBody!));
               return JSON.parse(content) as Watermark;
             } catch {
               return null;
             }
           })
-        : [Promise.resolve(null), Promise.resolve(null)]),
+        : VALID_WATERMARK_FEEDS.map(() => Promise.resolve(null))),
     ]);
 
     const watermarks: Record<string, Watermark | null> = {};
