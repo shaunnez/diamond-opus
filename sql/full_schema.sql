@@ -266,7 +266,7 @@ CREATE INDEX IF NOT EXISTS idx_rating_rules_active_priority
 CREATE TABLE IF NOT EXISTS "public"."rating_reapply_jobs" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL PRIMARY KEY,
     "status" text NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'reverted')),
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'reverted', 'cancelled')),
     "total_diamonds" integer NOT NULL DEFAULT 0,
     "processed_diamonds" integer NOT NULL DEFAULT 0,
     "updated_diamonds" integer NOT NULL DEFAULT 0,

@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import {
   getActiveRatingRules,
+  getRatingRuleById,
   createRatingRule,
   updateRatingRule,
   deactivateRatingRule,
@@ -17,7 +18,9 @@ import {
   revertDiamondRatingFromSnapshots,
   incrementDatasetVersion,
   resetRatingJobForRetry,
+  isRatingReapplyJobCancelled,
 } from "@diamond/database";
+import type { DiamondFilterCriteria } from "@diamond/database";
 import { createServiceLogger } from "@diamond/shared";
 import {
   RATING_REAPPLY_BATCH_SIZE,
@@ -92,7 +95,9 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      const totalDiamonds = await countAvailableDiamondsForRating();
+      const filters = ruleToFilterCriteria(rule);
+      const useFilters = hasAnyFilter(filters);
+      const totalDiamonds = await countAvailableDiamondsForRating(useFilters ? filters : undefined);
       if (totalDiamonds > 0) {
         reapplyJobId = await createRatingReapplyJob(totalDiamonds, {
           triggerType: 'rule_create',
@@ -100,7 +105,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           triggerRuleSnapshot: formatRule(rule),
         });
 
-        executeRatingReapplyJob(reapplyJobId).catch((err) => {
+        executeRatingReapplyJob(reapplyJobId, 0, useFilters ? filters : undefined).catch((err) => {
           log.error("Unhandled error in rating reapply job", {
             jobId: reapplyJobId,
             error: err instanceof Error ? err.message : String(err),
@@ -111,6 +116,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           ruleId: rule.id,
           jobId: reapplyJobId,
           totalDiamonds,
+          filtered: useFilters,
         });
       }
     }
@@ -194,7 +200,11 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      const totalDiamonds = await countAvailableDiamondsForRating();
+      // Load full updated rule to derive filter criteria
+      const updatedRule = await getRatingRuleById(id);
+      const filters = updatedRule ? ruleToFilterCriteria(updatedRule) : {};
+      const useFilters = hasAnyFilter(filters);
+      const totalDiamonds = await countAvailableDiamondsForRating(useFilters ? filters : undefined);
       if (totalDiamonds > 0) {
         reapplyJobId = await createRatingReapplyJob(totalDiamonds, {
           triggerType: 'rule_update',
@@ -202,7 +212,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
           triggerRuleSnapshot: updates,
         });
 
-        executeRatingReapplyJob(reapplyJobId).catch((err) => {
+        executeRatingReapplyJob(reapplyJobId, 0, useFilters ? filters : undefined).catch((err) => {
           log.error("Unhandled error in rating reapply job", {
             jobId: reapplyJobId,
             error: err instanceof Error ? err.message : String(err),
@@ -213,6 +223,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
           ruleId: id,
           jobId: reapplyJobId,
           totalDiamonds,
+          filtered: useFilters,
         });
       }
     }
@@ -390,7 +401,50 @@ function calculateNextRetryTime(retryCount: number): Date | null {
   return nextRetry;
 }
 
-async function executeRatingReapplyJob(jobId: string, currentRetryCount: number = 0): Promise<void> {
+function ruleToFilterCriteria(rule: RatingRule): DiamondFilterCriteria {
+  const f: DiamondFilterCriteria = {};
+  if (rule.shapes && rule.shapes.length > 0) f.shapes = rule.shapes;
+  if (rule.colors && rule.colors.length > 0) f.colors = rule.colors;
+  if (rule.clarities && rule.clarities.length > 0) f.clarities = rule.clarities;
+  if (rule.cuts && rule.cuts.length > 0) f.cuts = rule.cuts;
+  if (rule.feed) f.feed = rule.feed;
+  if (rule.priceMin !== undefined) f.priceMin = rule.priceMin;
+  if (rule.priceMax !== undefined) f.priceMax = rule.priceMax;
+  if (rule.polishes && rule.polishes.length > 0) f.polishes = rule.polishes;
+  if (rule.symmetries && rule.symmetries.length > 0) f.symmetries = rule.symmetries;
+  if (rule.fluorescences && rule.fluorescences.length > 0) f.fluorescences = rule.fluorescences;
+  if (rule.certificateLabs && rule.certificateLabs.length > 0) f.certificateLabs = rule.certificateLabs;
+  if (rule.labGrown !== undefined) f.labGrown = rule.labGrown;
+  if (rule.caratMin !== undefined) f.caratMin = rule.caratMin;
+  if (rule.caratMax !== undefined) f.caratMax = rule.caratMax;
+  if (rule.tableMin !== undefined) f.tableMin = rule.tableMin;
+  if (rule.tableMax !== undefined) f.tableMax = rule.tableMax;
+  if (rule.depthMin !== undefined) f.depthMin = rule.depthMin;
+  if (rule.depthMax !== undefined) f.depthMax = rule.depthMax;
+  if (rule.crownAngleMin !== undefined) f.crownAngleMin = rule.crownAngleMin;
+  if (rule.crownAngleMax !== undefined) f.crownAngleMax = rule.crownAngleMax;
+  if (rule.crownHeightMin !== undefined) f.crownHeightMin = rule.crownHeightMin;
+  if (rule.crownHeightMax !== undefined) f.crownHeightMax = rule.crownHeightMax;
+  if (rule.pavilionAngleMin !== undefined) f.pavilionAngleMin = rule.pavilionAngleMin;
+  if (rule.pavilionAngleMax !== undefined) f.pavilionAngleMax = rule.pavilionAngleMax;
+  if (rule.pavilionDepthMin !== undefined) f.pavilionDepthMin = rule.pavilionDepthMin;
+  if (rule.pavilionDepthMax !== undefined) f.pavilionDepthMax = rule.pavilionDepthMax;
+  if (rule.girdles && rule.girdles.length > 0) f.girdles = rule.girdles;
+  if (rule.culetSizes && rule.culetSizes.length > 0) f.culetSizes = rule.culetSizes;
+  if (rule.ratioMin !== undefined) f.ratioMin = rule.ratioMin;
+  if (rule.ratioMax !== undefined) f.ratioMax = rule.ratioMax;
+  return f;
+}
+
+function hasAnyFilter(f: DiamondFilterCriteria): boolean {
+  return Object.values(f).some(v => v !== undefined);
+}
+
+async function executeRatingReapplyJob(
+  jobId: string,
+  currentRetryCount: number = 0,
+  filters?: DiamondFilterCriteria,
+): Promise<void> {
   const startedAt = new Date();
   try {
     await updateRatingReapplyJobStatus(jobId, "running", {
@@ -398,7 +452,11 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
       lastProgressAt: startedAt,
       retryCount: currentRetryCount,
     });
-    log.info("Rating reapply job started", { jobId, retryCount: currentRetryCount });
+    log.info("Rating reapply job started", {
+      jobId,
+      retryCount: currentRetryCount,
+      filtered: filters ? hasAnyFilter(filters) : false,
+    });
 
     const engine = new RatingEngine();
     await engine.loadRules();
@@ -410,7 +468,26 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
     const feedsSet = new Set<string>();
 
     while (true) {
-      const batch = await getAvailableDiamondsBatchForRating(cursor, RATING_REAPPLY_BATCH_SIZE);
+      // Check for cancellation between batches
+      if (await isRatingReapplyJobCancelled(jobId)) {
+        log.info("Rating reapply job cancelled", { jobId, processedDiamonds, updatedDiamonds });
+        const feedsAffected = Array.from(feedsSet);
+        await updateRatingReapplyJobStatus(jobId, "cancelled", {
+          processedDiamonds,
+          updatedDiamonds,
+          failedDiamonds,
+          feedsAffected,
+          completedAt: new Date(),
+        });
+        // Still invalidate caches for any feeds we already updated
+        for (const feed of feedsAffected) {
+          const newVersion = await incrementDatasetVersion(feed);
+          log.info("Dataset version incremented after rating cancel", { feed, version: newVersion });
+        }
+        return;
+      }
+
+      const batch = await getAvailableDiamondsBatchForRating(cursor, RATING_REAPPLY_BATCH_SIZE, filters);
       if (batch.length === 0) break;
 
       cursor = batch[batch.length - 1]!.id;
@@ -583,6 +660,38 @@ router.post("/reapply/start", async (_req: Request, res: Response, next: NextFun
         message: "Re-rating job started",
         id: jobId,
         total_diamonds: totalDiamonds,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/reapply/jobs/:id/cancel", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const job = await getRatingReapplyJob(req.params.id!);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    if (job.status !== "pending" && job.status !== "running") {
+      throw badRequest(
+        `Cannot cancel job with status '${job.status}'. Only pending or running jobs can be cancelled.`
+      );
+    }
+
+    // Set status to cancelled — the batch loop checks this between batches
+    await updateRatingReapplyJobStatus(job.id, "cancelled", {
+      completedAt: new Date(),
+    });
+
+    log.info("Rating reapply job cancel requested", { jobId: job.id });
+
+    res.json({
+      data: {
+        message: "Job cancellation requested",
+        id: job.id,
       },
     });
   } catch (error) {

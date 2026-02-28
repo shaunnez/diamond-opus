@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Star, RefreshCw, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Star, RefreshCw, RotateCcw, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   getRatingRules,
   createRatingRule,
@@ -10,6 +10,7 @@ import {
   getRatingReapplyJob,
   revertRatingReapplyJob,
   startBulkRatingReapply,
+  cancelRatingReapplyJob,
   type RatingRule,
   type CreateRatingRuleInput,
   type UpdateRatingRuleInput,
@@ -348,6 +349,18 @@ export function RatingRules() {
     },
   });
 
+  const cancelJobMutation = useMutation({
+    mutationFn: cancelRatingReapplyJob,
+    onSuccess: () => {
+      setActiveJobId(null);
+      queryClient.invalidateQueries({ queryKey: ['rating-reapply-jobs'] });
+      addToast({ variant: 'success', title: 'Re-rating job cancelled' });
+    },
+    onError: (error) => {
+      addToast({ variant: 'error', title: 'Failed to cancel job', message: error instanceof Error ? error.message : 'An unknown error occurred' });
+    },
+  });
+
   const handleOpenCreate = () => {
     setFormData(emptyFormData);
     setShowCreateModal(true);
@@ -501,9 +514,19 @@ export function RatingRules() {
                       Re-rating in progress
                     </span>
                   </div>
-                  <span className="text-sm text-stone-500 dark:text-stone-400">
-                    {activeJob.processed_diamonds.toLocaleString()} / {activeJob.total_diamonds.toLocaleString()} diamonds
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-stone-500 dark:text-stone-400">
+                      {activeJob.processed_diamonds.toLocaleString()} / {activeJob.total_diamonds.toLocaleString()} diamonds
+                    </span>
+                    <button
+                      onClick={() => cancelJobMutation.mutate(activeJob.id)}
+                      disabled={cancelJobMutation.isPending}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-error-700 dark:text-error-400 bg-error-50 dark:bg-error-900/20 rounded hover:bg-error-100 dark:hover:bg-error-900/40 transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      {cancelJobMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                    </button>
+                  </div>
                 </div>
                 <ProgressBar
                   value={activeJob.processed_diamonds}
