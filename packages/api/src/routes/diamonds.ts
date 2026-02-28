@@ -669,7 +669,7 @@ router.get(
       const pageKey = payload.afterCreatedAt && payload.afterId
         ? `${payload.afterCreatedAt}_${payload.afterId}`
         : String(page);
-      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, pageKey, limit);
+      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, pageKey, limit, fields);
 
       const cached = getCachedSearch(cacheKey);
       if (cached) {

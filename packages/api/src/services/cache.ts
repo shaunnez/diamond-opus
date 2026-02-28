@@ -156,8 +156,9 @@ export function buildSearchCacheKey(
   sortOrder: string,
   pageKey: string | number,
   limit: number,
+  fields: string,
 ): string {
-  return `${filterKey}:${sortBy}:${sortOrder}:${pageKey}:${limit}`;
+  return `${filterKey}:${sortBy}:${sortOrder}:${pageKey}:${limit}:${fields}`;
 }
 
 // ---------------------------------------------------------------------------
