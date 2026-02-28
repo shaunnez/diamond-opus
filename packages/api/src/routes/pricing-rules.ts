@@ -18,6 +18,7 @@ import {
   incrementDatasetVersion,
   resetJobForRetry,
 } from "@diamond/database";
+import type { PricingFilterCriteria } from "@diamond/database";
 import type { StoneType } from "@diamond/shared";
 import { createServiceLogger, notify, NotifyCategory, formatDuration } from "@diamond/shared";
 import {
@@ -200,7 +201,15 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      const totalDiamonds = await countAvailableDiamonds();
+      const ruleFilters = ruleToFilterCriteria({
+        stoneType: rule.stoneType,
+        priceMin: rule.priceMin,
+        priceMax: rule.priceMax,
+        feed: rule.feed,
+      });
+      const filters = hasAnyPricingFilter(ruleFilters) ? ruleFilters : undefined;
+
+      const totalDiamonds = await countAvailableDiamonds(filters);
       if (totalDiamonds > 0) {
         reapplyJobId = await createReapplyJob(totalDiamonds, {
           triggerType: 'rule_create',
@@ -217,7 +226,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         });
 
         // Fire-and-forget
-        executeReapplyJob(reapplyJobId).catch((err) => {
+        executeReapplyJob(reapplyJobId, 0, filters).catch((err) => {
           log.error("Unhandled error in reapply job", {
             jobId: reapplyJobId,
             error: err instanceof Error ? err.message : String(err),
@@ -228,6 +237,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           ruleId: rule.id,
           jobId: reapplyJobId,
           totalDiamonds,
+          filtered: filters !== undefined,
         });
       }
     }
@@ -388,7 +398,15 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      const totalDiamonds = await countAvailableDiamonds();
+      const ruleFilters = ruleToFilterCriteria({
+        stoneType: updates.stoneType,
+        priceMin: updates.priceMin,
+        priceMax: updates.priceMax,
+        feed: updates.feed,
+      });
+      const filters = hasAnyPricingFilter(ruleFilters) ? ruleFilters : undefined;
+
+      const totalDiamonds = await countAvailableDiamonds(filters);
       if (totalDiamonds > 0) {
         reapplyJobId = await createReapplyJob(totalDiamonds, {
           triggerType: 'rule_update',
@@ -405,7 +423,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
         });
 
         // Fire-and-forget
-        executeReapplyJob(reapplyJobId).catch((err) => {
+        executeReapplyJob(reapplyJobId, 0, filters).catch((err) => {
           log.error("Unhandled error in reapply job", {
             jobId: reapplyJobId,
             error: err instanceof Error ? err.message : String(err),
@@ -416,6 +434,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
           ruleId: id,
           jobId: reapplyJobId,
           totalDiamonds,
+          filtered: filters !== undefined,
         });
       }
     }
@@ -575,14 +594,35 @@ function pricingValuesEqual(
   }
 }
 
+function ruleToFilterCriteria(rule: {
+  stoneType?: StoneType;
+  priceMin?: number;
+  priceMax?: number;
+  feed?: string;
+}): PricingFilterCriteria {
+  const f: PricingFilterCriteria = {};
+  if (rule.stoneType !== undefined) f.stoneType = rule.stoneType;
+  if (rule.priceMin !== undefined) f.priceMin = rule.priceMin;
+  if (rule.priceMax !== undefined) f.priceMax = rule.priceMax;
+  if (rule.feed !== undefined) f.feed = rule.feed;
+  return f;
+}
+
+function hasAnyPricingFilter(f: PricingFilterCriteria): boolean {
+  return Object.values(f).some(v => v !== undefined);
+}
+
 /**
- * Background job that reprices all available diamonds using current pricing rules.
+ * Background job that reprices available diamonds using current pricing rules.
+ * When filters are provided (rule-triggered), only diamonds matching those criteria
+ * are fetched from the database — matching the rating engine's targeted WHERE approach.
  * Updates progress in the job row as it processes batches.
  * Only writes updates and snapshots for diamonds with changed pricing.
  * @param jobId - Reapply job ID
  * @param currentRetryCount - Current retry attempt (0 for first attempt)
+ * @param filters - Optional filter criteria to scope the job to a rule's diamond set
  */
-async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): Promise<void> {
+async function executeReapplyJob(jobId: string, currentRetryCount: number = 0, filters?: PricingFilterCriteria): Promise<void> {
   const startedAt = new Date();
   try {
     await updateReapplyJobStatus(jobId, "running", {
@@ -590,7 +630,11 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
       lastProgressAt: startedAt,
       retryCount: currentRetryCount,
     });
-    log.info("Reapply job started", { jobId, retryCount: currentRetryCount });
+    log.info("Reapply job started", {
+      jobId,
+      retryCount: currentRetryCount,
+      filtered: filters ? hasAnyPricingFilter(filters) : false,
+    });
 
     const engine = new PricingEngine();
     await engine.loadRules();
@@ -602,7 +646,7 @@ async function executeReapplyJob(jobId: string, currentRetryCount: number = 0): 
     const feedsSet = new Set<string>();
 
     while (true) {
-      const batch = await getAvailableDiamondsBatch(cursor, REAPPLY_BATCH_SIZE);
+      const batch = await getAvailableDiamondsBatch(cursor, REAPPLY_BATCH_SIZE, filters);
       if (batch.length === 0) break;
 
       cursor = batch[batch.length - 1]!.id;

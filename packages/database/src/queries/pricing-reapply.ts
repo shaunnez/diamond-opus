@@ -255,18 +255,71 @@ export async function updateReapplyJobStatus(
   );
 }
 
+// --- Diamond filter for targeted repricing ---
+
+export interface PricingFilterCriteria {
+  stoneType?: 'natural' | 'lab' | 'fancy';
+  priceMin?: number;
+  priceMax?: number;
+  feed?: string;
+}
+
+function buildPricingFilterClauses(
+  filters: PricingFilterCriteria | undefined,
+  startParamIndex: number
+): { clauses: string[]; values: unknown[]; nextIndex: number } {
+  if (!filters) return { clauses: [], values: [], nextIndex: startParamIndex };
+
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  let pi = startParamIndex;
+
+  if (filters.stoneType === 'fancy') {
+    clauses.push('fancy_color IS NOT NULL');
+  } else if (filters.stoneType === 'lab') {
+    clauses.push(`lab_grown = $${pi++}`);
+    values.push(true);
+    clauses.push('fancy_color IS NULL');
+  } else if (filters.stoneType === 'natural') {
+    clauses.push(`lab_grown = $${pi++}`);
+    values.push(false);
+    clauses.push('fancy_color IS NULL');
+  }
+
+  if (filters.priceMin !== undefined) {
+    clauses.push(`feed_price >= $${pi++}`);
+    values.push(filters.priceMin);
+  }
+  if (filters.priceMax !== undefined) {
+    clauses.push(`feed_price <= $${pi++}`);
+    values.push(filters.priceMax);
+  }
+  if (filters.feed !== undefined) {
+    clauses.push(`feed = $${pi++}`);
+    values.push(filters.feed);
+  }
+
+  return { clauses, values, nextIndex: pi };
+}
+
 // --- Diamond fetch for repricing ---
 
-export async function countAvailableDiamonds(): Promise<number> {
+export async function countAvailableDiamonds(filters?: PricingFilterCriteria): Promise<number> {
+  const base = ["availability = 'available'", "status = 'active'"];
+  const { clauses, values } = buildPricingFilterClauses(filters, 1);
+  const allClauses = [...base, ...clauses];
+
   const result = await query<{ count: string }>(
-    `SELECT COUNT(*)::text as count FROM diamonds WHERE availability = 'available' AND status = 'active'`
+    `SELECT COUNT(*)::text as count FROM diamonds WHERE ${allClauses.join(' AND ')}`,
+    values
   );
   return parseInt(result.rows[0]?.count ?? '0', 10);
 }
 
 export async function getAvailableDiamondsBatch(
   cursor: string | null,
-  limit: number
+  limit: number,
+  filters?: PricingFilterCriteria
 ): Promise<AvailableDiamondPricing[]> {
   const conditions = ["availability = 'available'", "status = 'active'"];
   const values: unknown[] = [];
@@ -276,6 +329,11 @@ export async function getAvailableDiamondsBatch(
     conditions.push(`id > $${paramIndex++}`);
     values.push(cursor);
   }
+
+  const { clauses, values: filterValues, nextIndex } = buildPricingFilterClauses(filters, paramIndex);
+  conditions.push(...clauses);
+  values.push(...filterValues);
+  paramIndex = nextIndex;
 
   values.push(limit);
 
