@@ -674,7 +674,7 @@ router.get(
       const cached = getCachedSearch(cacheKey);
       if (cached) {
         res.set('ETag', etag);
-        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
         res.set('X-Cache', 'HIT');
         res.type('json').send(cached);
         return;
@@ -693,7 +693,7 @@ router.get(
       setCachedSearch(cacheKey, responseJson);
 
       res.set('ETag', etag);
-      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
       res.set('X-Cache', 'MISS');
       res.type('json').send(responseJson);
     } catch (error) {
