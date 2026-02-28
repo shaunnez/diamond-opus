@@ -9,6 +9,7 @@ import {
   getRatingReapplyJobs,
   getRatingReapplyJob,
   revertRatingReapplyJob,
+  startBulkRatingReapply,
   type RatingRule,
   type CreateRatingRuleInput,
   type UpdateRatingRuleInput,
@@ -335,6 +336,18 @@ export function RatingRules() {
     },
   });
 
+  const bulkRerateMutation = useMutation({
+    mutationFn: startBulkRatingReapply,
+    onSuccess: (data) => {
+      setActiveJobId(data.id);
+      queryClient.invalidateQueries({ queryKey: ['rating-reapply-jobs'] });
+      addToast({ variant: 'info', title: 'Bulk re-rating started', message: `Processing ${data.total_diamonds.toLocaleString()} diamonds` });
+    },
+    onError: (error) => {
+      addToast({ variant: 'error', title: 'Failed to start re-rating', message: error instanceof Error ? error.message : 'An unknown error occurred' });
+    },
+  });
+
   const handleOpenCreate = () => {
     setFormData(emptyFormData);
     setShowCreateModal(true);
@@ -458,13 +471,23 @@ export function RatingRules() {
                 Manage quality rating rules for diamonds. Configure filters across grading, measurements, and attributes.
               </p>
             </div>
-            <Button
-              variant="primary"
-              onClick={handleOpenCreate}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              Add Rule
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => bulkRerateMutation.mutate()}
+                icon={<RefreshCw className={`w-4 h-4 ${bulkRerateMutation.isPending ? 'animate-spin' : ''}`} />}
+                disabled={!!activeJobId || bulkRerateMutation.isPending}
+              >
+                {bulkRerateMutation.isPending ? 'Starting...' : 'Re-rate All'}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleOpenCreate}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                Add Rule
+              </Button>
+            </div>
           </div>
 
           {/* Active Job Progress */}

@@ -548,6 +548,48 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
   }
 }
 
+router.post("/reapply/start", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const running = await getRunningRatingReapplyJob();
+    if (running) {
+      res.status(409).json({
+        error: "A rating reapply job is already in progress",
+        data: { running_job: formatReapplyJob(running) },
+      });
+      return;
+    }
+
+    const totalDiamonds = await countAvailableDiamondsForRating();
+    if (totalDiamonds === 0) {
+      res.json({ data: { message: "No available diamonds to re-rate" } });
+      return;
+    }
+
+    const jobId = await createRatingReapplyJob(totalDiamonds, {
+      triggerType: 'manual',
+    });
+
+    executeRatingReapplyJob(jobId).catch((err) => {
+      log.error("Unhandled error in bulk rating reapply job", {
+        jobId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    log.info("Bulk rating reapply job started", { jobId, totalDiamonds });
+
+    res.status(202).json({
+      data: {
+        message: "Re-rating job started",
+        id: jobId,
+        total_diamonds: totalDiamonds,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/reapply/jobs", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const jobs = await getRatingReapplyJobs();
