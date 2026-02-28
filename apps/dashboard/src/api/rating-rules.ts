@@ -183,3 +183,8 @@ export async function revertRatingReapplyJob(id: string): Promise<void> {
 export async function resumeRatingReapplyJob(id: string): Promise<void> {
   await api.post(`/rating-rules/reapply/jobs/${id}/resume`);
 }
+
+export async function startBulkRatingReapply(): Promise<{ id: string; total_diamonds: number }> {
+  const response = await api.post<{ data: { id: string; total_diamonds: number } }>('/rating-rules/reapply/start');
+  return response.data.data;
+}
