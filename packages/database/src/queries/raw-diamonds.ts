@@ -26,7 +26,7 @@ export interface RawDiamondRow {
   supplier_stone_id: string;
   offer_id: string;
   source_updated_at: Date | null;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | null;
   payload_hash: string;
   consolidated: boolean;
   consolidated_at: Date | null;
@@ -169,6 +169,7 @@ export async function markAsConsolidated(
      SET consolidated = TRUE,
          consolidation_status = 'done',
          consolidated_at = NOW(),
+         payload = NULL,
          updated_at = NOW()
      WHERE id = ANY($1)`,
     [ids]
