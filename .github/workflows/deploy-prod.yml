@@ -165,6 +165,7 @@ jobs:
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
           TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
           TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
+          TF_VAR_database_name: ${{ secrets.DATABASE_NAME }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
@@ -250,6 +251,7 @@ jobs:
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
           TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
           TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
+          TF_VAR_database_name: ${{ secrets.DATABASE_NAME }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
@@ -283,6 +285,7 @@ jobs:
           TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
           TF_VAR_database_host: ${{ secrets.DATABASE_HOST }}
           TF_VAR_database_port: ${{ secrets.DATABASE_PORT }}
+          TF_VAR_database_name: ${{ secrets.DATABASE_NAME }}
           TF_VAR_database_username: ${{ secrets.DATABASE_USERNAME }}
           TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_alert_email_to: ${{ secrets.ALERT_EMAIL_TO }}
