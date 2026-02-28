@@ -26,7 +26,7 @@ export function DiamondGrid({ diamonds }: DiamondGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
       {diamonds.map((diamond, index) => (
         <div
           key={diamond.id}
