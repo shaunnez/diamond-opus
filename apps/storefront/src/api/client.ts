@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 
-const apiBaseUrl = import.meta.env.VITE_API_URL || '/api/v2';
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://api-test.fourwords.co.nz/api/v2';
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
