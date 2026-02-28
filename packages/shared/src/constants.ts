@@ -149,7 +149,7 @@ export const FANCY_BASE_MARGIN = 40;
 // API search cache (in-memory per replica, version-keyed)
 /** Max cached search responses per API replica */
 export const CACHE_MAX_ENTRIES = parseInt(
-  process.env.CACHE_MAX_ENTRIES ?? '500',
+  process.env.CACHE_MAX_ENTRIES ?? '2000',
   10
 );
 /**

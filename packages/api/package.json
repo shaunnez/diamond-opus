@@ -32,6 +32,7 @@
     "@diamond/shared": "*",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "lru-cache": "^11.0.0",
     "stripe": "^20.3.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
