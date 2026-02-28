@@ -163,6 +163,7 @@ module "container_apps" {
   storefront_memory       = var.storefront_memory
   storefront_min_replicas = var.storefront_min_replicas
   storefront_max_replicas = var.storefront_max_replicas
+  storefront_api_url      = var.storefront_api_url
 
   # Log Analytics (reduced retention for prod)
   log_analytics_retention_days = var.log_analytics_retention_days

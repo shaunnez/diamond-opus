@@ -1410,7 +1410,7 @@ resource "azurerm_container_app" "storefront" {
 
       env {
         name  = "API_URL"
-        value = "https://${azurerm_container_app.api.ingress[0].fqdn}"
+        value = var.storefront_api_url != "" ? var.storefront_api_url : "https://${azurerm_container_app.api.ingress[0].fqdn}"
       }
     }
   }

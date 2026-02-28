@@ -178,6 +178,7 @@ jobs:
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           TF_VAR_demo_feed_api_min_replicas: "0"
           TF_VAR_demo_feed_api_max_replicas: "1"
+          TF_VAR_storefront_api_url: "https://api-test.fourwords.co.nz"
         run: |
           SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           RG="diamond-prod-rg"
@@ -262,6 +263,7 @@ jobs:
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           TF_VAR_demo_feed_api_min_replicas: "0"
           TF_VAR_demo_feed_api_max_replicas: "1"
+          TF_VAR_storefront_api_url: "https://api-test.fourwords.co.nz"
         run: |
           terraform plan \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
@@ -294,6 +296,7 @@ jobs:
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           TF_VAR_demo_feed_api_min_replicas: "0"
           TF_VAR_demo_feed_api_max_replicas: "1"
+          TF_VAR_storefront_api_url: "https://api-test.fourwords.co.nz"
         run: terraform apply -auto-approve tfplan
 
   deploy_images_prod:
