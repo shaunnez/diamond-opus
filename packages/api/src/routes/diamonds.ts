@@ -12,7 +12,7 @@ import {
   updatePurchaseStatus,
 } from '@diamond/database';
 import { NivodaAdapter, NivodaFeedAdapter } from '@diamond/nivoda';
-import { validateQuery, validateParams, validateBody, notFound, badRequest, conflict, fatalError } from '../middleware/index.js';
+import { validateQuery, validateParams, validateBody, notFound, badRequest, conflict, fatalError, authMiddleware } from '../middleware/index.js';
 import {
   diamondSearchSchema,
   diamondIdSchema,
@@ -932,6 +932,7 @@ router.post(
  */
 router.post(
   '/:id/hold',
+  authMiddleware,
   validateParams(diamondIdSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -1011,6 +1012,7 @@ router.post(
  */
 router.post(
   '/:id/cancel-hold',
+  authMiddleware,
   validateParams(diamondIdSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -1096,6 +1098,7 @@ router.post(
  */
 router.post(
   '/purchase',
+  authMiddleware,
   validateBody(purchaseRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
