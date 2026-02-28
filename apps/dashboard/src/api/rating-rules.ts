@@ -147,7 +147,7 @@ export async function deleteRatingRule(id: string): Promise<void> {
 
 export interface RatingReapplyJob {
   id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'reverted';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'reverted' | 'cancelled';
   total_diamonds: number;
   processed_diamonds: number;
   updated_diamonds: number;
@@ -187,4 +187,8 @@ export async function resumeRatingReapplyJob(id: string): Promise<void> {
 export async function startBulkRatingReapply(): Promise<{ id: string; total_diamonds: number }> {
   const response = await api.post<{ data: { id: string; total_diamonds: number } }>('/rating-rules/reapply/start');
   return response.data.data;
+}
+
+export async function cancelRatingReapplyJob(id: string): Promise<void> {
+  await api.post(`/rating-rules/reapply/jobs/${id}/cancel`);
 }

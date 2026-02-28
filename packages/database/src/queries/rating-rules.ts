@@ -89,6 +89,14 @@ function mapRowToRatingRule(row: RatingRuleRow): RatingRule {
   };
 }
 
+export async function getRatingRuleById(id: string): Promise<RatingRule | null> {
+  const result = await query<RatingRuleRow>(
+    `SELECT * FROM rating_rules WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0] ? mapRowToRatingRule(result.rows[0]) : null;
+}
+
 export async function getActiveRatingRules(): Promise<RatingRule[]> {
   const result = await query<RatingRuleRow>(
     `SELECT * FROM rating_rules WHERE active = TRUE ORDER BY priority ASC`
