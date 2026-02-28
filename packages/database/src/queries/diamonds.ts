@@ -67,6 +67,9 @@ interface DiamondRow {
 /** All diamond columns needed by mapRowToDiamond (excludes unused JSONB: measurements, attributes). */
 const DIAMOND_SELECT_COLUMNS = `id, feed, supplier_stone_id, offer_id, shape, carats, color, clarity, cut, polish, symmetry, fluorescence, fluorescence_intensity, fancy_color, fancy_intensity, fancy_overtone, ratio, lab_grown, treated, feed_price, diamond_price, price_per_carat, price_model_price, markup_ratio, pricing_rating, rating, availability, raw_availability, hold_id, image_url, video_url, meta_images, certificate_lab, certificate_number, certificate_pdf_url, table_pct, depth_pct, length_mm, width_mm, depth_mm, crown_angle, crown_height, pavilion_angle, pavilion_depth, girdle, culet_size, eye_clean, brown, green, milky, supplier_name, supplier_legal_name, status, source_updated_at, created_at, updated_at, deleted_at`;
 
+/** Reduced column set for slim/list responses — matches SLIM_FIELDS in the API route. */
+const SLIM_SELECT_COLUMNS = `id, feed, shape, carats, color, clarity, cut, fancy_color, fancy_intensity, lab_grown, feed_price, price_model_price, markup_ratio, rating, availability, certificate_lab, image_url, video_url, created_at`;
+
 function mapRowToDiamond(row: DiamondRow): Diamond {
   return {
     id: row.id,
@@ -380,13 +383,15 @@ export async function searchDiamonds(
   // Always include id as tiebreaker for deterministic ordering.
   const orderClause = `${safeSort} ${safeOrder} NULLS LAST, id ${safeOrder}`;
 
+  const selectColumns = params.fields === 'slim' ? SLIM_SELECT_COLUMNS : DIAMOND_SELECT_COLUMNS;
+
   // When skipCount is true, skip the expensive COUNT query entirely.
   // Fetch limit+1 rows to detect if there are more pages.
   if (params.skipCount) {
     const dataLimitParam = paramIndex++;
     const dataOffsetParam = paramIndex++;
     const dataResult = await query<DiamondRow>(
-      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
+      `SELECT ${selectColumns} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
       [...values, limit + 1, offset]
     );
 
@@ -424,7 +429,7 @@ export async function searchDiamonds(
       [...values, SEARCH_COUNT_LIMIT + 1]
     ),
     query<DiamondRow>(
-      `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${extraParamStart} OFFSET $${extraParamStart + 1}`,
+      `SELECT ${selectColumns} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${extraParamStart} OFFSET $${extraParamStart + 1}`,
       [...values, limit, offset]
     ),
   ]);
