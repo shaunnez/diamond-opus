@@ -695,6 +695,8 @@ CREATE INDEX "idx_run_metadata_feed" ON "public"."run_metadata" USING "btree" ("
 
 CREATE INDEX "idx_run_metadata_incomplete" ON "public"."run_metadata" USING "btree" ("started_at" DESC) WHERE ("completed_at" IS NULL);
 
+CREATE INDEX IF NOT EXISTS "idx_run_metadata_completed_at" ON "public"."run_metadata" USING "btree" ("completed_at" DESC) WHERE ("completed_at" IS NOT NULL);
+
 
 
 CREATE INDEX "idx_worker_runs_run_started" ON "public"."worker_runs" USING "btree" ("run_id", "started_at");
