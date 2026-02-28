@@ -101,6 +101,7 @@ export async function claimUnconsolidatedRawDiamonds(
           FROM ${table}
           WHERE consolidated = FALSE
             AND consolidation_status = 'pending'
+            AND payload IS NOT NULL
             AND feed = $3
           ORDER BY created_at ASC
           LIMIT $1
@@ -118,6 +119,7 @@ export async function claimUnconsolidatedRawDiamonds(
           FROM ${table}
           WHERE consolidated = FALSE
             AND consolidation_status = 'pending'
+            AND payload IS NOT NULL
           ORDER BY created_at ASC
           LIMIT $1
           FOR UPDATE SKIP LOCKED
