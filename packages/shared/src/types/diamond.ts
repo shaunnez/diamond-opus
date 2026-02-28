@@ -164,6 +164,12 @@ export interface DiamondSearchParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   fields?: 'full' | 'slim';
+  /** When true, skip the COUNT query and return hasMore instead of total/totalPages. */
+  skipCount?: boolean;
+  /** Keyset cursor: created_at of the last item from the previous page. */
+  afterCreatedAt?: Date | string;
+  /** Keyset cursor: id of the last item from the previous page. */
+  afterId?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -173,5 +179,11 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     totalPages: number;
+    /** True when total is a lower-bound estimate (count scan was capped for performance) */
+    isEstimated?: boolean;
+    /** True when more pages are available. Present when skipCount is used. */
+    hasMore?: boolean;
+    /** Keyset cursor for the next page. Present when hasMore is true and keyset pagination is active. */
+    nextCursor?: { createdAt: string; id: string };
   };
 }

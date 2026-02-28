@@ -68,6 +68,9 @@ export const diamondSearchSchema = z.object({
   ]).default('created_at'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
   fields: z.enum(['full', 'slim']).default('full'),
+  no_count: booleanQueryParam,
+  after_created_at: z.string().optional(),
+  after_id: z.string().uuid().optional(),
 });
 
 export type DiamondSearchQuery = z.infer<typeof diamondSearchSchema>;
@@ -90,10 +93,7 @@ export const purchaseRequestSchema = z.object({
 export type PurchaseRequestBody = z.infer<typeof purchaseRequestSchema>;
 
 export const relatedDiamondsQuerySchema = z.object({
-  limit: z.coerce.number().int().positive().max(50).default(12),
-  fields: z.string().optional(),
   carat_tolerance: z.coerce.number().positive().max(5).default(0.15),
-  price_tolerance: z.coerce.number().int().nonnegative().max(10000).default(250),
 });
 
 export type RelatedDiamondsQuery = z.infer<typeof relatedDiamondsQuerySchema>;

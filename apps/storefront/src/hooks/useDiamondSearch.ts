@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { searchDiamonds } from '../api/diamonds';
 import type { DiamondSearchParams, StoneType } from '../types/diamond';
 
@@ -28,7 +28,6 @@ const NUMBER_PARAMS = [
   'table_max',
   'depth_pct_min',
   'depth_pct_max',
-  'page',
   'limit',
 ] as const;
 
@@ -103,15 +102,15 @@ export function useDiamondSearch() {
   const stoneType = useMemo(() => getStoneTypeFromURL(searchParams), [searchParams]);
   const selectedFeed = filters.feed || 'all';
 
-  // Build the API params from filters + stone type
+  // Build the API params from filters + stone type (excluding page/cursor — managed by infinite query)
   const apiParams = useMemo(() => {
     const params: DiamondSearchParams = { ...filters };
-    if (!params.limit) params.limit = 24;
-    if (!params.page) params.page = 1;
+    if (!params.limit) params.limit = 100;
     // Always request slim fields for list views (full detail fetched per-diamond)
     params.fields = 'slim';
-    // Default to available-only unless the user has explicitly set availability
-    if (!params.availability?.length) params.availability = ['available'];
+    // Skip COUNT for infinite scroll — just use hasMore
+    params.no_count = true;
+    // availability defaults to 'available' server-side — no need to send it
 
     // Apply stone type filter
     if (stoneType === 'natural') {
@@ -137,14 +136,40 @@ export function useDiamondSearch() {
       delete params.lab_grown;
     }
 
+    // Remove page — infinite query manages this via pageParam
+    delete params.page;
+
     return params;
   }, [filters, stoneType]);
 
-  const { data, isLoading, error, isFetching } = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
     queryKey: ['diamonds', apiParams],
-    queryFn: () => searchDiamonds(apiParams),
-    placeholderData: (prev) => prev,
+    queryFn: ({ pageParam }) => {
+      const cursor = pageParam as { after_created_at: string; after_id: string } | undefined;
+      return searchDiamonds({ ...apiParams, ...cursor });
+    },
+    initialPageParam: undefined as { after_created_at: string; after_id: string } | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.pagination.hasMore) return undefined;
+      const cursor = lastPage.pagination.nextCursor;
+      if (cursor) return { after_created_at: cursor.createdAt, after_id: cursor.id };
+      // Fallback for non-keyset sorts: no cursor available, stop pagination
+      return undefined;
+    },
   });
+
+  const diamonds = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data]
+  );
 
   const setFilters = useCallback(
     (newFilters: DiamondSearchParams) => {
@@ -157,7 +182,7 @@ export function useDiamondSearch() {
 
   const setFeed = useCallback(
     (feed: string) => {
-      const newFilters = { ...filters, feed: feed === 'all' ? undefined : feed, page: 1 };
+      const newFilters = { ...filters, feed: feed === 'all' ? undefined : feed };
       const urlParams = filtersToURLParams(newFilters);
       if (stoneType !== 'all') urlParams.stone_type = stoneType;
       setSearchParams(urlParams, { replace: true });
@@ -186,16 +211,9 @@ export function useDiamondSearch() {
     setSearchParams({}, { replace: true });
   }, [setSearchParams]);
 
-  const setPage = useCallback(
-    (page: number) => {
-      setFilters({ ...filters, page });
-    },
-    [filters, setFilters]
-  );
-
   const setSort = useCallback(
     (sort_by: string, sort_order: 'asc' | 'desc') => {
-      setFilters({ ...filters, sort_by, sort_order, page: 1 });
+      setFilters({ ...filters, sort_by, sort_order });
     },
     [filters, setFilters]
   );
@@ -208,10 +226,12 @@ export function useDiamondSearch() {
     setFeed,
     setStoneType,
     resetFilters,
-    setPage,
     setSort,
-    diamonds: data?.data ?? [],
-    pagination: data?.pagination ?? { total: 0, page: 1, limit: 24, totalPages: 0 },
+    diamonds,
+    diamondCount: diamonds.length,
+    hasNextPage: hasNextPage ?? false,
+    fetchNextPage,
+    isFetchingNextPage,
     isLoading,
     isFetching,
     error,

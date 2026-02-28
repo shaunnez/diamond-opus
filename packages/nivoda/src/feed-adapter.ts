@@ -91,7 +91,7 @@ export class NivodaFeedAdapter implements FeedAdapter, TradingAdapter {
     // chunk that still exceeds the splitting threshold with actual sub-range counts.
     // Above $1,000 the $2,500 initial step skips the sparse high-price zone quickly.
     this.heatmapConfig = this.labgrown
-      ? { denseZoneStep: 10, denseZoneThreshold: 1000, maxWorkers: 30, initialStep: 2500 }
+      ? { denseZoneStep: 10, denseZoneThreshold: 1000, maxWorkers: 10, initialStep: 2500 }
       : {};
   }
 

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { LRUCache } from 'lru-cache';
 import {
   CACHE_MAX_ENTRIES,
   CACHE_TTL_MS,
@@ -42,91 +43,83 @@ async function pollVersions(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// LRU Cache
+// Versioned value wrapper
 // ---------------------------------------------------------------------------
 
-interface CacheEntry<T> {
+/** Wraps a cached value with the dataset version it was stored at. */
+interface Versioned<T> {
   value: T;
   version: string;
-  createdAt: number;
-}
-
-/**
- * Simple LRU cache using Map insertion order.
- * Keys are accessed by deleting and re-inserting to move them to the end.
- */
-class LRUCache<T> {
-  private cache = new Map<string, CacheEntry<T>>();
-  private readonly maxSize: number;
-  private readonly ttlMs: number;
-
-  constructor(maxSize: number, ttlMs: number) {
-    this.maxSize = maxSize;
-    this.ttlMs = ttlMs;
-  }
-
-  get(key: string, currentVersion: string): T | undefined {
-    const entry = this.cache.get(key);
-    if (!entry) return undefined;
-
-    // Version mismatch — stale
-    if (entry.version !== currentVersion) {
-      this.cache.delete(key);
-      return undefined;
-    }
-
-    // TTL expired
-    if (Date.now() - entry.createdAt > this.ttlMs) {
-      this.cache.delete(key);
-      return undefined;
-    }
-
-    // Move to end (most recently used)
-    this.cache.delete(key);
-    this.cache.set(key, entry);
-    return entry.value;
-  }
-
-  set(key: string, value: T, version: string): void {
-    // If key exists, delete first to reset position
-    this.cache.delete(key);
-
-    // Evict oldest if at capacity
-    if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.cache.delete(oldestKey);
-      }
-    }
-
-    this.cache.set(key, {
-      value,
-      version,
-      createdAt: Date.now(),
-    });
-  }
-
-  get size(): number {
-    return this.cache.size;
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Search cache instances
+// Observability counters
 // ---------------------------------------------------------------------------
 
-/** Cache for full search responses (data + pagination), keyed by version:filters:sort:page:limit */
-const searchCache = new LRUCache<string>(CACHE_MAX_ENTRIES, CACHE_TTL_MS);
+let searchHits = 0;
+let searchMisses = 0;
+let countHits = 0;
+let countMisses = 0;
+let analyticsHits = 0;
+let analyticsMisses = 0;
 
-/** Cache for count-only results, keyed by version:filters (shared across pages) */
-const countCache = new LRUCache<number>(Math.ceil(CACHE_MAX_ENTRIES / 2), CACHE_TTL_MS);
+// ---------------------------------------------------------------------------
+// Cache instances (lru-cache v11)
+// ---------------------------------------------------------------------------
 
-/** Cache for analytics endpoint responses (summary, feeds, consolidation) */
-const analyticsCache = new LRUCache<string>(ANALYTICS_CACHE_MAX_ENTRIES, ANALYTICS_CACHE_TTL_MS);
+/** Cache for full search responses (data + pagination) */
+const searchCache = new LRUCache<string, Versioned<string>>({
+  max: CACHE_MAX_ENTRIES,
+  ttl: CACHE_TTL_MS,
+  allowStale: false,
+  updateAgeOnGet: false,
+});
+
+/** Cache for count-only results (shared across pages for same filter) */
+const countCache = new LRUCache<string, Versioned<number>>({
+  max: Math.ceil(CACHE_MAX_ENTRIES / 2),
+  ttl: CACHE_TTL_MS,
+  allowStale: false,
+  updateAgeOnGet: false,
+});
+
+/** Cache for analytics endpoint responses */
+const analyticsCache = new LRUCache<string, Versioned<string>>({
+  max: ANALYTICS_CACHE_MAX_ENTRIES,
+  ttl: ANALYTICS_CACHE_TTL_MS,
+  allowStale: false,
+  updateAgeOnGet: false,
+});
+
+// ---------------------------------------------------------------------------
+// Version-checked helpers
+// ---------------------------------------------------------------------------
+
+function versionedGet<T>(
+  cache: LRUCache<string, Versioned<T>>,
+  key: string,
+  currentVersion: string,
+): T | undefined {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+
+  // Version mismatch — treat as stale
+  if (entry.version !== currentVersion) {
+    cache.delete(key);
+    return undefined;
+  }
+
+  return entry.value;
+}
+
+function versionedSet<T>(
+  cache: LRUCache<string, Versioned<T>>,
+  key: string,
+  value: T,
+  currentVersion: string,
+): void {
+  cache.set(key, { value, version: currentVersion });
+}
 
 // ---------------------------------------------------------------------------
 // Cache key building
@@ -161,10 +154,12 @@ export function buildSearchCacheKey(
   filterKey: string,
   sortBy: string,
   sortOrder: string,
-  page: number,
+  pageKey: string | number,
   limit: number,
+  fields?: string,
 ): string {
-  return `${filterKey}:${sortBy}:${sortOrder}:${page}:${limit}`;
+  const base = `${filterKey}:${sortBy}:${sortOrder}:${pageKey}:${limit}`;
+  return fields ? `${base}:${fields}` : base;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,44 +168,83 @@ export function buildSearchCacheKey(
 
 export function getCachedSearch(cacheKey: string): string | undefined {
   const version = getCompositeVersion();
-  return searchCache.get(cacheKey, version);
+  const result = versionedGet(searchCache, cacheKey, version);
+  if (result !== undefined) {
+    searchHits++;
+  } else {
+    searchMisses++;
+  }
+  return result;
 }
 
 export function setCachedSearch(cacheKey: string, responseJson: string): void {
   const version = getCompositeVersion();
-  searchCache.set(cacheKey, responseJson, version);
+  versionedSet(searchCache, cacheKey, responseJson, version);
 }
 
 export function getCachedCount(filterKey: string): number | undefined {
   const version = getCompositeVersion();
-  return countCache.get(filterKey, version);
+  const result = versionedGet(countCache, filterKey, version);
+  if (result !== undefined) {
+    countHits++;
+  } else {
+    countMisses++;
+  }
+  return result;
 }
 
 export function setCachedCount(filterKey: string, count: number): void {
   const version = getCompositeVersion();
-  countCache.set(filterKey, count, version);
+  versionedSet(countCache, filterKey, count, version);
 }
 
 export function getCachedAnalytics(key: string): string | undefined {
-  return analyticsCache.get(key, getCompositeVersion());
+  const version = getCompositeVersion();
+  const result = versionedGet(analyticsCache, key, version);
+  if (result !== undefined) {
+    analyticsHits++;
+  } else {
+    analyticsMisses++;
+  }
+  return result;
 }
 
 export function setCachedAnalytics(key: string, json: string): void {
-  analyticsCache.set(key, json, getCompositeVersion());
+  const version = getCompositeVersion();
+  versionedSet(analyticsCache, key, json, version);
 }
 
-export function getCacheStats(): { searchEntries: number; countEntries: number; analyticsEntries: number; version: string } {
+export function getCacheStats() {
+  const searchTotal = searchHits + searchMisses;
+  const countTotal = countHits + countMisses;
+  const analyticsTotal = analyticsHits + analyticsMisses;
+
   return {
     searchEntries: searchCache.size,
+    searchMaxEntries: CACHE_MAX_ENTRIES,
     countEntries: countCache.size,
+    countMaxEntries: Math.ceil(CACHE_MAX_ENTRIES / 2),
     analyticsEntries: analyticsCache.size,
+    analyticsMaxEntries: ANALYTICS_CACHE_MAX_ENTRIES,
     version: getCompositeVersion(),
+    ttlMs: CACHE_TTL_MS,
+    searchHits,
+    searchMisses,
+    searchHitRate: searchTotal > 0 ? searchHits / searchTotal : 0,
+    countHits,
+    countMisses,
+    countHitRate: countTotal > 0 ? countHits / countTotal : 0,
+    analyticsHits,
+    analyticsMisses,
+    analyticsHitRate: analyticsTotal > 0 ? analyticsHits / analyticsTotal : 0,
   };
 }
 
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
+
+let statsLogTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function initCacheService(): Promise<void> {
   logger.info('Initializing cache service', {
@@ -228,6 +262,27 @@ export async function initCacheService(): Promise<void> {
     versionPollTimer.unref();
   }
 
+  // Log cache stats every 60 seconds
+  statsLogTimer = setInterval(() => {
+    const stats = getCacheStats();
+    if (stats.searchHits + stats.searchMisses > 0) {
+      logger.info('Cache stats', {
+        searchHitRate: Math.round(stats.searchHitRate * 100),
+        searchEntries: stats.searchEntries,
+        searchHits: stats.searchHits,
+        searchMisses: stats.searchMisses,
+        countHitRate: Math.round(stats.countHitRate * 100),
+        countEntries: stats.countEntries,
+        analyticsHitRate: Math.round(stats.analyticsHitRate * 100),
+        analyticsEntries: stats.analyticsEntries,
+        version: stats.version,
+      });
+    }
+  }, 60_000);
+  if (statsLogTimer.unref) {
+    statsLogTimer.unref();
+  }
+
   logger.info('Cache service initialized', { version: getCompositeVersion() });
 }
 
@@ -236,7 +291,16 @@ export function stopCacheService(): void {
     clearInterval(versionPollTimer);
     versionPollTimer = null;
   }
+  if (statsLogTimer) {
+    clearInterval(statsLogTimer);
+    statsLogTimer = null;
+  }
   searchCache.clear();
   countCache.clear();
   analyticsCache.clear();
+
+  // Reset counters
+  searchHits = searchMisses = 0;
+  countHits = countMisses = 0;
+  analyticsHits = analyticsMisses = 0;
 }

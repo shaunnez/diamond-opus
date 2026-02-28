@@ -18,8 +18,8 @@ router.use('/health', healthRouter);
 // Webhook route — no auth (Stripe signature verification only)
 router.use('/api/v2/webhooks', webhooksRouter);
 
-// All API routes, protected by main auth middleware
-router.use('/api/v2/diamonds', authMiddleware, diamondsRouter);
+// Diamonds — public (no auth required, protected by Cloudflare + rate limiting)
+router.use('/api/v2/diamonds', diamondsRouter);
 router.use('/api/v2/analytics', authMiddleware, analyticsRouter);
 router.use('/api/v2/triggers', authMiddleware, triggersRouter);
 router.use('/api/v2/heatmap', authMiddleware, heatmapRouter);

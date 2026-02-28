@@ -1,11 +1,4 @@
-❯ Read the @notes-performance-supabase.md                                                                                                                                                                 
-                                                                                                                                                                                                          
-  I've added more indexes that supabase has recommended, however, now things are running slow. 15 seconds to get 24 records from the diamonds databse. Here is an example of one of the queries           
-                                                                                                                                                                                                          
-  shape=ROUND,OVAL,EMERALD,CUSHION,CUSHION+B,CUSHION+MODIFIED,CUSHION+BRILLIANT,RADIANT,PRINCESS,MARQUISE,ASSCHER,HEART,PEAR,ROSE&carat_max=4&clarity=FL,IF,VVS1,VVS2,VS1,VS2&cut=EX,VG,G,F&lab_grown=tr  
-  ue&fancy_color=false&price_max=99000&polish=EX,VG&symmetry=EX,VG&availability=available&page=1&limit=24&fields=slim                                                                                     
-                                                                                                                                                                                                          
-  If you run the script @scripts/analyze-indexes.ts this may help you with your analysis. 
+ 
 
 INDEXES
 | ddl                                                                                                                                                                                                                                                          |

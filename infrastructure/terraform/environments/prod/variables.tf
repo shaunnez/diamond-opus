@@ -432,6 +432,12 @@ variable "storefront_max_replicas" {
   }
 }
 
+variable "storefront_api_url" {
+  description = "Custom API URL for the storefront (e.g. Cloudflare custom domain). If empty, defaults to the API container's auto-generated Azure FQDN."
+  type        = string
+  default     = ""
+}
+
 # ============================================
 # OBSERVABILITY
 # ============================================

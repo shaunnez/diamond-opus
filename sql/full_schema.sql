@@ -217,6 +217,98 @@ CREATE TABLE IF NOT EXISTS "public"."pricing_rules" (
 ALTER TABLE "public"."pricing_rules" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."rating_rules" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL PRIMARY KEY,
+    "priority" integer NOT NULL,
+    "active" boolean NOT NULL DEFAULT true,
+    "price_min" numeric(12,2),
+    "price_max" numeric(12,2),
+    "shape" text[],
+    "color" text[],
+    "clarity" text[],
+    "cut" text[],
+    "feed" text,
+    "rating" integer NOT NULL,
+    -- Tier 1: Grading filters
+    "polish" text[],
+    "symmetry" text[],
+    "fluorescence" text[],
+    "certificate_lab" text[],
+    "lab_grown" boolean,
+    "carat_min" numeric(6,2),
+    "carat_max" numeric(6,2),
+    -- Tier 2: Measurement filters
+    "table_min" numeric(5,2),
+    "table_max" numeric(5,2),
+    "depth_min" numeric(5,2),
+    "depth_max" numeric(5,2),
+    "crown_angle_min" numeric(5,2),
+    "crown_angle_max" numeric(5,2),
+    "crown_height_min" numeric(5,2),
+    "crown_height_max" numeric(5,2),
+    "pavilion_angle_min" numeric(5,2),
+    "pavilion_angle_max" numeric(5,2),
+    "pavilion_depth_min" numeric(5,2),
+    "pavilion_depth_max" numeric(5,2),
+    "girdle" text[],
+    "culet_size" text[],
+    "ratio_min" numeric(5,3),
+    "ratio_max" numeric(5,3),
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT "rating_rules_rating_check" CHECK (("rating" >= 1) AND ("rating" <= 10))
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_rules_active_priority
+    ON rating_rules (priority ASC)
+    WHERE active = TRUE;
+
+CREATE TABLE IF NOT EXISTS "public"."rating_reapply_jobs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL PRIMARY KEY,
+    "status" text NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'reverted', 'cancelled')),
+    "total_diamonds" integer NOT NULL DEFAULT 0,
+    "processed_diamonds" integer NOT NULL DEFAULT 0,
+    "updated_diamonds" integer NOT NULL DEFAULT 0,
+    "failed_diamonds" integer NOT NULL DEFAULT 0,
+    "feeds_affected" text[] NOT NULL DEFAULT '{}',
+    "error" text,
+    "started_at" timestamptz,
+    "completed_at" timestamptz,
+    "reverted_at" timestamptz,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "retry_count" integer NOT NULL DEFAULT 0,
+    "last_progress_at" timestamptz,
+    "next_retry_at" timestamptz,
+    "trigger_type" text CHECK (trigger_type IN ('manual', 'rule_create', 'rule_update')),
+    "triggered_by_rule_id" "uuid",
+    "trigger_rule_snapshot" jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_reapply_jobs_status
+    ON rating_reapply_jobs (status);
+CREATE INDEX IF NOT EXISTS idx_rating_reapply_jobs_monitoring
+    ON rating_reapply_jobs (status, last_progress_at, next_retry_at);
+
+CREATE TABLE IF NOT EXISTS "public"."rating_reapply_snapshots" (
+    "job_id" "uuid" NOT NULL REFERENCES rating_reapply_jobs(id) ON DELETE CASCADE,
+    "diamond_id" "uuid" NOT NULL,
+    "feed" text NOT NULL,
+    "old_rating" integer,
+    "new_rating" integer,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (job_id, diamond_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_reapply_snapshots_job
+    ON rating_reapply_snapshots (job_id);
+
+
+ALTER TABLE "public"."rating_rules" OWNER TO "postgres";
+ALTER TABLE "public"."rating_reapply_jobs" OWNER TO "postgres";
+ALTER TABLE "public"."rating_reapply_snapshots" OWNER TO "postgres";
+
+
 CREATE SEQUENCE IF NOT EXISTS "public"."order_number_seq" START WITH 1 INCREMENT BY 1 NO MAXVALUE CACHE 1;
 
 CREATE OR REPLACE FUNCTION "public"."generate_order_number"() RETURNS text AS $$
@@ -479,15 +571,12 @@ ALTER TABLE ONLY "public"."worker_runs"
 
 
 
-CREATE INDEX "diamonds_status_idx" ON "public"."diamonds" USING "btree" ("status");
+-- Primary search index: covers all common storefront filter columns via INCLUDE
+-- for index-only scans on COUNT queries and fast filtering on data queries.
+CREATE INDEX "idx_diamonds_search_v3" ON "public"."diamonds" USING "btree" ("lab_grown", "shape", "carats", "color", "clarity") INCLUDE ("cut", "polish", "symmetry", "fluorescence_intensity", "availability", "feed_price", "price_model_price", "rating", "certificate_lab", "fancy_color") WHERE ("status" = 'active'::"text");
 
-
-
-CREATE INDEX "diamonds_supplier_idx" ON "public"."diamonds" USING "btree" ("feed");
-
-
-
-CREATE INDEX "diamonds_supplier_legal_name_idx" ON "public"."diamonds" USING "btree" ("supplier_legal_name");
+-- Browse index: covers storefront queries filtering by stone type + carat range without shape.
+CREATE INDEX "idx_diamonds_browse" ON "public"."diamonds" USING "btree" ("lab_grown", "carats") INCLUDE ("shape", "color", "clarity", "cut", "polish", "symmetry", "fluorescence_intensity", "availability", "feed_price", "price_model_price", "rating", "certificate_lab", "fancy_color") WHERE ("status" = 'active'::"text");
 
 
 
@@ -507,19 +596,6 @@ CREATE INDEX "idx_demo_inventory_updated" ON "public"."demo_feed_inventory" USIN
 
 
 
-CREATE INDEX "idx_diamonds_availability" ON "public"."diamonds" USING "btree" ("availability") WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_carats" ON "public"."diamonds" USING "btree" ("carats") WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_created" ON "public"."diamonds" USING "btree" ("created_at" DESC) WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_cut" ON "public"."diamonds" USING "btree" ("cut") WHERE ("status" = 'active'::"text");
 
 
 
@@ -527,7 +603,6 @@ CREATE INDEX "idx_diamonds_deleted" ON "public"."diamonds" USING "btree" ("delet
 
 
 
-CREATE INDEX "idx_diamonds_lab_grown" ON "public"."diamonds" USING "btree" ("lab_grown") WHERE ("status" = 'active'::"text");
 
 
 
@@ -535,21 +610,10 @@ CREATE INDEX "idx_diamonds_offer" ON "public"."diamonds" USING "btree" ("offer_i
 
 
 
-CREATE INDEX "idx_diamonds_price" ON "public"."diamonds" USING "btree" ("feed_price") WHERE ("status" = 'active'::"text");
-
-
-
-CREATE INDEX "idx_diamonds_search" ON "public"."diamonds" USING "btree" ("shape", "carats", "color", "clarity") WHERE ("status" = 'active'::"text");
-
 CREATE INDEX "idx_diamonds_fancy_color" ON "public"."diamonds" USING "btree" ("fancy_color") WHERE ("status" = 'active'::"text" AND "fancy_color" IS NOT NULL);
 CREATE INDEX "idx_diamonds_fancy_intensity" ON "public"."diamonds" USING "btree" ("fancy_intensity") WHERE ("status" = 'active'::"text" AND "fancy_intensity" IS NOT NULL);
-CREATE INDEX "idx_diamonds_fluorescence_intensity" ON "public"."diamonds" USING "btree" ("fluorescence_intensity") WHERE ("status" = 'active'::"text");
 CREATE INDEX "idx_diamonds_ratio" ON "public"."diamonds" USING "btree" ("ratio") WHERE ("status" = 'active'::"text" AND "ratio" IS NOT NULL);
-CREATE INDEX "idx_diamonds_polish" ON "public"."diamonds" USING "btree" ("polish") WHERE ("status" = 'active'::"text");
-CREATE INDEX "idx_diamonds_symmetry" ON "public"."diamonds" USING "btree" ("symmetry") WHERE ("status" = 'active'::"text");
 CREATE INDEX "idx_diamonds_certificate_lab" ON "public"."diamonds" USING "btree" ("certificate_lab") WHERE ("status" = 'active'::"text");
-CREATE INDEX "idx_diamonds_measurements_gin" ON "public"."diamonds" USING GIN ("measurements" "jsonb_path_ops") WHERE ("status" = 'active'::"text");
-CREATE INDEX "idx_diamonds_attributes_gin" ON "public"."diamonds" USING GIN ("attributes" "jsonb_path_ops") WHERE ("status" = 'active'::"text");
 
 
 
@@ -630,6 +694,8 @@ CREATE INDEX "idx_run_metadata_feed" ON "public"."run_metadata" USING "btree" ("
 
 
 CREATE INDEX "idx_run_metadata_incomplete" ON "public"."run_metadata" USING "btree" ("started_at" DESC) WHERE ("completed_at" IS NULL);
+
+CREATE INDEX IF NOT EXISTS "idx_run_metadata_completed_at" ON "public"."run_metadata" USING "btree" ("completed_at" DESC) WHERE ("completed_at" IS NOT NULL);
 
 
 

@@ -26,7 +26,7 @@ export interface RawDiamondRow {
   supplier_stone_id: string;
   offer_id: string;
   source_updated_at: Date | null;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | null;
   payload_hash: string;
   consolidated: boolean;
   consolidated_at: Date | null;
@@ -101,6 +101,7 @@ export async function claimUnconsolidatedRawDiamonds(
           FROM ${table}
           WHERE consolidated = FALSE
             AND consolidation_status = 'pending'
+            AND payload IS NOT NULL
             AND feed = $3
           ORDER BY created_at ASC
           LIMIT $1
@@ -118,6 +119,7 @@ export async function claimUnconsolidatedRawDiamonds(
           FROM ${table}
           WHERE consolidated = FALSE
             AND consolidation_status = 'pending'
+            AND payload IS NOT NULL
           ORDER BY created_at ASC
           LIMIT $1
           FOR UPDATE SKIP LOCKED
@@ -169,6 +171,7 @@ export async function markAsConsolidated(
      SET consolidated = TRUE,
          consolidation_status = 'done',
          consolidated_at = NOW(),
+         payload = NULL,
          updated_at = NOW()
      WHERE id = ANY($1)`,
     [ids]

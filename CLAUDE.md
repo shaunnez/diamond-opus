@@ -52,7 +52,7 @@ npm run seed:demo-feed
 
 **Apps**: `apps/scheduler`, `apps/worker`, `apps/consolidator`, `apps/dashboard`, `apps/storefront`, `apps/demo-feed-api`, `apps/demo-feed-seed`, `apps/ingestion-proxy`
 
-**Packages**: `packages/shared`, `packages/database`, `packages/feed-registry`, `packages/nivoda`, `packages/demo-feed`, `packages/pricing-engine`, `packages/api`
+**Packages**: `packages/shared`, `packages/database`, `packages/feed-registry`, `packages/nivoda`, `packages/demo-feed`, `packages/pricing-engine`, `packages/rating-engine`, `packages/api`
 
 **Schema**: `sql/full_schema.sql`, `sql/migrations`
 
@@ -132,6 +132,14 @@ The job processes available diamonds in batches, only updating rows where pricin
 Slack notifications are sent on completion or failure.
 Progress is shown in the dashboard with live polling.
 Key files: `packages/api/src/routes/pricing-rules.ts`, `packages/database/src/queries/pricing-reapply.ts`.
+
+**Rating engine (quality scoring)**
+The rating engine assigns a configurable 1-10 quality score to diamonds based on priority-ordered rules.
+Rules can filter on: shape, color, clarity, cut, price range, feed, polish, symmetry, fluorescence, certificate lab, lab-grown, carat range, table%, depth%, crown angle/height, pavilion angle/depth, girdle, culet size, and L/W ratio.
+Dashboard form uses collapsible sections: Basic (4Cs + Price), Grading, Carat & Measurements, Crown & Pavilion.
+Re-rating jobs run in background with snapshot-based revert.
+Key files: `packages/rating-engine/src/engine.ts`, `packages/api/src/routes/rating-rules.ts`, `packages/database/src/queries/rating-rules.ts`, `packages/database/src/queries/rating-reapply.ts`, `apps/dashboard/src/pages/RatingRules.tsx`.
+Schema: `sql/migrations/010_rating_system.sql`, `sql/migrations/015_rating_rules_extended_filters.sql`.
 
 **Rate limiting:**
 - Rate limiting is enforced at the API proxy layer using an in-memory token bucket
@@ -213,6 +221,10 @@ API key authentication:
 - `packages/nivoda/src/adapter.ts` - Nivoda GraphQL client
 - `packages/nivoda/src/mapper.ts` - Raw to canonical transformation
 - `packages/pricing-engine/src/engine.ts` - Pricing rule matching
+- `packages/rating-engine/src/engine.ts` - Rating rule matching (quality scoring 1-10)
+- `packages/api/src/routes/rating-rules.ts` - Rating rule CRUD and re-rating job endpoints
+- `packages/database/src/queries/rating-rules.ts` - Rating rule queries
+- `packages/database/src/queries/rating-reapply.ts` - Re-rating job queries (batch scanning, snapshots)
 - `packages/api/src/middleware/auth.ts` - Authentication logic
 - `packages/api/src/middleware/nivodaProxyAuth.ts` - Internal proxy auth (constant-time token comparison)
 - `packages/api/src/middleware/rateLimiter.ts` - In-memory rate limiter for Nivoda proxy (token bucket with FIFO queue)
@@ -233,6 +245,8 @@ API key authentication:
 - `sql/migrations/006_pricing_reapply_retry.sql` - Add retry and monitoring columns to reapply jobs
 - `sql/migrations/007_pricing_reapply_updated_diamonds.sql` - Add updated_diamonds column to track changed rows
 - `sql/migrations/008_pricing_reapply_scan_index.sql` - Composite index for efficient reapply job scanning
+- `sql/migrations/010_rating_system.sql` - Rating rules, reapply jobs, and snapshots tables
+- `sql/migrations/015_rating_rules_extended_filters.sql` - Extended filter columns (grading, measurements, lab-grown)
 
 ### Dashboard
 - `apps/dashboard/src/App.tsx` - Main app with routing

@@ -40,6 +40,21 @@ interface AvailableDiamondRatingRow {
   clarity: string | null;
   cut: string | null;
   rating: number | null;
+  carats: string | null;
+  polish: string | null;
+  symmetry: string | null;
+  fluorescence: string | null;
+  certificate_lab: string | null;
+  lab_grown: boolean;
+  table_pct: string | null;
+  depth_pct: string | null;
+  crown_angle: string | null;
+  crown_height: string | null;
+  pavilion_angle: string | null;
+  pavilion_depth: string | null;
+  girdle: string | null;
+  culet_size: string | null;
+  ratio: string | null;
 }
 
 // --- Public types ---
@@ -82,6 +97,21 @@ export interface AvailableDiamondRating {
   clarity: string | null;
   cut: string | null;
   rating: number | null;
+  carats: number | null;
+  polish: string | null;
+  symmetry: string | null;
+  fluorescence: string | null;
+  certificateLab: string | null;
+  labGrown: boolean;
+  tablePct: number | null;
+  depthPct: number | null;
+  crownAngle: number | null;
+  crownHeight: number | null;
+  pavilionAngle: number | null;
+  pavilionDepth: number | null;
+  girdle: string | null;
+  culetSize: string | null;
+  ratio: number | null;
 }
 
 // --- Mappers ---
@@ -231,18 +261,108 @@ export async function updateRatingReapplyJobStatus(
   );
 }
 
+// --- Diamond filter builder for targeted re-rating ---
+
+export interface DiamondFilterCriteria {
+  shapes?: string[];
+  colors?: string[];
+  clarities?: string[];
+  cuts?: string[];
+  feed?: string;
+  priceMin?: number;
+  priceMax?: number;
+  polishes?: string[];
+  symmetries?: string[];
+  fluorescences?: string[];
+  certificateLabs?: string[];
+  labGrown?: boolean;
+  caratMin?: number;
+  caratMax?: number;
+  tableMin?: number;
+  tableMax?: number;
+  depthMin?: number;
+  depthMax?: number;
+  crownAngleMin?: number;
+  crownAngleMax?: number;
+  crownHeightMin?: number;
+  crownHeightMax?: number;
+  pavilionAngleMin?: number;
+  pavilionAngleMax?: number;
+  pavilionDepthMin?: number;
+  pavilionDepthMax?: number;
+  girdles?: string[];
+  culetSizes?: string[];
+  ratioMin?: number;
+  ratioMax?: number;
+}
+
+function buildDiamondFilterClauses(
+  filters: DiamondFilterCriteria | undefined,
+  startParamIndex: number
+): { clauses: string[]; values: unknown[]; nextIndex: number } {
+  if (!filters) return { clauses: [], values: [], nextIndex: startParamIndex };
+
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  let pi = startParamIndex;
+
+  const addTextArray = (col: string, arr?: string[]) => {
+    if (arr && arr.length > 0) {
+      clauses.push(`UPPER(${col}) = ANY($${pi++}::text[])`);
+      values.push(arr.map(v => v.toUpperCase()));
+    }
+  };
+
+  const addRange = (col: string, min?: number, max?: number) => {
+    if (min !== undefined) { clauses.push(`${col} >= $${pi++}`); values.push(min); }
+    if (max !== undefined) { clauses.push(`${col} <= $${pi++}`); values.push(max); }
+  };
+
+  addTextArray('shape', filters.shapes);
+  addTextArray('color', filters.colors);
+  addTextArray('clarity', filters.clarities);
+  addTextArray('cut', filters.cuts);
+  if (filters.feed) { clauses.push(`feed = $${pi++}`); values.push(filters.feed); }
+  addRange('feed_price', filters.priceMin, filters.priceMax);
+  addTextArray('polish', filters.polishes);
+  addTextArray('symmetry', filters.symmetries);
+  addTextArray('fluorescence', filters.fluorescences);
+  addTextArray('certificate_lab', filters.certificateLabs);
+  if (filters.labGrown !== undefined) { clauses.push(`lab_grown = $${pi++}`); values.push(filters.labGrown); }
+  addRange('carats', filters.caratMin, filters.caratMax);
+  addRange('table_pct', filters.tableMin, filters.tableMax);
+  addRange('depth_pct', filters.depthMin, filters.depthMax);
+  addRange('crown_angle', filters.crownAngleMin, filters.crownAngleMax);
+  addRange('crown_height', filters.crownHeightMin, filters.crownHeightMax);
+  addRange('pavilion_angle', filters.pavilionAngleMin, filters.pavilionAngleMax);
+  addRange('pavilion_depth', filters.pavilionDepthMin, filters.pavilionDepthMax);
+  addTextArray('girdle', filters.girdles);
+  addTextArray('culet_size', filters.culetSizes);
+  addRange('ratio', filters.ratioMin, filters.ratioMax);
+
+  return { clauses, values, nextIndex: pi };
+}
+
 // --- Diamond fetch for re-rating ---
 
-export async function countAvailableDiamondsForRating(): Promise<number> {
+export async function countAvailableDiamondsForRating(
+  filters?: DiamondFilterCriteria
+): Promise<number> {
+  const base = ["availability = 'available'", "status = 'active'"];
+  const { clauses, values } = buildDiamondFilterClauses(filters, 1);
+  const allClauses = [...base, ...clauses];
+
   const result = await query<{ count: string }>(
-    `SELECT COUNT(*)::text as count FROM diamonds WHERE availability = 'available' AND status = 'active'`
+    `SELECT COUNT(*)::text as count FROM diamonds WHERE ${allClauses.join(' AND ')}`,
+    values
   );
   return parseInt(result.rows[0]?.count ?? '0', 10);
 }
 
 export async function getAvailableDiamondsBatchForRating(
   cursor: string | null,
-  limit: number
+  limit: number,
+  filters?: DiamondFilterCriteria
 ): Promise<AvailableDiamondRating[]> {
   const conditions = ["availability = 'available'", "status = 'active'"];
   const values: unknown[] = [];
@@ -253,16 +373,26 @@ export async function getAvailableDiamondsBatchForRating(
     values.push(cursor);
   }
 
+  const { clauses, values: filterValues, nextIndex } = buildDiamondFilterClauses(filters, paramIndex);
+  conditions.push(...clauses);
+  values.push(...filterValues);
+  paramIndex = nextIndex;
+
   values.push(limit);
 
   const result = await query<AvailableDiamondRatingRow>(
-    `SELECT id, feed, feed_price, shape, color, clarity, cut, rating
+    `SELECT id, feed, feed_price, shape, color, clarity, cut, rating,
+            carats, polish, symmetry, fluorescence, certificate_lab, lab_grown,
+            table_pct, depth_pct, crown_angle, crown_height,
+            pavilion_angle, pavilion_depth, girdle, culet_size, ratio
      FROM diamonds
      WHERE ${conditions.join(' AND ')}
      ORDER BY id ASC
      LIMIT $${paramIndex}`,
     values
   );
+
+  const parseNum = (v: string | null) => (v ? parseFloat(v) : null);
 
   return result.rows.map((row) => ({
     id: row.id,
@@ -273,7 +403,32 @@ export async function getAvailableDiamondsBatchForRating(
     clarity: row.clarity,
     cut: row.cut,
     rating: row.rating,
+    carats: parseNum(row.carats),
+    polish: row.polish,
+    symmetry: row.symmetry,
+    fluorescence: row.fluorescence,
+    certificateLab: row.certificate_lab,
+    labGrown: row.lab_grown,
+    tablePct: parseNum(row.table_pct),
+    depthPct: parseNum(row.depth_pct),
+    crownAngle: parseNum(row.crown_angle),
+    crownHeight: parseNum(row.crown_height),
+    pavilionAngle: parseNum(row.pavilion_angle),
+    pavilionDepth: parseNum(row.pavilion_depth),
+    girdle: row.girdle,
+    culetSize: row.culet_size,
+    ratio: parseNum(row.ratio),
   }));
+}
+
+// --- Cancellation check ---
+
+export async function isRatingReapplyJobCancelled(jobId: string): Promise<boolean> {
+  const result = await query<{ status: string }>(
+    `SELECT status FROM rating_reapply_jobs WHERE id = $1`,
+    [jobId]
+  );
+  return result.rows[0]?.status === 'cancelled';
 }
 
 // --- Batch updates ---

@@ -1,10 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Diamond, LogOut } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import { Diamond } from 'lucide-react';
 
 export function Header() {
-  const { logout } = useAuth();
-
   return (
     <header className="bg-white border-b border-border">
       <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,13 +19,6 @@ export function Header() {
             >
               Browse
             </Link>
-            <button
-              onClick={logout}
-              className="flex items-center gap-1.5 text-sm font-medium text-warm-gray-500 hover:text-charcoal transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
           </nav>
         </div>
       </div>

@@ -18,6 +18,7 @@ import {
   Moon,
   Sun,
   FileText,
+  HardDrive,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -38,6 +39,7 @@ const navigation = [
   { name: 'Heatmap', href: '/heatmap', icon: BarChart3 },
   
   { name: 'Error Logs', href: '/error-logs', icon: AlertTriangle },
+  { name: 'Cache Stats', href: '/cache-stats', icon: HardDrive },
   { name: 'API Docs', href: '/api-docs', icon: FileText },
 ];
 

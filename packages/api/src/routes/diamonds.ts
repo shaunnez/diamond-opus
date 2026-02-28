@@ -4,8 +4,7 @@ import type { Diamond } from '@diamond/shared';
 import {
   searchDiamonds,
   getDiamondById,
-  getRelatedDiamonds,
-  RELATED_FIELDS_ALLOWLIST,
+  getRecommendedDiamonds,
   updateDiamondAvailability,
   createHoldHistory,
   createPurchaseHistory,
@@ -13,7 +12,7 @@ import {
   updatePurchaseStatus,
 } from '@diamond/database';
 import { NivodaAdapter, NivodaFeedAdapter } from '@diamond/nivoda';
-import { validateQuery, validateParams, validateBody, notFound, badRequest, conflict, fatalError } from '../middleware/index.js';
+import { validateQuery, validateParams, validateBody, notFound, badRequest, conflict, fatalError, authMiddleware } from '../middleware/index.js';
 import {
   diamondSearchSchema,
   diamondIdSchema,
@@ -646,6 +645,9 @@ router.get(
         sortBy: query.sort_by,
         sortOrder: query.sort_order,
         fields: query.fields,
+        skipCount: query.no_count === true,
+        afterCreatedAt: query.after_created_at,
+        afterId: query.after_id,
       };
 
       // --- ETag: return 304 if dataset hasn't changed ---
@@ -663,12 +665,16 @@ router.get(
       const page = payload.page ?? 1;
       const limit = Math.min(payload.limit ?? 50, 1000);
       const fields = payload.fields ?? 'full';
-      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, page, limit);
+      // Use cursor as page key when keyset pagination is active
+      const pageKey = payload.afterCreatedAt && payload.afterId
+        ? `${payload.afterCreatedAt}_${payload.afterId}`
+        : String(page);
+      const cacheKey = buildSearchCacheKey(filterKey, sortBy, sortOrder, pageKey, limit, fields);
 
       const cached = getCachedSearch(cacheKey);
       if (cached) {
         res.set('ETag', etag);
-        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
         res.set('X-Cache', 'HIT');
         res.type('json').send(cached);
         return;
@@ -687,7 +693,7 @@ router.get(
       setCachedSearch(cacheKey, responseJson);
 
       res.set('ETag', etag);
-      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
       res.set('X-Cache', 'MISS');
       res.type('json').send(responseJson);
     } catch (error) {
@@ -700,16 +706,21 @@ router.get(
  * @openapi
  * /api/v2/diamonds/{id}/related:
  *   get:
- *     summary: Get related diamonds
+ *     summary: Get recommended diamonds
  *     description: >
- *       Returns diamonds similar to the anchor diamond based on configurable similarity fields.
- *       Always restricts to available diamonds, matches lab_grown with anchor, excludes anchor,
- *       and applies carat and priceModelPrice tolerances.
+ *       Returns three curated diamond recommendations relative to the anchor diamond.
+ *       All candidates are similar by shape, lab_grown status, clarity, and cut,
+ *       within a carat tolerance window. The three slots are:
+ *         - highest_rated: the highest-rated similar diamond
+ *         - most_expensive: the most expensive similar diamond
+ *         - mid_rated: a similar diamond rated between 7–8 (fallback: closest rating to 7.5)
+ *       Each slot is filled by a dedicated LIMIT 1 query. If the candidate pool is too small,
+ *       cut is dropped then clarity progressively to ensure 3 distinct results.
+ *       A slot may be null only if no similar diamonds exist at all.
  *     tags:
  *       - Diamonds
  *     security:
  *       - ApiKeyAuth: []
- 
  *     parameters:
  *       - in: path
  *         name: id
@@ -719,23 +730,6 @@ router.get(
  *           format: uuid
  *         description: Anchor diamond ID
  *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 12
- *           minimum: 1
- *           maximum: 50
- *         description: Maximum number of related diamonds to return
- *       - in: query
- *         name: fields
- *         schema:
- *           type: string
- *         description: >
- *           Comma-separated list of similarity fields.
- *           Allowed: shape, lab_grown, color, clarity, cut, polish, symmetry, fluorescence_intensity, certificate_lab.
- *           Default: shape,lab_grown,color,clarity,cut
- *         example: shape,color,clarity
- *       - in: query
  *         name: carat_tolerance
  *         schema:
  *           type: number
@@ -743,34 +737,52 @@ router.get(
  *           minimum: 0
  *           maximum: 5
  *         description: Carat tolerance (+/-) from anchor diamond
- *       - in: query
- *         name: price_tolerance
- *         schema:
- *           type: integer
- *           default: 250
- *           minimum: 0
- *           maximum: 10000
- *         description: Absolute USD price tolerance (+/-) on priceModelPrice from anchor
  *     responses:
  *       200:
- *         description: List of related diamonds
+ *         description: Three curated diamond recommendations
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
+ *                   type: object
+ *                   properties:
+ *                     highest_rated:
+ *                       type: object
+ *                       nullable: true
+ *                     most_expensive:
+ *                       type: object
+ *                       nullable: true
+ *                     mid_rated:
+ *                       type: object
+ *                       nullable: true
  *             example:
  *               data:
- *                 - id: "550e8400-e29b-41d4-a716-446655440001"
+ *                 highest_rated:
+ *                   id: "550e8400-e29b-41d4-a716-446655440001"
  *                   shape: "ROUND"
  *                   carats: 1.52
  *                   color: "G"
  *                   clarity: "VS1"
- *                   priceModelNzd: 12500
+ *                   rating: 9
+ *                   priceModelNzd: 14200
+ *                 most_expensive:
+ *                   id: "550e8400-e29b-41d4-a716-446655440002"
+ *                   shape: "ROUND"
+ *                   carats: 1.48
+ *                   color: "F"
+ *                   clarity: "VS1"
+ *                   rating: 7
+ *                   priceModelNzd: 18500
+ *                 mid_rated:
+ *                   id: "550e8400-e29b-41d4-a716-446655440003"
+ *                   shape: "ROUND"
+ *                   carats: 1.55
+ *                   color: "H"
+ *                   clarity: "VS1"
+ *                   rating: 8
+ *                   priceModelNzd: 11000
  *       400:
  *         description: Invalid parameters
  *       404:
@@ -785,29 +797,23 @@ router.get(
       const { id } = (req as Request & { validatedParams: DiamondIdParams }).validatedParams;
       const queryParams = (req as Request & { validatedQuery: RelatedDiamondsQuery }).validatedQuery;
 
-      // Parse and validate fields
-      let fields: string[] | undefined;
-      if (queryParams.fields) {
-        fields = queryParams.fields.split(',').map(f => f.trim()).filter(Boolean);
-        const invalidFields = fields.filter(f => !(f in RELATED_FIELDS_ALLOWLIST));
-        if (invalidFields.length > 0) {
-          throw badRequest(`Invalid similarity fields: ${invalidFields.join(', ')}. Allowed: ${Object.keys(RELATED_FIELDS_ALLOWLIST).join(', ')}`);
-        }
-      }
-
-      const result = await getRelatedDiamonds(id, {
-        limit: queryParams.limit,
-        fields,
+      const result = await getRecommendedDiamonds(id, {
         caratTolerance: queryParams.carat_tolerance,
-        priceTolerance: queryParams.price_tolerance,
       });
 
       if (!result) {
         throw notFound('Diamond not found');
       }
 
-      const enriched = result.related.map(enrichWithNzd);
-      res.json({ data: enriched.map(toSlim) });
+      const slim = (d: Diamond | null) => d ? toSlim(enrichWithNzd(d)) : null;
+
+      res.json({
+        data: {
+          highest_rated: slim(result.highestRated),
+          most_expensive: slim(result.mostExpensive),
+          mid_rated: slim(result.midRated),
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -926,6 +932,7 @@ router.post(
  */
 router.post(
   '/:id/hold',
+  authMiddleware,
   validateParams(diamondIdSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -1005,6 +1012,7 @@ router.post(
  */
 router.post(
   '/:id/cancel-hold',
+  authMiddleware,
   validateParams(diamondIdSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -1090,6 +1098,7 @@ router.post(
  */
 router.post(
   '/purchase',
+  authMiddleware,
   validateBody(purchaseRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

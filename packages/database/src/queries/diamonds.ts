@@ -1,4 +1,5 @@
 import type { Diamond, DiamondSearchParams, PaginatedResponse } from '@diamond/shared';
+import { SEARCH_COUNT_LIMIT } from '@diamond/shared';
 import { query } from '../client.js';
 
 interface DiamondRow {
@@ -62,6 +63,12 @@ interface DiamondRow {
   updated_at: Date;
   deleted_at: Date | null;
 }
+
+/** All diamond columns needed by mapRowToDiamond (excludes unused JSONB: measurements, attributes). */
+const DIAMOND_SELECT_COLUMNS = `id, feed, supplier_stone_id, offer_id, shape, carats, color, clarity, cut, polish, symmetry, fluorescence, fluorescence_intensity, fancy_color, fancy_intensity, fancy_overtone, ratio, lab_grown, treated, feed_price, diamond_price, price_per_carat, price_model_price, markup_ratio, pricing_rating, rating, availability, raw_availability, hold_id, image_url, video_url, meta_images, certificate_lab, certificate_number, certificate_pdf_url, table_pct, depth_pct, length_mm, width_mm, depth_mm, crown_angle, crown_height, pavilion_angle, pavilion_depth, girdle, culet_size, eye_clean, brown, green, milky, supplier_name, supplier_legal_name, status, source_updated_at, created_at, updated_at, deleted_at`;
+
+/** Reduced column set for slim/list responses — matches SLIM_FIELDS in the API route. */
+const SLIM_SELECT_COLUMNS = `id, feed, shape, carats, color, clarity, cut, fancy_color, fancy_intensity, lab_grown, feed_price, price_model_price, markup_ratio, rating, availability, certificate_lab, image_url, video_url, created_at`;
 
 function mapRowToDiamond(row: DiamondRow): Diamond {
   return {
@@ -323,7 +330,9 @@ export async function searchDiamonds(
     values.push(params.ratingMax);
   }
 
-  if (params.availability && params.availability.length > 0) {
+  if (!params.availability || params.availability.length === 0) {
+    conditions.push(`availability = 'available'`);
+  } else {
     conditions.push(`availability = ANY($${paramIndex++})`);
     values.push(params.availability);
   }
@@ -337,11 +346,6 @@ export async function searchDiamonds(
     conditions.push(`price_model_price <= $${paramIndex++}`);
     values.push(params.priceModelPriceMax);
   }
-
-  const whereClause = conditions.join(' AND ');
-  const page = params.page ?? 1;
-  const limit = Math.min(params.limit ?? 50, 1000);
-  const offset = (page - 1) * limit;
 
   const sortBy = params.sortBy ?? 'created_at';
   const sortOrder = params.sortOrder ?? 'desc';
@@ -360,20 +364,79 @@ export async function searchDiamonds(
   ];
   const safeSort = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
   const safeOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
-  console.log("where clause", whereClause, values, `ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT ${limit} OFFSET ${offset}`);
 
-  const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) as count FROM diamonds WHERE ${whereClause}`,
-    values
-  );
+  // Keyset cursor — only active when sorting by created_at.
+  // Adds (created_at, id) < (cursor_ts, cursor_id) condition for DESC,
+  // or > for ASC, enabling O(log n) pagination without OFFSET drift.
+  const usingKeyset = safeSort === 'created_at' && !!params.afterCreatedAt && !!params.afterId;
+  if (usingKeyset) {
+    const op = safeOrder === 'DESC' ? '<' : '>';
+    conditions.push(`(created_at, id) ${op} ($${paramIndex}, $${paramIndex + 1})`);
+    values.push(new Date(params.afterCreatedAt as string | Date), params.afterId);
+    paramIndex += 2;
+  }
 
-  const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  const whereClause = conditions.join(' AND ');
+  const page = params.page ?? 1;
+  const limit = Math.min(params.limit ?? 50, 1000);
+  const offset = usingKeyset ? 0 : (page - 1) * limit;
+  // Always include id as tiebreaker for deterministic ordering.
+  const orderClause = `${safeSort} ${safeOrder} NULLS LAST, id ${safeOrder}`;
 
-  console.log(total, 'total diamonds found');
-  const dataResult = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${safeSort} ${safeOrder} NULLS LAST LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-    [...values, limit, offset]
-  );
+  const selectColumns = params.fields === 'slim' ? SLIM_SELECT_COLUMNS : DIAMOND_SELECT_COLUMNS;
+
+  // When skipCount is true, skip the expensive COUNT query entirely.
+  // Fetch limit+1 rows to detect if there are more pages.
+  if (params.skipCount) {
+    const dataLimitParam = paramIndex++;
+    const dataOffsetParam = paramIndex++;
+    const dataResult = await query<DiamondRow>(
+      `SELECT ${selectColumns} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${dataLimitParam} OFFSET $${dataOffsetParam}`,
+      [...values, limit + 1, offset]
+    );
+
+    const hasMore = dataResult.rows.length > limit;
+    const rows = hasMore ? dataResult.rows.slice(0, limit) : dataResult.rows;
+    const lastRow = rows[rows.length - 1];
+    const nextCursor = hasMore && lastRow ? {
+      createdAt: lastRow.created_at.toISOString(),
+      id: lastRow.id,
+    } : undefined;
+
+    return {
+      data: rows.map(mapRowToDiamond),
+      pagination: {
+        total: 0,
+        page: usingKeyset ? 0 : page,
+        limit,
+        totalPages: 0,
+        hasMore,
+        ...(nextCursor ? { nextCursor } : {}),
+      },
+    };
+  }
+
+  // Run bounded COUNT and SELECT in parallel.
+  // The COUNT is capped at SEARCH_COUNT_LIMIT+1 rows to avoid full-table scans
+  // on broad queries (which can take 10s+ on small instances).
+  // Both queries share the same `values` base and add their own extra params
+  // independently starting at `paramIndex`, so they must not share the same
+  // param index slots.
+  const extraParamStart = paramIndex;
+  const [countResult, dataResult] = await Promise.all([
+    query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM (SELECT 1 FROM diamonds WHERE ${whereClause} LIMIT $${extraParamStart}) _bounded`,
+      [...values, SEARCH_COUNT_LIMIT + 1]
+    ),
+    query<DiamondRow>(
+      `SELECT ${selectColumns} FROM diamonds WHERE ${whereClause} ORDER BY ${orderClause} LIMIT $${extraParamStart} OFFSET $${extraParamStart + 1}`,
+      [...values, limit, offset]
+    ),
+  ]);
+
+  const rawCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  const isEstimated = rawCount > SEARCH_COUNT_LIMIT;
+  const total = isEstimated ? SEARCH_COUNT_LIMIT : rawCount;
 
   return {
     data: dataResult.rows.map(mapRowToDiamond),
@@ -382,13 +445,14 @@ export async function searchDiamonds(
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      ...(isEstimated ? { isEstimated: true } : {}),
     },
   };
 }
 
 export async function getDiamondById(id: string): Promise<Diamond | null> {
   const result = await query<DiamondRow>(
-    "SELECT * FROM diamonds WHERE id = $1 AND status = 'active'",
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE id = $1 AND status = 'active'`,
     [id]
   );
   const row = result.rows[0];
@@ -397,7 +461,7 @@ export async function getDiamondById(id: string): Promise<Diamond | null> {
 
 export async function getDiamondByOfferId(offerId: string): Promise<Diamond | null> {
   const result = await query<DiamondRow>(
-    "SELECT * FROM diamonds WHERE offer_id = $1 AND status = 'active'",
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE offer_id = $1 AND status = 'active'`,
     [offerId]
   );
   const row = result.rows[0];
@@ -406,7 +470,7 @@ export async function getDiamondByOfferId(offerId: string): Promise<Diamond | nu
 
 export async function getDiamondsOnHold(): Promise<Diamond[]> {
   const result = await query<DiamondRow>(
-    "SELECT * FROM diamonds WHERE availability = 'on_hold' AND status = 'active' ORDER BY updated_at DESC"
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE availability = 'on_hold' AND status = 'active' ORDER BY updated_at DESC`
   );
   return result.rows.map(mapRowToDiamond);
 }
@@ -906,7 +970,7 @@ export async function getRelatedDiamonds(
   const limitParam = `$${paramIndex++}`;
 
   const result = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limitParam}`,
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limitParam}`,
     values
   );
 
@@ -917,6 +981,186 @@ export async function getRelatedDiamonds(
 }
 
 export { RELATED_FIELDS_ALLOWLIST };
+
+// Fixed similarity fields for the recommended diamonds endpoint.
+const RECOMMENDED_FIELDS = ['shape', 'clarity', 'cut'] as const;
+
+// Constraint levels to try in order when the pool is too small.
+// lab_grown is always enforced; the remaining fields are relaxed progressively.
+const RECOMMENDED_CONSTRAINT_LEVELS = [
+  ['shape', 'clarity', 'cut'],  // full
+  ['shape', 'clarity'],          // relax: drop cut
+  ['shape'],                     // relax: drop clarity
+] as const;
+
+export interface RecommendedDiamondsResult {
+  anchor: Diamond;
+  highestRated: Diamond | null;
+  mostExpensive: Diamond | null;
+  midRated: Diamond | null;
+}
+
+/**
+ * Build the shared WHERE clause + values for the recommended diamonds candidate pool.
+ * lab_grown and id-exclusion are always applied. `fields` controls which additional
+ * equality columns are matched.
+ */
+function buildRecommendedConditions(
+  anchor: Diamond,
+  excludeIds: string[],
+  fields: readonly string[],
+  caratTolerance: number
+): { conditions: string[]; values: unknown[]; nextParam: number } {
+  const conditions: string[] = [
+    "status = 'active'",
+    "availability = 'available'",
+  ];
+  const values: unknown[] = [];
+  let p = 1;
+
+  // Exclude anchor and any already-selected slots
+  for (const xid of excludeIds) {
+    conditions.push(`id != $${p++}`);
+    values.push(xid);
+  }
+
+  // Always match lab_grown
+  conditions.push(`lab_grown = $${p++}`);
+  values.push(anchor.labGrown);
+
+  // Carat window
+  if (anchor.carats != null) {
+    conditions.push(`carats >= $${p++}`);
+    values.push(anchor.carats - caratTolerance);
+    conditions.push(`carats <= $${p++}`);
+    values.push(anchor.carats + caratTolerance);
+  }
+
+  // Similarity fields (equality match on anchor value; skip if anchor has null)
+  for (const field of fields) {
+    const column = RELATED_FIELDS_ALLOWLIST[field];
+    if (!column) continue;
+    const anchorKey = field === 'fluorescence_intensity' ? 'fluorescenceIntensity'
+      : field === 'certificate_lab' ? 'certificateLab'
+      : field;
+    const anchorValue = (anchor as unknown as Record<string, unknown>)[anchorKey];
+    if (anchorValue == null) continue;
+    conditions.push(`${column} = $${p++}`);
+    values.push(anchorValue);
+  }
+
+  return { conditions, values, nextParam: p };
+}
+
+/**
+ * Run a single targeted query to pick one diamond from the candidate pool.
+ * `orderBy` is an ORDER BY expression (no parameter binding — must be static).
+ * `extra` allows appending additional parameterised conditions and their bound values.
+ */
+async function pickOne(
+  conditions: string[],
+  values: unknown[],
+  orderBy: string,
+  extra: { conditions: string[]; values: unknown[] } = { conditions: [], values: [] }
+): Promise<Diamond | null> {
+  const allConditions = [...conditions, ...extra.conditions];
+  const allValues = [...values, ...extra.values];
+  const sql = `SELECT * FROM diamonds WHERE ${allConditions.join(' AND ')} ORDER BY ${orderBy} LIMIT 1`;
+  const result = await query<DiamondRow>(sql, allValues);
+  return result.rows.length > 0 ? mapRowToDiamond(result.rows[0]) : null;
+}
+
+/**
+ * Try to fill all three recommendation slots using the given similarity field set.
+ * Returns null if fewer than 3 distinct candidates are available with these constraints.
+ * Each slot uses a dedicated LIMIT 1 query rather than a large pool fetch.
+ */
+async function tryFillSlots(
+  anchor: Diamond,
+  fields: readonly string[],
+  caratTolerance: number
+): Promise<{ highestRated: Diamond; mostExpensive: Diamond; midRated: Diamond } | null> {
+  // Slot 1: highest rated
+  const { conditions: c1, values: v1 } = buildRecommendedConditions(anchor, [anchor.id], fields, caratTolerance);
+  const highestRated = await pickOne(c1, v1, 'rating DESC NULLS LAST, price_model_price DESC NULLS LAST, created_at DESC');
+  if (!highestRated) return null;
+
+  // Slot 2: most expensive, excluding slot 1
+  const { conditions: c2, values: v2 } = buildRecommendedConditions(anchor, [anchor.id, highestRated.id], fields, caratTolerance);
+  const mostExpensive = await pickOne(c2, v2, 'price_model_price DESC NULLS LAST, created_at DESC');
+  if (!mostExpensive) return null;
+
+  // Slot 3: rating 7–8 (closest to midpoint 7.5), excluding slots 1 & 2
+  const { conditions: c3, values: v3, nextParam: p3 } = buildRecommendedConditions(
+    anchor, [anchor.id, highestRated.id, mostExpensive.id], fields, caratTolerance
+  );
+
+  // Primary attempt: rating in [7, 8] ordered by closeness to 7.5
+  const midRated = await pickOne(
+    c3, v3,
+    'ABS(rating - 7.5) ASC NULLS LAST, created_at DESC',
+    { conditions: [`rating >= $${p3}`, `rating <= $${p3 + 1}`], values: [7, 8] }
+  );
+
+  if (midRated) {
+    return { highestRated, mostExpensive, midRated };
+  }
+
+  // Fallback: pick whichever remaining diamond has a rating closest to 7.5 (any rating)
+  const { conditions: c3b, values: v3b } = buildRecommendedConditions(
+    anchor, [anchor.id, highestRated.id, mostExpensive.id], fields, caratTolerance
+  );
+  const midRatedFallback = await pickOne(c3b, v3b, 'ABS(COALESCE(rating, 0) - 7.5) ASC, created_at DESC');
+
+  if (midRatedFallback) {
+    return { highestRated, mostExpensive, midRated: midRatedFallback };
+  }
+
+  return null;
+}
+
+/**
+ * Returns three curated diamond recommendations relative to the anchor:
+ *  - highestRated: the highest-rated similar diamond
+ *  - mostExpensive: the most expensive similar diamond
+ *  - midRated: a similar diamond rated between 7–8 (fallback: closest to 7.5)
+ *
+ * Similarity is determined by shape, lab_grown, clarity, and cut (within caratTolerance).
+ * If the candidate pool is too small, cut is dropped, then clarity, progressively.
+ * Returns null if the anchor diamond does not exist.
+ */
+export async function getRecommendedDiamonds(
+  anchorId: string,
+  options: { caratTolerance?: number } = {}
+): Promise<RecommendedDiamondsResult | null> {
+  const anchor = await getDiamondById(anchorId);
+  if (!anchor) return null;
+
+  const caratTolerance = options.caratTolerance ?? 0.15;
+
+  for (const fields of RECOMMENDED_CONSTRAINT_LEVELS) {
+    const slots = await tryFillSlots(anchor, fields, caratTolerance);
+    if (slots) {
+      return { anchor, ...slots };
+    }
+  }
+
+  // Best-effort: return whatever slots we can fill with the most relaxed constraints
+  const fields = RECOMMENDED_CONSTRAINT_LEVELS[RECOMMENDED_CONSTRAINT_LEVELS.length - 1];
+
+  const { conditions: c1, values: v1 } = buildRecommendedConditions(anchor, [anchor.id], fields, caratTolerance);
+  const highestRated = await pickOne(c1, v1, 'rating DESC NULLS LAST, price_model_price DESC NULLS LAST, created_at DESC');
+
+  const excludeAfterSlot1 = [anchor.id, ...(highestRated ? [highestRated.id] : [])];
+  const { conditions: c2, values: v2 } = buildRecommendedConditions(anchor, excludeAfterSlot1, fields, caratTolerance);
+  const mostExpensive = await pickOne(c2, v2, 'price_model_price DESC NULLS LAST, created_at DESC');
+
+  const excludeAfterSlot2 = [...excludeAfterSlot1, ...(mostExpensive ? [mostExpensive.id] : [])];
+  const { conditions: c3, values: v3 } = buildRecommendedConditions(anchor, excludeAfterSlot2, fields, caratTolerance);
+  const midRated = await pickOne(c3, v3, 'ABS(COALESCE(rating, 0) - 7.5) ASC, created_at DESC');
+
+  return { anchor, highestRated, mostExpensive, midRated };
+}
 
 /**
  * Quick text search across key diamond identifier fields.
@@ -944,7 +1188,7 @@ export async function quickSearchDiamonds(
   values.push(Math.min(limit, 50));
 
   const result = await query<DiamondRow>(
-    `SELECT * FROM diamonds WHERE ${conditions.join(' AND ')}
+    `SELECT ${DIAMOND_SELECT_COLUMNS} FROM diamonds WHERE ${conditions.join(' AND ')}
      ORDER BY updated_at DESC LIMIT $${paramIndex}`,
     values
   );

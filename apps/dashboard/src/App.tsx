@@ -21,6 +21,7 @@ const ErrorLogs = lazy(() => import('./pages/ErrorLogs').then(m => ({ default: m
 const ApiDocs = lazy(() => import('./pages/ApiDocs').then(m => ({ default: m.ApiDocs })));
 const Holds = lazy(() => import('./pages/Holds').then(m => ({ default: m.Holds })));
 const Orders = lazy(() => import('./pages/Orders').then(m => ({ default: m.Orders })));
+const CacheStats = lazy(() => import('./pages/CacheStats').then(m => ({ default: m.CacheStats })));
 
 function PageSpinner() {
   return (
@@ -67,6 +68,7 @@ function ProtectedRoutes() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/error-logs" element={<ErrorLogs />} />
           <Route path="/api-docs" element={<ApiDocs />} />
+          <Route path="/cache-stats" element={<CacheStats />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

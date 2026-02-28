@@ -487,6 +487,12 @@ variable "storefront_max_replicas" {
   default     = 2
 }
 
+variable "storefront_api_url" {
+  description = "Custom API URL for the storefront to proxy requests to (e.g. Cloudflare custom domain). If empty, defaults to the API container's auto-generated Azure FQDN."
+  type        = string
+  default     = ""
+}
+
 # ============================================
 # DATABASE POOLING
 # Service-specific pool settings for Supabase shared pooling.

@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import {
   getActiveRatingRules,
+  getRatingRuleById,
   createRatingRule,
   updateRatingRule,
   deactivateRatingRule,
@@ -17,7 +18,9 @@ import {
   revertDiamondRatingFromSnapshots,
   incrementDatasetVersion,
   resetRatingJobForRetry,
+  isRatingReapplyJobCancelled,
 } from "@diamond/database";
+import type { DiamondFilterCriteria } from "@diamond/database";
 import { createServiceLogger } from "@diamond/shared";
 import {
   RATING_REAPPLY_BATCH_SIZE,
@@ -26,6 +29,7 @@ import {
   RATING_REAPPLY_RETRY_MAX_DELAY_MINUTES,
 } from "@diamond/shared";
 import { RatingEngine } from "@diamond/rating-engine";
+import type { RatingRule } from "@diamond/shared";
 import { badRequest } from "../middleware/index.js";
 
 const router = Router();
@@ -39,21 +43,7 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       data: {
-        rules: rules.map((rule) => ({
-          id: rule.id,
-          priority: rule.priority,
-          price_min: rule.priceMin,
-          price_max: rule.priceMax,
-          shapes: rule.shapes,
-          colors: rule.colors,
-          clarities: rule.clarities,
-          cuts: rule.cuts,
-          feed: rule.feed,
-          rating: rule.rating,
-          active: rule.active,
-          created_at: rule.createdAt,
-          updated_at: rule.updatedAt,
-        })),
+        rules: rules.map(formatRule),
         total: rules.length,
       },
     });
@@ -88,6 +78,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       cuts: body.cuts,
       feed: body.feed,
       rating,
+      ...parseExtendedFilters(body),
     });
 
     let reapplyJobId: string | undefined;
@@ -104,25 +95,17 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      const totalDiamonds = await countAvailableDiamondsForRating();
+      const filters = ruleToFilterCriteria(rule);
+      const useFilters = hasAnyFilter(filters);
+      const totalDiamonds = await countAvailableDiamondsForRating(useFilters ? filters : undefined);
       if (totalDiamonds > 0) {
         reapplyJobId = await createRatingReapplyJob(totalDiamonds, {
           triggerType: 'rule_create',
           triggeredByRuleId: rule.id,
-          triggerRuleSnapshot: {
-            priority: rule.priority,
-            price_min: rule.priceMin,
-            price_max: rule.priceMax,
-            shapes: rule.shapes,
-            colors: rule.colors,
-            clarities: rule.clarities,
-            cuts: rule.cuts,
-            feed: rule.feed,
-            rating: rule.rating,
-          },
+          triggerRuleSnapshot: formatRule(rule),
         });
 
-        executeRatingReapplyJob(reapplyJobId).catch((err) => {
+        executeRatingReapplyJob(reapplyJobId, 0, useFilters ? filters : undefined).catch((err) => {
           log.error("Unhandled error in rating reapply job", {
             jobId: reapplyJobId,
             error: err instanceof Error ? err.message : String(err),
@@ -133,6 +116,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           ruleId: rule.id,
           jobId: reapplyJobId,
           totalDiamonds,
+          filtered: useFilters,
         });
       }
     }
@@ -157,18 +141,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
       throw badRequest("id is required");
     }
 
-    const updates: {
-      priority?: number;
-      priceMin?: number;
-      priceMax?: number;
-      shapes?: string[];
-      colors?: string[];
-      clarities?: string[];
-      cuts?: string[];
-      feed?: string;
-      rating?: number;
-      active?: boolean;
-    } = {};
+    const updates: Record<string, unknown> = {};
 
     if (body.priority !== undefined) {
       updates.priority = parseInt(body.priority, 10);
@@ -208,6 +181,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     if (body.active !== undefined) {
       updates.active = body.active;
     }
+    Object.assign(updates, parseExtendedFilters(body));
 
     await updateRatingRule(id, updates);
 
@@ -226,25 +200,19 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      const totalDiamonds = await countAvailableDiamondsForRating();
+      // Load full updated rule to derive filter criteria
+      const updatedRule = await getRatingRuleById(id);
+      const filters = updatedRule ? ruleToFilterCriteria(updatedRule) : {};
+      const useFilters = hasAnyFilter(filters);
+      const totalDiamonds = await countAvailableDiamondsForRating(useFilters ? filters : undefined);
       if (totalDiamonds > 0) {
         reapplyJobId = await createRatingReapplyJob(totalDiamonds, {
           triggerType: 'rule_update',
           triggeredByRuleId: id,
-          triggerRuleSnapshot: {
-            priority: updates.priority,
-            price_min: updates.priceMin,
-            price_max: updates.priceMax,
-            shapes: updates.shapes,
-            colors: updates.colors,
-            clarities: updates.clarities,
-            cuts: updates.cuts,
-            feed: updates.feed,
-            rating: updates.rating,
-          },
+          triggerRuleSnapshot: updates,
         });
 
-        executeRatingReapplyJob(reapplyJobId).catch((err) => {
+        executeRatingReapplyJob(reapplyJobId, 0, useFilters ? filters : undefined).catch((err) => {
           log.error("Unhandled error in rating reapply job", {
             jobId: reapplyJobId,
             error: err instanceof Error ? err.message : String(err),
@@ -255,6 +223,7 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
           ruleId: id,
           jobId: reapplyJobId,
           totalDiamonds,
+          filtered: useFilters,
         });
       }
     }
@@ -295,23 +264,44 @@ router.delete(
   }
 );
 
+// --- Helpers ---
+
+function optionalFloat(val: unknown): number | undefined {
+  if (val === undefined || val === null) return undefined;
+  return parseFloat(String(val));
+}
+
+function parseExtendedFilters(body: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  if (body.polishes !== undefined) out.polishes = body.polishes;
+  if (body.symmetries !== undefined) out.symmetries = body.symmetries;
+  if (body.fluorescences !== undefined) out.fluorescences = body.fluorescences;
+  if (body.certificate_labs !== undefined) out.certificateLabs = body.certificate_labs;
+  if (body.lab_grown !== undefined) out.labGrown = body.lab_grown;
+  if (body.carat_min !== undefined) out.caratMin = optionalFloat(body.carat_min);
+  if (body.carat_max !== undefined) out.caratMax = optionalFloat(body.carat_max);
+  if (body.table_min !== undefined) out.tableMin = optionalFloat(body.table_min);
+  if (body.table_max !== undefined) out.tableMax = optionalFloat(body.table_max);
+  if (body.depth_min !== undefined) out.depthMin = optionalFloat(body.depth_min);
+  if (body.depth_max !== undefined) out.depthMax = optionalFloat(body.depth_max);
+  if (body.crown_angle_min !== undefined) out.crownAngleMin = optionalFloat(body.crown_angle_min);
+  if (body.crown_angle_max !== undefined) out.crownAngleMax = optionalFloat(body.crown_angle_max);
+  if (body.crown_height_min !== undefined) out.crownHeightMin = optionalFloat(body.crown_height_min);
+  if (body.crown_height_max !== undefined) out.crownHeightMax = optionalFloat(body.crown_height_max);
+  if (body.pavilion_angle_min !== undefined) out.pavilionAngleMin = optionalFloat(body.pavilion_angle_min);
+  if (body.pavilion_angle_max !== undefined) out.pavilionAngleMax = optionalFloat(body.pavilion_angle_max);
+  if (body.pavilion_depth_min !== undefined) out.pavilionDepthMin = optionalFloat(body.pavilion_depth_min);
+  if (body.pavilion_depth_max !== undefined) out.pavilionDepthMax = optionalFloat(body.pavilion_depth_max);
+  if (body.girdles !== undefined) out.girdles = body.girdles;
+  if (body.culet_sizes !== undefined) out.culetSizes = body.culet_sizes;
+  if (body.ratio_min !== undefined) out.ratioMin = optionalFloat(body.ratio_min);
+  if (body.ratio_max !== undefined) out.ratioMax = optionalFloat(body.ratio_max);
+  return out;
+}
+
 // --- Reapply rating endpoints ---
 
-function formatRule(rule: {
-  id: string;
-  priority: number;
-  priceMin?: number;
-  priceMax?: number;
-  shapes?: string[];
-  colors?: string[];
-  clarities?: string[];
-  cuts?: string[];
-  feed?: string;
-  rating: number;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
+function formatRule(rule: RatingRule) {
   return {
     id: rule.id,
     priority: rule.priority,
@@ -326,6 +316,31 @@ function formatRule(rule: {
     active: rule.active,
     created_at: rule.createdAt,
     updated_at: rule.updatedAt,
+    // Tier 1
+    polishes: rule.polishes,
+    symmetries: rule.symmetries,
+    fluorescences: rule.fluorescences,
+    certificate_labs: rule.certificateLabs,
+    lab_grown: rule.labGrown,
+    carat_min: rule.caratMin,
+    carat_max: rule.caratMax,
+    // Tier 2
+    table_min: rule.tableMin,
+    table_max: rule.tableMax,
+    depth_min: rule.depthMin,
+    depth_max: rule.depthMax,
+    crown_angle_min: rule.crownAngleMin,
+    crown_angle_max: rule.crownAngleMax,
+    crown_height_min: rule.crownHeightMin,
+    crown_height_max: rule.crownHeightMax,
+    pavilion_angle_min: rule.pavilionAngleMin,
+    pavilion_angle_max: rule.pavilionAngleMax,
+    pavilion_depth_min: rule.pavilionDepthMin,
+    pavilion_depth_max: rule.pavilionDepthMax,
+    girdles: rule.girdles,
+    culet_sizes: rule.culetSizes,
+    ratio_min: rule.ratioMin,
+    ratio_max: rule.ratioMax,
   };
 }
 
@@ -386,7 +401,50 @@ function calculateNextRetryTime(retryCount: number): Date | null {
   return nextRetry;
 }
 
-async function executeRatingReapplyJob(jobId: string, currentRetryCount: number = 0): Promise<void> {
+function ruleToFilterCriteria(rule: RatingRule): DiamondFilterCriteria {
+  const f: DiamondFilterCriteria = {};
+  if (rule.shapes && rule.shapes.length > 0) f.shapes = rule.shapes;
+  if (rule.colors && rule.colors.length > 0) f.colors = rule.colors;
+  if (rule.clarities && rule.clarities.length > 0) f.clarities = rule.clarities;
+  if (rule.cuts && rule.cuts.length > 0) f.cuts = rule.cuts;
+  if (rule.feed) f.feed = rule.feed;
+  if (rule.priceMin !== undefined) f.priceMin = rule.priceMin;
+  if (rule.priceMax !== undefined) f.priceMax = rule.priceMax;
+  if (rule.polishes && rule.polishes.length > 0) f.polishes = rule.polishes;
+  if (rule.symmetries && rule.symmetries.length > 0) f.symmetries = rule.symmetries;
+  if (rule.fluorescences && rule.fluorescences.length > 0) f.fluorescences = rule.fluorescences;
+  if (rule.certificateLabs && rule.certificateLabs.length > 0) f.certificateLabs = rule.certificateLabs;
+  if (rule.labGrown !== undefined) f.labGrown = rule.labGrown;
+  if (rule.caratMin !== undefined) f.caratMin = rule.caratMin;
+  if (rule.caratMax !== undefined) f.caratMax = rule.caratMax;
+  if (rule.tableMin !== undefined) f.tableMin = rule.tableMin;
+  if (rule.tableMax !== undefined) f.tableMax = rule.tableMax;
+  if (rule.depthMin !== undefined) f.depthMin = rule.depthMin;
+  if (rule.depthMax !== undefined) f.depthMax = rule.depthMax;
+  if (rule.crownAngleMin !== undefined) f.crownAngleMin = rule.crownAngleMin;
+  if (rule.crownAngleMax !== undefined) f.crownAngleMax = rule.crownAngleMax;
+  if (rule.crownHeightMin !== undefined) f.crownHeightMin = rule.crownHeightMin;
+  if (rule.crownHeightMax !== undefined) f.crownHeightMax = rule.crownHeightMax;
+  if (rule.pavilionAngleMin !== undefined) f.pavilionAngleMin = rule.pavilionAngleMin;
+  if (rule.pavilionAngleMax !== undefined) f.pavilionAngleMax = rule.pavilionAngleMax;
+  if (rule.pavilionDepthMin !== undefined) f.pavilionDepthMin = rule.pavilionDepthMin;
+  if (rule.pavilionDepthMax !== undefined) f.pavilionDepthMax = rule.pavilionDepthMax;
+  if (rule.girdles && rule.girdles.length > 0) f.girdles = rule.girdles;
+  if (rule.culetSizes && rule.culetSizes.length > 0) f.culetSizes = rule.culetSizes;
+  if (rule.ratioMin !== undefined) f.ratioMin = rule.ratioMin;
+  if (rule.ratioMax !== undefined) f.ratioMax = rule.ratioMax;
+  return f;
+}
+
+function hasAnyFilter(f: DiamondFilterCriteria): boolean {
+  return Object.values(f).some(v => v !== undefined);
+}
+
+async function executeRatingReapplyJob(
+  jobId: string,
+  currentRetryCount: number = 0,
+  filters?: DiamondFilterCriteria,
+): Promise<void> {
   const startedAt = new Date();
   try {
     await updateRatingReapplyJobStatus(jobId, "running", {
@@ -394,7 +452,11 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
       lastProgressAt: startedAt,
       retryCount: currentRetryCount,
     });
-    log.info("Rating reapply job started", { jobId, retryCount: currentRetryCount });
+    log.info("Rating reapply job started", {
+      jobId,
+      retryCount: currentRetryCount,
+      filtered: filters ? hasAnyFilter(filters) : false,
+    });
 
     const engine = new RatingEngine();
     await engine.loadRules();
@@ -406,7 +468,26 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
     const feedsSet = new Set<string>();
 
     while (true) {
-      const batch = await getAvailableDiamondsBatchForRating(cursor, RATING_REAPPLY_BATCH_SIZE);
+      // Check for cancellation between batches
+      if (await isRatingReapplyJobCancelled(jobId)) {
+        log.info("Rating reapply job cancelled", { jobId, processedDiamonds, updatedDiamonds });
+        const feedsAffected = Array.from(feedsSet);
+        await updateRatingReapplyJobStatus(jobId, "cancelled", {
+          processedDiamonds,
+          updatedDiamonds,
+          failedDiamonds,
+          feedsAffected,
+          completedAt: new Date(),
+        });
+        // Still invalidate caches for any feeds we already updated
+        for (const feed of feedsAffected) {
+          const newVersion = await incrementDatasetVersion(feed);
+          log.info("Dataset version incremented after rating cancel", { feed, version: newVersion });
+        }
+        return;
+      }
+
+      const batch = await getAvailableDiamondsBatchForRating(cursor, RATING_REAPPLY_BATCH_SIZE, filters);
       if (batch.length === 0) break;
 
       cursor = batch[batch.length - 1]!.id;
@@ -431,6 +512,21 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
             clarity: diamond.clarity ?? undefined,
             cut: diamond.cut ?? undefined,
             feed: diamond.feed,
+            carats: diamond.carats ?? undefined,
+            polish: diamond.polish ?? undefined,
+            symmetry: diamond.symmetry ?? undefined,
+            fluorescence: diamond.fluorescence ?? undefined,
+            certificateLab: diamond.certificateLab ?? undefined,
+            labGrown: diamond.labGrown,
+            tablePct: diamond.tablePct ?? undefined,
+            depthPct: diamond.depthPct ?? undefined,
+            crownAngle: diamond.crownAngle ?? undefined,
+            crownHeight: diamond.crownHeight ?? undefined,
+            pavilionAngle: diamond.pavilionAngle ?? undefined,
+            pavilionDepth: diamond.pavilionDepth ?? undefined,
+            girdle: diamond.girdle ?? undefined,
+            culetSize: diamond.culetSize ?? undefined,
+            ratio: diamond.ratio ?? undefined,
           });
 
           const oldRating = diamond.rating;
@@ -528,6 +624,80 @@ async function executeRatingReapplyJob(jobId: string, currentRetryCount: number 
     });
   }
 }
+
+router.post("/reapply/start", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const running = await getRunningRatingReapplyJob();
+    if (running) {
+      res.status(409).json({
+        error: "A rating reapply job is already in progress",
+        data: { running_job: formatReapplyJob(running) },
+      });
+      return;
+    }
+
+    const totalDiamonds = await countAvailableDiamondsForRating();
+    if (totalDiamonds === 0) {
+      res.json({ data: { message: "No available diamonds to re-rate" } });
+      return;
+    }
+
+    const jobId = await createRatingReapplyJob(totalDiamonds, {
+      triggerType: 'manual',
+    });
+
+    executeRatingReapplyJob(jobId).catch((err) => {
+      log.error("Unhandled error in bulk rating reapply job", {
+        jobId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    log.info("Bulk rating reapply job started", { jobId, totalDiamonds });
+
+    res.status(202).json({
+      data: {
+        message: "Re-rating job started",
+        id: jobId,
+        total_diamonds: totalDiamonds,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/reapply/jobs/:id/cancel", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const job = await getRatingReapplyJob(req.params.id!);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    if (job.status !== "pending" && job.status !== "running") {
+      throw badRequest(
+        `Cannot cancel job with status '${job.status}'. Only pending or running jobs can be cancelled.`
+      );
+    }
+
+    // Set status to cancelled — the batch loop checks this between batches
+    await updateRatingReapplyJobStatus(job.id, "cancelled", {
+      completedAt: new Date(),
+    });
+
+    log.info("Rating reapply job cancel requested", { jobId: job.id });
+
+    res.json({
+      data: {
+        message: "Job cancellation requested",
+        id: job.id,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/reapply/jobs", async (_req: Request, res: Response, next: NextFunction) => {
   try {

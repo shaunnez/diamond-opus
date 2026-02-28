@@ -4,7 +4,7 @@
  * and verify the API contracts without requiring real external services.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 import request from 'supertest';
 import { sha256 } from '@diamond/shared';
 
@@ -15,6 +15,7 @@ vi.mock('@diamond/database', () => ({
   searchDiamonds: vi.fn(),
   getDiamondById: vi.fn(),
   getRelatedDiamonds: vi.fn(),
+  getRecommendedDiamonds: vi.fn(),
   updateDiamondAvailability: vi.fn().mockResolvedValue(undefined),
   createHoldHistory: vi.fn().mockResolvedValue(undefined),
   createPurchaseHistory: vi.fn(),
@@ -31,12 +32,14 @@ vi.mock('@diamond/nivoda', () => ({
 }));
 
 import { createApp } from '../src/server.js';
+import { stopCacheService } from '../src/services/cache.js';
 
 const {
   getApiKeyByHash,
   searchDiamonds,
   getDiamondById,
   getRelatedDiamonds,
+  getRecommendedDiamonds,
   getPurchaseByIdempotencyKey,
 } = await import('@diamond/database');
 
@@ -44,10 +47,15 @@ const mockGetApiKeyByHash = vi.mocked(getApiKeyByHash);
 const mockSearchDiamonds = vi.mocked(searchDiamonds);
 const mockGetDiamondById = vi.mocked(getDiamondById);
 const mockGetRelatedDiamonds = vi.mocked(getRelatedDiamonds);
+const mockGetRecommendedDiamonds = vi.mocked(getRecommendedDiamonds);
 const mockGetPurchaseByIdempotencyKey = vi.mocked(getPurchaseByIdempotencyKey);
 
 describe('API Routes', () => {
   let app: ReturnType<typeof createApp>;
+
+  afterEach(() => {
+    stopCacheService();
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -76,13 +84,16 @@ describe('API Routes', () => {
   });
 
   describe('GET /api/v2/diamonds', () => {
-    it('should return 401 without authentication', async () => {
+    it('should be accessible without authentication', async () => {
       mockGetApiKeyByHash.mockResolvedValue(null);
+      mockSearchDiamonds.mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 50, total: 0, totalPages: 0, hasMore: false },
+      });
 
       const response = await request(app).get('/api/v2/diamonds');
 
-      expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('UNAUTHORIZED');
+      expect(response.status).toBe(200);
     });
 
     it('should return paginated diamonds with valid API key', async () => {
@@ -539,20 +550,45 @@ describe('API Routes', () => {
       deletedAt: null,
     };
 
-    it('should return 200 with related diamonds array', async () => {
-      mockGetRelatedDiamonds.mockResolvedValue({ anchor: mockDiamond, related: [mockDiamond] });
+    it('should return 200 with three recommendation slots as an object', async () => {
+      mockGetRecommendedDiamonds.mockResolvedValue({
+        anchor: mockDiamond,
+        highestRated: { ...mockDiamond, id: 'diamond-2', rating: 9 },
+        mostExpensive: { ...mockDiamond, id: 'diamond-3', priceModelPrice: 12000 },
+        midRated: { ...mockDiamond, id: 'diamond-4', rating: 8 },
+      });
 
       const response = await request(app)
         .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
         .set('X-API-Key', 'test-api-key');
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data)).toBe(true);
-      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data).toHaveProperty('highest_rated');
+      expect(response.body.data).toHaveProperty('most_expensive');
+      expect(response.body.data).toHaveProperty('mid_rated');
+      expect(Array.isArray(response.body.data)).toBe(false);
+    });
+
+    it('should return null slots when candidates are unavailable', async () => {
+      mockGetRecommendedDiamonds.mockResolvedValue({
+        anchor: mockDiamond,
+        highestRated: null,
+        mostExpensive: null,
+        midRated: null,
+      });
+
+      const response = await request(app)
+        .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
+        .set('X-API-Key', 'test-api-key');
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.highest_rated).toBeNull();
+      expect(response.body.data.most_expensive).toBeNull();
+      expect(response.body.data.mid_rated).toBeNull();
     });
 
     it('should return 404 when anchor diamond is not found', async () => {
-      mockGetRelatedDiamonds.mockResolvedValue(null);
+      mockGetRecommendedDiamonds.mockResolvedValue(null);
 
       const response = await request(app)
         .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
@@ -570,10 +606,10 @@ describe('API Routes', () => {
       expect(response.status).toBe(400);
     });
 
-    it('should return 400 for limit exceeding maximum', async () => {
+    it('should return 400 for carat_tolerance exceeding maximum', async () => {
       const response = await request(app)
         .get('/api/v2/diamonds/550e8400-e29b-41d4-a716-446655440000/related')
-        .query({ limit: 999 })
+        .query({ carat_tolerance: 99 })
         .set('X-API-Key', 'test-api-key');
 
       expect(response.status).toBe(400);
