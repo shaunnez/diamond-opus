@@ -615,6 +615,9 @@ CREATE INDEX "idx_diamonds_fancy_intensity" ON "public"."diamonds" USING "btree"
 CREATE INDEX "idx_diamonds_ratio" ON "public"."diamonds" USING "btree" ("ratio") WHERE ("status" = 'active'::"text" AND "ratio" IS NOT NULL);
 CREATE INDEX "idx_diamonds_certificate_lab" ON "public"."diamonds" USING "btree" ("certificate_lab") WHERE ("status" = 'active'::"text");
 
+-- Analytics index: covers dashboard summary and feed stats aggregate queries
+CREATE INDEX "idx_diamonds_analytics" ON "public"."diamonds" USING "btree" ("availability", "feed") INCLUDE ("feed_price", "updated_at") WHERE ("status" = 'active'::"text");
+
 
 
 CREATE INDEX "idx_error_logs_created" ON "public"."error_logs" USING "btree" ("created_at" DESC);
