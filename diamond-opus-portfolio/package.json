@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:ghpages": "BASE_PATH=/diamond-opus/ tsc -b && BASE_PATH=/diamond-opus/ vite build",
+    "build:custom-domain": "tsc -b && vite build"
   },
   "dependencies": {
     "react": "^19.0.0",

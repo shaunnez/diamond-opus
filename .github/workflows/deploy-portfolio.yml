@@ -1,0 +1,83 @@
+###############################################################################
+# Deploy Portfolio to GitHub Pages
+#
+# Builds the portfolio site and deploys to GitHub Pages.
+#
+# Triggers:
+#   - Push to main (only when diamond-opus-portfolio/ files change)
+#   - Manual dispatch (always runs)
+#
+# To set up:
+#   1. Go to repo Settings > Pages > Source > "GitHub Actions"
+#   2. Push to main — the site will be live at:
+#      https://<username>.github.io/<repo-name>/
+#
+# For a custom domain:
+#   1. Add a CNAME file to diamond-opus-portfolio/public/CNAME
+#      with your domain (e.g. portfolio.example.com)
+#   2. Set BASE_PATH to '/' in the build step below
+#   3. Configure DNS per GitHub docs
+###############################################################################
+
+name: Deploy Portfolio
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'diamond-opus-portfolio/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: diamond-opus-portfolio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: diamond-opus-portfolio/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npx vite build
+        env:
+          # For repo-based GitHub Pages (https://<user>.github.io/<repo>/)
+          # set to '/<repo-name>/'. For custom domain, set to '/'.
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: Add .nojekyll
+        run: touch dist/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: diamond-opus-portfolio/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
