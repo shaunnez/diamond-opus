@@ -33,7 +33,7 @@ export default function HeroSection() {
   const nameLetters = 'SHAUN'.split('');
 
   return (
-    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-charcoal">
+    <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden bg-charcoal px-4">
       {/* Radial gradient overlay */}
       <div
         className="absolute inset-0"
@@ -44,7 +44,7 @@ export default function HeroSection() {
 
       {/* Diamond */}
       <motion.div
-        className="relative z-10 h-64 w-64"
+        className="relative z-10 h-40 w-40 sm:h-64 sm:w-64"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 1.5, ease: easing.luxury }}
@@ -61,11 +61,11 @@ export default function HeroSection() {
       </motion.div>
 
       {/* Name */}
-      <div className="relative z-10 mt-8 flex overflow-hidden">
+      <div className="relative z-10 mt-6 flex overflow-hidden sm:mt-8">
         {nameLetters.map((letter, i) => (
           <motion.span
             key={i}
-            className="font-serif text-[clamp(60px,12vw,180px)] font-600 leading-none tracking-[0.15em] text-cream"
+            className="font-serif text-[clamp(48px,12vw,180px)] font-600 leading-none tracking-[0.12em] text-cream sm:tracking-[0.15em]"
             initial={{ opacity: 0, y: 60 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
@@ -81,7 +81,7 @@ export default function HeroSection() {
 
       {/* Subtitle */}
       <motion.p
-        className="relative z-10 mt-4 font-sans text-sm uppercase tracking-[0.12em] text-warm-gray-400"
+        className="relative z-10 mt-3 font-sans text-xs uppercase tracking-[0.12em] text-warm-gray-400 sm:mt-4 sm:text-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 1.6 }}
@@ -91,13 +91,13 @@ export default function HeroSection() {
 
       {/* Scroll indicator */}
       <motion.div
-        className="absolute bottom-12 z-10 flex flex-col items-center"
+        className="absolute bottom-8 z-10 flex flex-col items-center sm:bottom-12"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 2.5, duration: 1 }}
       >
         <motion.div
-          className="h-12 w-px bg-gold"
+          className="h-8 w-px bg-gold sm:h-12"
           animate={{ scaleY: [0, 1, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           style={{ transformOrigin: 'top' }}

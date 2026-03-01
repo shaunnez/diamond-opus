@@ -17,11 +17,11 @@ export default function ThesisSection() {
   return (
     <section
       ref={ref}
-      className="relative flex min-h-[60vh] flex-col items-center justify-center bg-cream px-[clamp(20px,5vw,120px)] py-[clamp(80px,12vh,160px)]"
+      className="relative flex min-h-[50vh] flex-col items-center justify-center bg-cream px-5 py-16 sm:min-h-[60vh] sm:px-[clamp(20px,5vw,120px)] sm:py-[clamp(80px,12vh,160px)]"
     >
       <div className="mx-auto max-w-[900px] text-center">
         <motion.p
-          className="font-serif text-[clamp(24px,3.5vw,48px)] font-400 leading-tight text-charcoal"
+          className="font-serif text-[clamp(22px,3.5vw,48px)] font-400 leading-snug text-charcoal"
           initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 1, ease: easing.luxury }}
@@ -30,7 +30,7 @@ export default function ThesisSection() {
         </motion.p>
 
         <motion.p
-          className="mt-8 font-sans text-lg leading-relaxed text-warm-gray-500"
+          className="mt-6 font-sans text-base leading-relaxed text-warm-gray-500 sm:mt-8 sm:text-lg"
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 1, delay: 0.2, ease: easing.luxury }}
@@ -41,21 +41,21 @@ export default function ThesisSection() {
 
         {/* Stats row */}
         <motion.div
-          className="mt-16 grid grid-cols-2 gap-8 md:grid-cols-4"
+          className="mt-10 grid grid-cols-2 gap-6 sm:mt-16 sm:gap-8 md:grid-cols-4"
           initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 1, delay: 0.4, ease: easing.luxury }}
         >
           {stats.map((stat) => (
             <div key={stat.label} className="flex flex-col items-center">
-              <span className="font-serif text-[clamp(28px,4vw,52px)] font-600 text-charcoal">
+              <span className="font-serif text-[clamp(24px,4vw,52px)] font-600 text-charcoal">
                 <AnimatedCounter
                   target={stat.value}
                   suffix={stat.suffix}
                   prefix={stat.prefix}
                 />
               </span>
-              <span className="mt-2 font-sans text-xs uppercase tracking-[0.12em] text-warm-gray-400">
+              <span className="mt-1 font-sans text-[10px] uppercase tracking-[0.1em] text-warm-gray-400 sm:mt-2 sm:text-xs sm:tracking-[0.12em]">
                 {stat.label}
               </span>
             </div>

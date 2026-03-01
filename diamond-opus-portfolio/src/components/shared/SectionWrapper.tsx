@@ -17,7 +17,7 @@ export default function SectionWrapper({ children, className = '', id, dark }: S
     <motion.section
       ref={ref}
       id={id}
-      className={`relative px-[clamp(20px,5vw,120px)] py-[clamp(80px,12vh,160px)] ${
+      className={`relative px-5 py-16 sm:px-[clamp(20px,5vw,120px)] sm:py-[clamp(80px,12vh,160px)] ${
         dark ? 'bg-charcoal text-cream' : 'bg-cream text-charcoal'
       } ${className}`}
       initial={{ opacity: 0 }}

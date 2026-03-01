@@ -42,7 +42,7 @@ export default function StorefrontSection() {
 
         {/* Diamond shapes */}
         <motion.div
-          className="mt-8 flex flex-wrap justify-center gap-6"
+          className="mt-4 flex flex-wrap justify-center gap-4 sm:mt-8 sm:gap-6"
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ delay: 0.3, duration: 0.8 }}
@@ -55,45 +55,45 @@ export default function StorefrontSection() {
               animate={inView ? { opacity: 1, scale: 1 } : {}}
               transition={{ delay: 0.4 + i * 0.08, duration: 0.5 }}
             >
-              <svg viewBox="0 0 48 48" className="h-8 w-8 text-gold">
+              <svg viewBox="0 0 48 48" className="h-6 w-6 text-gold sm:h-8 sm:w-8">
                 <path d={shape.path} fill="none" stroke="currentColor" strokeWidth="1.5" />
               </svg>
-              <span className="mt-1 font-sans text-[10px] text-warm-gray-400">{shape.name}</span>
+              <span className="mt-0.5 font-sans text-[8px] text-warm-gray-400 sm:mt-1 sm:text-[10px]">{shape.name}</span>
             </motion.div>
           ))}
         </motion.div>
 
         {/* Storefront mockup */}
         <motion.div
-          className="mt-12 overflow-hidden rounded-xl border border-border bg-cream"
+          className="mt-8 overflow-hidden rounded-xl border border-border bg-cream sm:mt-12"
           initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 0.6, duration: 1, ease: easing.luxury }}
         >
           {/* Browser chrome */}
-          <div className="flex items-center gap-2 border-b border-border bg-pearl px-4 py-2.5">
-            <div className="h-2 w-2 rounded-full bg-ruby/40" />
-            <div className="h-2 w-2 rounded-full bg-amber/40" />
-            <div className="h-2 w-2 rounded-full bg-emerald/40" />
-            <div className="ml-4 flex-1 rounded-md bg-cream px-3 py-1 font-mono text-xs text-warm-gray-400">
+          <div className="flex items-center gap-1.5 border-b border-border bg-pearl px-3 py-2 sm:gap-2 sm:px-4 sm:py-2.5">
+            <div className="h-1.5 w-1.5 rounded-full bg-ruby/40 sm:h-2 sm:w-2" />
+            <div className="h-1.5 w-1.5 rounded-full bg-amber/40 sm:h-2 sm:w-2" />
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald/40 sm:h-2 sm:w-2" />
+            <div className="ml-2 flex-1 rounded-md bg-cream px-2 py-0.5 font-mono text-[10px] text-warm-gray-400 sm:ml-4 sm:px-3 sm:py-1 sm:text-xs">
               diamonds.example.com
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {/* Diamond grid mockup */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3">
               {sampleDiamonds.map((diamond, i) => (
                 <motion.div
                   key={i}
-                  className="rounded-lg border border-border bg-white p-4 transition-shadow hover:shadow-lg"
+                  className="rounded-lg border border-border bg-white p-2.5 transition-shadow hover:shadow-lg sm:p-4"
                   initial={{ opacity: 0, y: 15 }}
                   animate={inView ? { opacity: 1, y: 0 } : {}}
                   transition={{ delay: 0.8 + i * 0.1, duration: 0.5 }}
                 >
                   {/* Diamond shape icon */}
-                  <div className="mb-3 flex justify-center">
-                    <svg viewBox="0 0 48 48" className="h-10 w-10 text-warm-gray-400">
+                  <div className="mb-2 flex justify-center sm:mb-3">
+                    <svg viewBox="0 0 48 48" className="h-7 w-7 text-warm-gray-400 sm:h-10 sm:w-10">
                       <path
                         d={shapes.find((s) => s.name === diamond.shape)?.path || shapes[0].path}
                         fill="none"
@@ -104,13 +104,13 @@ export default function StorefrontSection() {
                   </div>
 
                   <div className="text-center">
-                    <p className="font-serif text-sm font-600 text-charcoal">
+                    <p className="font-serif text-xs font-600 text-charcoal sm:text-sm">
                       {diamond.carat}ct {diamond.shape}
                     </p>
-                    <p className="mt-0.5 font-sans text-xs text-warm-gray-400">
+                    <p className="mt-0.5 font-sans text-[10px] text-warm-gray-400 sm:text-xs">
                       {diamond.color} / {diamond.clarity}
                     </p>
-                    <p className="mt-2 font-serif text-base font-600 text-gold">
+                    <p className="mt-1 font-serif text-sm font-600 text-gold sm:mt-2 sm:text-base">
                       {diamond.price}
                     </p>
                   </div>
@@ -121,7 +121,7 @@ export default function StorefrontSection() {
         </motion.div>
 
         {/* Features */}
-        <div className="mt-12 grid grid-cols-2 gap-6 md:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:mt-12 sm:gap-6 md:grid-cols-4">
           {features.map((feat, i) => (
             <motion.div
               key={feat.label}
@@ -130,8 +130,8 @@ export default function StorefrontSection() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 1.4 + i * 0.1, duration: 0.5 }}
             >
-              <p className="font-sans text-sm font-500 text-charcoal">{feat.label}</p>
-              <p className="mt-1 font-sans text-xs text-warm-gray-400">{feat.desc}</p>
+              <p className="font-sans text-xs font-500 text-charcoal sm:text-sm">{feat.label}</p>
+              <p className="mt-0.5 font-sans text-[10px] text-warm-gray-400 sm:mt-1 sm:text-xs">{feat.desc}</p>
             </motion.div>
           ))}
         </div>

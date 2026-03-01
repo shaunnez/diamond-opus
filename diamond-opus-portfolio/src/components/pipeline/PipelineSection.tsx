@@ -1,184 +1,124 @@
 import { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import SectionWrapper from '../shared/SectionWrapper';
 import SectionTitle from '../shared/SectionTitle';
+import { easing } from '../../utils/constants';
 
-interface PipelineNode {
+interface PipelineStep {
   id: string;
   label: string;
-  icon: string;
-  x: number;
-  y: number;
+  description: string;
   color: string;
 }
 
-interface Connection {
-  from: string;
-  to: string;
-}
-
-const nodes: PipelineNode[] = [
-  { id: 'scheduler', label: 'Scheduler', icon: 'clock', x: 50, y: 60, color: '#B8860B' },
-  { id: 'servicebus', label: 'Service Bus', icon: 'layers', x: 200, y: 60, color: '#0078D4' },
-  { id: 'workers', label: 'Workers (x200)', icon: 'grid', x: 380, y: 60, color: '#B8860B' },
-  { id: 'raw', label: 'Raw Storage', icon: 'db', x: 560, y: 60, color: '#4A4A4A' },
-  { id: 'consolidator', label: 'Consolidator', icon: 'merge', x: 560, y: 180, color: '#B8860B' },
-  { id: 'canonical', label: 'Canonical DB', icon: 'db', x: 380, y: 180, color: '#4A4A4A' },
-  { id: 'api', label: 'API', icon: 'server', x: 200, y: 180, color: '#B8860B' },
-  { id: 'clients', label: 'Clients', icon: 'users', x: 50, y: 180, color: '#2D6A4F' },
+const steps: PipelineStep[] = [
+  { id: 'scheduler', label: 'Scheduler', description: 'Partitions work using adaptive density scanning', color: '#B8860B' },
+  { id: 'servicebus', label: 'Service Bus', description: 'Azure Service Bus with 3 queues', color: '#0078D4' },
+  { id: 'workers', label: 'Workers (x200)', description: '200 concurrent workers process one page each', color: '#B8860B' },
+  { id: 'raw', label: 'Raw Storage', description: 'Feed-specific raw diamond tables', color: '#4A4A4A' },
+  { id: 'consolidator', label: 'Consolidator', description: 'Maps, prices, rates, and upserts', color: '#B8860B' },
+  { id: 'canonical', label: 'Canonical DB', description: 'Unified diamonds table with pricing', color: '#4A4A4A' },
+  { id: 'api', label: 'API', description: 'LRU cache, ETag, <50ms responses', color: '#B8860B' },
+  { id: 'clients', label: 'Clients', description: 'Dashboard + Storefront', color: '#2D6A4F' },
 ];
 
-const connections: Connection[] = [
-  { from: 'scheduler', to: 'servicebus' },
-  { from: 'servicebus', to: 'workers' },
-  { from: 'workers', to: 'raw' },
-  { from: 'raw', to: 'consolidator' },
-  { from: 'consolidator', to: 'canonical' },
-  { from: 'canonical', to: 'api' },
-  { from: 'api', to: 'clients' },
+// Desktop SVG positions
+const svgNodes = [
+  { x: 50, y: 60 }, { x: 200, y: 60 }, { x: 380, y: 60 }, { x: 560, y: 60 },
+  { x: 560, y: 180 }, { x: 380, y: 180 }, { x: 200, y: 180 }, { x: 50, y: 180 },
 ];
 
-const annotations: Record<string, string> = {
-  scheduler: 'Partitions work using adaptive density scanning',
-  servicebus: 'Azure Service Bus with 3 queues',
-  workers: '200 concurrent workers process one page each',
-  raw: 'Feed-specific raw diamond tables',
-  consolidator: 'Maps, prices, rates, and upserts',
-  canonical: 'Unified diamonds table with pricing',
-  api: 'LRU cache, ETag, <50ms responses',
-  clients: 'Dashboard + Storefront',
-};
-
-function NodeIcon({ icon, color }: { icon: string; color: string }) {
-  const paths: Record<string, string> = {
-    clock: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4v6l4 2',
-    layers: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
-    grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
-    db: 'M12 2C6.5 2 2 4 2 6.5V17.5C2 20 6.5 22 12 22s10-2 10-4.5V6.5C22 4 17.5 2 12 2zM2 10c0 2.5 4.5 4.5 10 4.5s10-2 10-4.5',
-    merge: 'M18 8A3 3 0 1 0 12 8a3 3 0 0 0 6 0zM6 15a3 3 0 1 0 6 0 3 3 0 0 0-6 0zM8.6 13.5l5-3',
-    server: 'M2 4h20v5H2zM2 13h20v5H2zM6 6.5h.01M6 15.5h.01',
-    users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-  };
-
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d={paths[icon] || paths.server} />
-    </svg>
-  );
-}
+const connections = [
+  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7],
+];
 
 export default function PipelineSection() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ['start end', 'end start'],
-  });
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-60px' });
 
   return (
     <SectionWrapper id="pipeline">
-      <div ref={containerRef}>
+      <div ref={ref}>
         <SectionTitle title="The Pipeline" subtitle="Eight steps from supplier to storefront" />
 
-        {/* SVG Diagram */}
-        <div className="relative mt-12 overflow-x-auto">
+        {/* Desktop: SVG diagram */}
+        <div className="mt-12 hidden md:block">
           <svg viewBox="0 0 680 260" className="mx-auto w-full max-w-[800px]" fill="none">
-            {/* Connections */}
-            {connections.map((conn, i) => {
-              const from = nodes.find((n) => n.id === conn.from)!;
-              const to = nodes.find((n) => n.id === conn.to)!;
-              const fromX = from.x + 55;
-              const fromY = from.y + 20;
-              const toX = to.x + 5;
-              const toY = to.y + 20;
-
+            {connections.map(([fromIdx, toIdx], i) => {
+              const from = svgNodes[fromIdx];
+              const to = svgNodes[toIdx];
               return (
                 <motion.line
-                  key={`${conn.from}-${conn.to}`}
-                  x1={fromX}
-                  y1={fromY}
-                  x2={toX}
-                  y2={toY}
-                  stroke="#B8860B"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
+                  key={`conn-${i}`}
+                  x1={from.x + 55} y1={from.y + 20}
+                  x2={to.x + 5} y2={to.y + 20}
+                  stroke="#B8860B" strokeWidth="1" strokeDasharray="4 4"
                   initial={{ pathLength: 0, opacity: 0 }}
-                  whileInView={{ pathLength: 1, opacity: 0.5 }}
-                  viewport={{ once: true }}
+                  animate={inView ? { pathLength: 1, opacity: 0.5 } : {}}
                   transition={{ duration: 0.6, delay: 0.3 + i * 0.15 }}
                 />
               );
             })}
-
-            {/* Particles flowing along connections */}
-            {connections.map((conn, i) => {
-              const from = nodes.find((n) => n.id === conn.from)!;
-              const to = nodes.find((n) => n.id === conn.to)!;
-
+            {steps.map((step, i) => {
+              const pos = svgNodes[i];
               return (
-                <motion.circle
-                  key={`particle-${conn.from}-${conn.to}`}
-                  r="3"
-                  fill="#D4A94C"
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: [0, 1, 1, 0] }}
-                  viewport={{ once: true }}
-                  transition={{
-                    duration: 2,
-                    delay: 1.5 + i * 0.3,
-                    repeat: Infinity,
-                    repeatDelay: 1,
-                  }}
-                  style={{
-                    offsetPath: `path('M ${from.x + 55} ${from.y + 20} L ${to.x + 5} ${to.y + 20}')`,
-                  }}
-                  animate={{
-                    offsetDistance: ['0%', '100%'],
-                  }}
-                />
+                <motion.g
+                  key={step.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={inView ? { opacity: 1, scale: 1 } : {}}
+                  transition={{ duration: 0.5, delay: 0.2 + i * 0.12 }}
+                >
+                  <rect x={pos.x} y={pos.y} width={110} height={40} rx={8}
+                    fill="#FAF9F7" stroke={step.color} strokeWidth="1.5" />
+                  <text x={pos.x + 55} y={pos.y + 25} fill="#1A1A1A" fontSize="11"
+                    fontFamily="Inter, sans-serif" textAnchor="middle">
+                    {step.label}
+                  </text>
+                </motion.g>
               );
             })}
-
-            {/* Nodes */}
-            {nodes.map((node, i) => (
-              <motion.g
-                key={node.id}
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.2 + i * 0.12 }}
-              >
-                <rect
-                  x={node.x}
-                  y={node.y}
-                  width={110}
-                  height={40}
-                  rx={8}
-                  fill="#FAF9F7"
-                  stroke={node.color}
-                  strokeWidth="1.5"
-                />
-                <foreignObject x={node.x + 8} y={node.y + 8} width={24} height={24}>
-                  <NodeIcon icon={node.icon} color={node.color} />
-                </foreignObject>
-                <text
-                  x={node.x + 36}
-                  y={node.y + 25}
-                  fill="#1A1A1A"
-                  fontSize="11"
-                  fontFamily="Inter, sans-serif"
-                >
-                  {node.label}
-                </text>
-              </motion.g>
-            ))}
           </svg>
         </div>
 
-        {/* Annotations */}
-        <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {nodes.map((node, i) => (
+        {/* Mobile: vertical step list */}
+        <div className="mt-8 space-y-0 md:hidden">
+          {steps.map((step, i) => (
             <motion.div
-              key={node.id}
+              key={step.id}
+              className="relative flex items-start gap-4 py-4"
+              initial={{ opacity: 0, x: -20 }}
+              animate={inView ? { opacity: 1, x: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.15 + i * 0.1, ease: easing.luxury }}
+            >
+              {/* Step number + vertical line */}
+              <div className="flex flex-col items-center">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-600 text-cream"
+                  style={{ backgroundColor: step.color }}
+                >
+                  {i + 1}
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="mt-1 h-full w-px bg-border" />
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="min-w-0 pb-2">
+                <p className="font-sans text-sm font-600 text-charcoal">{step.label}</p>
+                <p className="mt-1 font-sans text-xs leading-relaxed text-warm-gray-500">
+                  {step.description}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Annotation cards (desktop only, hidden on mobile since the vertical list already has descriptions) */}
+        <div className="mt-12 hidden grid-cols-2 gap-4 md:grid lg:grid-cols-4">
+          {steps.map((step, i) => (
+            <motion.div
+              key={step.id}
               className="rounded-lg border border-border bg-pearl p-4"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -186,16 +126,13 @@ export default function PipelineSection() {
               transition={{ duration: 0.6, delay: i * 0.08 }}
             >
               <div className="flex items-center gap-2">
-                <div
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: node.color }}
-                />
+                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: step.color }} />
                 <span className="font-sans text-xs font-500 uppercase tracking-[0.08em] text-warm-gray-600">
-                  {node.label}
+                  {step.label}
                 </span>
               </div>
               <p className="mt-2 font-sans text-sm leading-relaxed text-warm-gray-500">
-                {annotations[node.id]}
+                {step.description}
               </p>
             </motion.div>
           ))}

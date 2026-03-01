@@ -4,7 +4,7 @@ import GoldButton from '../shared/GoldButton';
 
 export default function FooterSection() {
   return (
-    <footer className="flex min-h-[50vh] flex-col items-center justify-center bg-charcoal px-8 py-24">
+    <footer className="flex min-h-[40vh] flex-col items-center justify-center bg-charcoal px-5 py-16 sm:min-h-[50vh] sm:px-8 sm:py-24">
       {/* Diamond icon */}
       <motion.svg
         viewBox="0 0 32 32"
@@ -20,7 +20,7 @@ export default function FooterSection() {
 
       {/* Name */}
       <motion.h2
-        className="font-serif text-[clamp(48px,8vw,120px)] font-600 leading-none tracking-[0.15em] text-cream"
+        className="font-serif text-[clamp(36px,8vw,120px)] font-600 leading-none tracking-[0.12em] text-cream sm:tracking-[0.15em]"
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
@@ -31,7 +31,7 @@ export default function FooterSection() {
 
       {/* CV button */}
       <motion.div
-        className="mt-10"
+        className="mt-8 sm:mt-10"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
@@ -42,7 +42,7 @@ export default function FooterSection() {
 
       {/* Copyright */}
       <motion.p
-        className="mt-16 font-sans text-xs text-warm-gray-600"
+        className="mt-10 font-sans text-[10px] text-warm-gray-600 sm:mt-16 sm:text-xs"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
