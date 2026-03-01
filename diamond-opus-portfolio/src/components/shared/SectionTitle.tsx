@@ -13,9 +13,9 @@ export default function SectionTitle({ title, subtitle, light }: SectionTitlePro
   const inView = useInView(ref, { once: true, margin: '-40px' });
 
   return (
-    <div ref={ref} className="mb-16 text-center">
+    <div ref={ref} className="mb-8 text-center sm:mb-16">
       <motion.h2
-        className={`font-serif text-[clamp(36px,5vw,72px)] font-600 leading-tight tracking-[0.02em] ${
+        className={`font-serif text-[clamp(28px,5vw,72px)] font-600 leading-tight tracking-[0.02em] ${
           light ? 'text-cream' : 'text-charcoal'
         }`}
         initial={{ opacity: 0, y: 30 }}
@@ -26,7 +26,7 @@ export default function SectionTitle({ title, subtitle, light }: SectionTitlePro
       </motion.h2>
       {subtitle && (
         <motion.p
-          className={`mt-4 font-sans text-lg tracking-wide ${
+          className={`mt-2 font-sans text-sm leading-relaxed tracking-wide sm:mt-4 sm:text-lg ${
             light ? 'text-warm-gray-400' : 'text-warm-gray-500'
           }`}
           initial={{ opacity: 0, y: 20 }}

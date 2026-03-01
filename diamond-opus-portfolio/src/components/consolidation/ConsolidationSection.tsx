@@ -55,11 +55,11 @@ export default function ConsolidationSection() {
         <SectionTitle title="Data Alchemy" subtitle="Three-phase transformation from raw payload to priced, rated diamond" />
 
         {/* Three phases */}
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
+        <div className="mt-8 grid gap-6 sm:mt-12 sm:gap-8 md:grid-cols-3">
           {phases.map((phase, i) => (
             <motion.div
               key={phase.title}
-              className="relative rounded-xl border border-border bg-pearl p-8 text-center"
+              className="relative rounded-xl border border-border bg-pearl p-5 text-center sm:p-8"
               initial={{ opacity: 0, y: 30 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.8, delay: 0.2 + i * 0.2, ease: easing.luxury }}
@@ -80,7 +80,7 @@ export default function ConsolidationSection() {
 
               {/* Title */}
               <h3
-                className="mt-4 font-serif text-2xl font-600"
+                className="mt-3 font-serif text-xl font-600 sm:mt-4 sm:text-2xl"
                 style={{ color: phase.color }}
               >
                 {phase.title}
@@ -92,7 +92,7 @@ export default function ConsolidationSection() {
               </p>
 
               {/* Description */}
-              <p className="mt-4 font-sans text-sm leading-relaxed text-warm-gray-500">
+              <p className="mt-3 font-sans text-xs leading-relaxed text-warm-gray-500 sm:mt-4 sm:text-sm">
                 {phase.description}
               </p>
 
@@ -115,14 +115,14 @@ export default function ConsolidationSection() {
 
         {/* Watermark invariant callout */}
         <motion.div
-          className="mt-12 rounded-lg border border-gold/30 bg-charcoal p-6 text-center"
+          className="mt-8 rounded-lg border border-gold/30 bg-charcoal p-4 text-center sm:mt-12 sm:p-6"
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 1.2, duration: 0.8, ease: easing.luxury }}
         >
-          <p className="font-sans text-sm text-warm-gray-400">
+          <p className="font-sans text-xs text-warm-gray-400 sm:text-sm">
             <span className="font-mono text-gold">INVARIANT</span>
-            <span className="mx-3 text-warm-gray-600">|</span>
+            <span className="mx-2 text-warm-gray-600 sm:mx-3">|</span>
             Watermark advances only after successful consolidation.
             Dataset version increments atomically for cache invalidation.
           </p>

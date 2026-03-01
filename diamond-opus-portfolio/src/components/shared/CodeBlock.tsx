@@ -14,7 +14,7 @@ export default function CodeBlock({ code, className = '' }: CodeBlockProps) {
   return (
     <motion.pre
       ref={ref}
-      className={`overflow-x-auto rounded-lg border border-border bg-charcoal p-6 font-mono text-sm leading-relaxed text-warm-gray-400 ${className}`}
+      className={`overflow-x-auto rounded-lg border border-border bg-charcoal p-4 font-mono text-xs leading-relaxed text-warm-gray-400 sm:p-6 sm:text-sm ${className}`}
       initial={{ opacity: 0, y: 20 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.8, ease: easing.luxury }}
