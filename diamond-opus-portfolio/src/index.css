@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FAF9F7;
+  --color-charcoal: #1A1A1A;
+  --color-midnight: #0D0D0D;
+  --color-obsidian: #111111;
+  --color-pearl: #F5F3F0;
+  --color-gold: #B8860B;
+  --color-gold-light: #D4A94C;
+  --color-gold-hover: #9A7209;
+  --color-warm-gray-400: #9A9590;
+  --color-warm-gray-500: #6B6B6B;
+  --color-warm-gray-600: #4A4A4A;
+  --color-border: #E8E5E0;
+  --color-azure: #0078D4;
+  --color-emerald: #2D6A4F;
+  --color-amber: #D4A017;
+  --color-ruby: #9B2335;
+
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-cream);
+  color: var(--color-charcoal);
+  overflow-x: hidden;
+}
+
+::selection {
+  background-color: var(--color-gold);
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
